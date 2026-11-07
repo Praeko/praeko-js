@@ -41,9 +41,9 @@ npm run typecheck
 npm run release:check  # confere o que iria ao npm
 ```
 
-## Contribuir e reportar problemas
+## Suporte
 
-Issues são bem-vindas: <https://github.com/Praeko/praeko-js/issues>. Veja [CONTRIBUTING.md](./CONTRIBUTING.md). Vulnerabilidades: [SECURITY.md](./SECURITY.md).
+Issues e pull requests estão desligados: o desenvolvimento acontece internamente. Para problemas e pedidos, escreva para contato@praeko.app (veja [CONTRIBUTING.md](./CONTRIBUTING.md)). Vulnerabilidades: [SECURITY.md](./SECURITY.md).
 
 ## Licença
 

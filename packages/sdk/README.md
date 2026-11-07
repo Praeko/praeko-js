@@ -63,7 +63,7 @@ Os códigos e as rotas estão em `@praeko/sdk/contract` (`ROUTES`, `ERROR_CODES`
 
 ## Links
 
-Documentação e referência da API: <https://praeko.app/docs> · Código e issues: <https://github.com/Praeko/praeko-js>
+Documentação e referência da API: <https://praeko.app/docs> · Código: <https://github.com/Praeko/praeko-js> · Suporte: contato@praeko.app
 
 ## Licença
 

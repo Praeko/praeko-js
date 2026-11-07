@@ -52,7 +52,7 @@ A chave vem de `PRAEKO_KEY`. Sem ela, a CLI procura no Chaveiro do macOS (só no
 
 ## Links
 
-Documentação: <https://praeko.app/docs> · Código e issues: <https://github.com/Praeko/praeko-js> · SDK: [`@praeko/sdk`](https://www.npmjs.com/package/@praeko/sdk)
+Documentação: <https://praeko.app/docs> · Código: <https://github.com/Praeko/praeko-js> · Suporte: contato@praeko.app · SDK: [`@praeko/sdk`](https://www.npmjs.com/package/@praeko/sdk)
 
 ## Licença
 
