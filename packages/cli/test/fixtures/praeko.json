@@ -1,0 +1,11 @@
+{
+  "nome": "Canal de teste",
+  "links": { "jogo": "https://exemplo.com/" },
+  "fusoOffset": "-03:00",
+  "provedor": "local",
+  "hospedagem": { "tipo": "r2", "bucket": "teste", "urlBase": "https://exemplo.com/midia" },
+  "buffer": { "canais": { "youtube": "cy", "instagram": "ci", "tiktok": "ct" } },
+  "youtube": { "modo": "privado" },
+  "tiktok": { "modo": "rascunho" },
+  "hashtags": { "permitidas": ["#shorts", "#teste"], "proibidas": ["#bitcoin"] }
+}

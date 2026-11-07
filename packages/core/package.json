@@ -1,0 +1,22 @@
+{
+  "name": "@praeko/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./publicador": "./src/publicador.mjs",
+    "./adaptadores/*": "./src/adaptadores/*.mjs",
+    "./provedores/*": "./src/provedores/*.mjs",
+    "./contrato": "./src/contrato.mjs",
+    "./chaves": "./src/chaves.mjs",
+    "./buffer-api": "./src/buffer-api.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@praeko/sdk": "*"
+  }
+}

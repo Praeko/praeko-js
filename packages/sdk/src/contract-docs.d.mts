@@ -1,0 +1,20 @@
+// Tipos de contract-docs.mjs (escritos à mão, deliberadamente largos): textos em português e exemplos das rotas, usados pelas docs interativas. Não faz parte da API estável.
+export declare const IDS_EXEMPLO: Record<string, string>;
+export declare const DATA_FUTURA: string;
+export declare const GRUPOS: Record<string, string>;
+export declare const TITULOS: Record<string, string>;
+export declare const RESUMOS: Record<string, string>;
+export declare const PARAMS: Record<string, any>;
+export declare const ERROS_COMUNS: readonly any[];
+export declare const ROTAS_COM_ESQUEMA: string[];
+export declare function materializar(valor: unknown, agora?: number, trocas?: Record<string, string>): any;
+export declare function paramDe(route: any, nome: string): any;
+export declare function grupoDe(route: any): string;
+export declare function tituloDe(route: any): string;
+export declare function resumoDe(route: any): string;
+export declare function consultaDe(route: any): any[];
+export declare function errosDe(route: any): any[];
+export declare function docDe(route: any): any;
+export declare function semEsquema(routes: readonly any[]): string[];
+export declare function achatar(fields: any, prefixo?: string, nivel?: number): any[];
+export declare function validar(fields: any, valor: unknown, opts?: { fechado?: boolean; caminho?: string }): any;

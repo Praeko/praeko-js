@@ -1,0 +1,19 @@
+# Integração contínua: testes (sem rede e sem o servidor), tipos e conferência do que iria ao npm.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run release:check

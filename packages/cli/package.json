@@ -1,0 +1,50 @@
+{
+  "name": "@praeko/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CLI do Praeko: publica e agenda vídeos curtos no YouTube, Instagram e TikTok, e fala com a API do serviço (praeko.app).",
+  "license": "MIT",
+  "keywords": [
+    "praeko",
+    "cli",
+    "social-media",
+    "youtube",
+    "instagram",
+    "tiktok",
+    "scheduler"
+  ],
+  "homepage": "https://praeko.app/docs",
+  "bugs": {
+    "url": "https://github.com/Praeko/praeko-js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Praeko/praeko-js.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "praeko": "dist/praeko.mjs",
+    "arauto": "dist/arauto.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-cli.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@praeko/core": "*",
+    "@praeko/sdk": "*"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

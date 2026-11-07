@@ -1,0 +1,36 @@
+# Publica no npm por PUBLICADOR CONFIÁVEL (OIDC): sem NPM_TOKEN. Dispara ao empurrar uma tag `sdk-vX.Y.Z` ou `cli-vX.Y.Z`.
+# ATENÇÃO: o npm amarra o publicador confiável ao repositório + NOME DESTE ARQUIVO (publicar.yml). Renomear o arquivo quebra a publicação até
+# reconfigurar em npmjs.com -> pacote -> Settings -> Trusted Publisher (Organization/usuário: Praeko, Repository: praeko-js, Workflow filename: publicar.yml).
+# Exige npm CLI >= 11.5.1 e Node >= 22.14 (docs.npmjs.com/trusted-publishers). A proveniência sai sozinha em repositório público.
+name: Publicar no npm
+on:
+  push:
+    tags: ["sdk-v*", "cli-v*"]
+permissions:
+  contents: read
+  id-token: write   # obrigatório: o npm troca o token OIDC do GitHub pela permissão de publicar
+jobs:
+  publicar:
+    if: github.repository == 'Praeko/praeko-js'
+    runs-on: ubuntu-latest   # só runners hospedados na nuvem são aceitos (self-hosted não)
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 24, registry-url: "https://registry.npmjs.org" }   # sem cache em build de release
+      - name: Garantir npm >= 11.5.1
+        run: |
+          npm install -g npm@11
+          v=$(npm -v); echo "npm $v"
+          [ "$(printf '%s\n11.5.1\n' "$v" | sort -V | head -n1)" = "11.5.1" ] || { echo "npm $v é velho demais para publicação confiável"; exit 1; }
+      - name: Conferir que a tag bate com a versão do package.json
+        run: |
+          tag="${GITHUB_REF_NAME}"; pkg="${tag%%-v*}"; ver="${tag#*-v}"
+          case "$pkg" in sdk|cli) ;; *) echo "tag inesperada: $tag"; exit 1;; esac
+          atual=$(node -p "require('./packages/${pkg}/package.json').version")
+          [ "$atual" = "$ver" ] || { echo "tag $tag não bate com packages/$pkg/package.json ($atual)"; exit 1; }
+          echo "PACOTE=$pkg" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run release:check
+      - run: npm publish -w "packages/${PACOTE}" --provenance --access public

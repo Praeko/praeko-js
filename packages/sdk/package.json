@@ -1,0 +1,71 @@
+{
+  "name": "@praeko/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cliente JS do serviço Praeko (API REST com chave). Sem dependências; funciona em Node, Workers e navegador (o envio de arquivo do disco fica em @praeko/sdk/node).",
+  "license": "MIT",
+  "keywords": [
+    "praeko",
+    "api",
+    "sdk",
+    "social-media",
+    "youtube",
+    "instagram",
+    "tiktok",
+    "scheduler"
+  ],
+  "homepage": "https://praeko.app/docs",
+  "bugs": {
+    "url": "https://github.com/Praeko/praeko-js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Praeko/praeko-js.git",
+    "directory": "packages/sdk"
+  },
+  "main": "./src/index.mjs",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.mjs"
+    },
+    "./node": {
+      "types": "./src/node.d.mts",
+      "default": "./src/node.mjs"
+    },
+    "./contract": {
+      "types": "./src/contract.d.mts",
+      "default": "./src/contract.mjs"
+    },
+    "./bridge": {
+      "types": "./src/bridge.d.mts",
+      "default": "./src/bridge.mjs"
+    },
+    "./contract-docs": {
+      "types": "./src/contract-docs.d.mts",
+      "default": "./src/contract-docs.mjs"
+    },
+    "./openapi": {
+      "types": "./src/openapi.d.mts",
+      "default": "./src/openapi.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  }
+}

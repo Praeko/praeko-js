@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false
+  },
+  "files": [
+    "src/contract.d.mts",
+    "src/bridge.d.mts",
+    "test/contract-types.check.ts",
+    "src/node.d.mts",
+    "src/openapi.d.mts",
+    "src/contract-docs.d.mts",
+    "src/index.d.ts"
+  ]
+}

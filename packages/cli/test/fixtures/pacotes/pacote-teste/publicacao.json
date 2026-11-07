@@ -1,0 +1,11 @@
+{
+  "titulo": "Vídeo de teste do Praeko",
+  "formato": "short",
+  "campanha": "teste",
+  "arquivos": { "video": "video.mp4", "capa": "capa-1080x1920.png" },
+  "antesDePublicar": ["Fixture de teste: nada disto é publicado."],
+  "yt": { "descricao": "Descrição de teste.", "comentarioFixo": "Comentário de teste" },
+  "ig": { "legenda": "Legenda de teste.", "comentarioFixo": "Comentário de teste" },
+  "tiktok": { "legenda": "Legenda de teste no TikTok." },
+  "hashtags": { "youtube": ["#shorts", "#teste"], "instagram": ["#teste"], "tiktok": ["#teste"] }
+}

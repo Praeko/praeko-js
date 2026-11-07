@@ -1,0 +1,33 @@
+{
+  "name": "praeko-js",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Código-cliente do Praeko: @praeko/sdk e @praeko/cli (o servidor é fechado).",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://praeko.app/docs",
+  "bugs": {
+    "url": "https://github.com/Praeko/praeko-js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Praeko/praeko-js.git"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --test packages/*/test/*.test.mjs",
+    "typecheck": "npm run typecheck -w packages/sdk",
+    "build:cli": "node scripts/build-cli.mjs",
+    "types:contract": "node scripts/contract-types.mjs",
+    "release:check": "node scripts/release-check.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  }
+}
