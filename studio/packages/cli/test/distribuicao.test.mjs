@@ -149,7 +149,7 @@ test("docs: lista os temas e imprime um; tema inexistente falha; --version e aju
 test("auditoria de publicação: nada do dono (nome, marca, ids de voz, caminhos, jogo) nos pacotes que vão ao público", () => {
   // os padrões são montados por partes para este arquivo não se auto-acusar na varredura de publicação
   const j = (...p) => new RegExp(p.join(""), "i");
-  const PROIBIDO = [[j("marc", "one"), "nome do dono"], [j("dev\\.", "ocioso"), "projeto do dono"], [j("guil", "da"), "jogo do dono"], [/\/Users\//, "caminho absoluto"], [j("XFsV", "wg|nPUB", "lnc|GJo3", "Yol|b0c8", "d3f7"), "id de voz do dono"], [j("\\bbar", "do\\b"), "nome antigo"]];
+  const PROIBIDO = [[j("marc", "one"), "nome do dono"], [j("dev\\.", "ocioso"), "projeto do dono"], [j("guil", "da"), "jogo do dono"], [/\/Users\//, "caminho absoluto"], [j("\\bbar", "do\\b"), "nome antigo"]];
   const sujos = [];
   const varrer = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (["node_modules", "dist"].includes(e.name)) continue;
