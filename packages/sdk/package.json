@@ -1,6 +1,6 @@
 {
   "name": "@praeko/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Cliente JS do serviço Praeko (API REST com chave). Sem dependências; funciona em Node, Workers e navegador (o envio de arquivo do disco fica em @praeko/sdk/node).",
   "license": "MIT",

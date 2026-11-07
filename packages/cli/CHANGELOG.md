@@ -2,7 +2,7 @@
 
 Segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado]
+## [0.1.1] - 2026-11-07
 
 - Um só comando, `praeko` (o alias `arauto` saiu do pacote). Com dois comandos o `npx @praeko/cli` não sabia qual rodar e falhava com "could not determine executable to run"; agora `npx @praeko/cli --help` funciona. Quem usou a 0.1.0 pode rodar `npx -p @praeko/cli praeko`.
 
