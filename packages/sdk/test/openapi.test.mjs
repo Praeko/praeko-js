@@ -1,9 +1,9 @@
 // O OpenAPI 3.1 e a coleção do Postman saem da tabela de rotas e da documentação por rota: aqui se confere que nada ficou de fora e que a forma está certa.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ROUTES } from "../src/contract.mjs";
-import { docDe, materializar } from "../src/contract-docs.mjs";
-import { gerarOpenApi, gerarPostman } from "../src/openapi.mjs";
+import { ROUTES } from "../src/contract.ts";
+import { docDe, materializar, statusDe } from "../src/contract-docs.ts";
+import { gerarOpenApi, gerarPostman } from "../src/openapi.ts";
 
 const T0 = Date.parse("2026-11-07T12:00:00Z");
 
@@ -24,12 +24,29 @@ test("openapi: toda rota da tabela vira uma operação (caminho com {param}), co
       assert.deepEqual(Object.keys(c.schema.properties), d.fields.map((f) => f.name));
       assert.deepEqual(c.schema.required ?? [], d.fields.filter((f) => f.required).map((f) => f.name));
     }
+    const { resposta } = docDe(r);
+    assert.ok(resposta, `${r.key}: sem resposta documentada`);
+    assert.deepEqual(Object.keys(op.responses).filter((s) => /^2/.test(s)).sort(), statusDe(r).map(([s]) => String(s)).sort(), `${r.key}: os status de sucesso do OpenAPI são os documentados`);
+    const ok = op.responses[String(resposta.status)];
+    assert.ok(ok.description, `${r.key}: resposta de sucesso sem descrição`);
+    if (resposta.exemplo !== undefined) {
+      const j = ok.content["application/json"];
+      assert.equal(j.schema.type, "object", `${r.key}: a resposta tem esquema de verdade (não só "object")`);
+      assert.deepEqual(Object.keys(j.schema.properties), Object.keys(resposta.exemplo), `${r.key}: o esquema tem as chaves do exemplo`);
+      assert.deepEqual(j.example, materializar(resposta.exemplo, T0));
+    }
+    assert.equal(op["x-praeko-lido-do-codigo"], resposta.lido ? true : undefined);
     if (r.scope !== "public") assert.ok(op.responses["401"] && op.responses["403"] && op.responses["429"], `${r.key}: sem os erros comuns`);
   }
   const patch = o.paths["/v1/webhooks/{id}"].patch;
   assert.equal(patch.requestBody.content["application/json"].schema.properties.events.items.enum.length, 3);
   assert.equal(patch.summary, "Editar webhook");
   assert.ok(o.paths["/v1/posts"].post.responses["201"].content["application/json"].example.items[0].scheduledFor.startsWith("2026-11-10T20:30"), "a data de exemplo é materializada");
+  const lista = o.paths["/v1/posts"].get.responses["200"].content["application/json"].schema;
+  assert.equal(lista.properties.posts.items.properties.items.items.properties.network.type, "string", "listas e objetos aninhados viram esquema");
+  assert.deepEqual(lista.properties.total, { type: "integer" });
+  assert.equal(o.paths["/v1/media/{id}/content"].get.responses["206"].content["application/octet-stream"].schema.format, "binary");
+  assert.equal(o.paths["/v1/m/{id}/{token}/{name}"].head.responses["200"].content, undefined, "HEAD não tem corpo");
   assert.ok(!JSON.stringify(o).includes("{{em3dias}}"));
   assert.deepEqual(JSON.parse(JSON.stringify(o)), o, "só JSON puro");
 });

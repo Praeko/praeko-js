@@ -7,7 +7,7 @@ const cli = fileURLToPath(new URL("../packages/cli/", import.meta.url));
 const { version } = JSON.parse(readFileSync(cli + "package.json", "utf8"));
 rmSync(cli + "dist", { recursive: true, force: true });
 await build({
-  entryPoints: { praeko: cli + "bin/praeko.mjs" }, // um só comando: com dois bins o `npx @praeko/cli` não sabe qual rodar
+  entryPoints: { praeko: cli + "src/main.ts" }, // entrada TypeScript; um só comando: com dois bins o `npx @praeko/cli` não sabe qual rodar
   outdir: cli + "dist", bundle: true, splitting: true, chunkNames: "chunks/[name]-[hash]", format: "esm", platform: "node", target: "node22",
   external: ["@praeko/studio-cli"], define: { __PRAEKO_CLI_VERSION__: JSON.stringify(version) }, outExtension: { ".js": ".mjs" }, logLevel: "error", legalComments: "none",
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },

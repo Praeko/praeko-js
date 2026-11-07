@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as tt from "../src/provedores/tiktok.mjs";
+import * as tt from "../src/provedores/tiktok.ts";
 
 const MB = 1024 * 1024;
 const tmp = () => mkdtempSync(join(tmpdir(), "bardo-tt-"));

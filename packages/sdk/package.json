@@ -1,6 +1,6 @@
 {
   "name": "@praeko/sdk",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "description": "Cliente JS do serviço Praeko (API REST com chave). Sem dependências; funciona em Node, Workers e navegador (o envio de arquivo do disco fica em @praeko/sdk/node).",
   "license": "MIT",
@@ -23,43 +23,49 @@
     "url": "git+https://github.com/Praeko/praeko-js.git",
     "directory": "packages/sdk"
   },
-  "main": "./src/index.mjs",
-  "types": "./src/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.mjs"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./node": {
-      "types": "./src/node.d.mts",
-      "default": "./src/node.mjs"
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
     },
     "./contract": {
-      "types": "./src/contract.d.mts",
-      "default": "./src/contract.mjs"
+      "types": "./dist/contract.d.ts",
+      "default": "./dist/contract.js"
     },
     "./bridge": {
-      "types": "./src/bridge.d.mts",
-      "default": "./src/bridge.mjs"
+      "types": "./dist/bridge.d.ts",
+      "default": "./dist/bridge.js"
     },
     "./contract-docs": {
-      "types": "./src/contract-docs.d.mts",
-      "default": "./src/contract-docs.mjs"
+      "types": "./dist/contract-docs.d.ts",
+      "default": "./dist/contract-docs.js"
+    },
+    "./contract-docs.en": {
+      "types": "./dist/contract-docs.en.d.ts",
+      "default": "./dist/contract-docs.en.js"
     },
     "./openapi": {
-      "types": "./src/openapi.d.mts",
-      "default": "./src/openapi.mjs"
+      "types": "./dist/openapi.d.ts",
+      "default": "./dist/openapi.js"
     },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "build": "node ../../scripts/build-sdk.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepack": "npm run build"
   },
   "engines": {
     "node": ">=22"
   },
   "files": [
-    "src",
+    "dist",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

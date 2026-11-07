@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseQuando, montarPosts, textosPorRede, gql, listarCanais, escolherCanais, criarPost, apagarPost } from "../src/index.mjs";
-import { chaveObjeto, configHospedagem, subir } from "../src/hospedagem.mjs";
+import { parseQuando, montarPosts, textosPorRede, gql, listarCanais, escolherCanais, criarPost, apagarPost } from "../src/index.ts";
+import { chaveObjeto, configHospedagem, subir } from "../src/hospedagem.ts";
 
 const config = { links: { jogo: "https://exemplo.com/" }, buffer: { youtube: { categoriaId: 28 } } };
 const ep = { titulo: "Título", campanha: "camp", formato: "short", yt: { descricao: "Desc" }, ig: { legenda: "Legenda IG", comentarioFixo: "Comenta" }, hashtags: { youtube: ["#a"], instagram: ["#b"] } };
@@ -68,7 +68,7 @@ test("hospedagem: chave aleatória, config e subida com wrangler injetado", () =
   assert.ok(args.includes("--remote") && args.includes("video/mp4"));
   assert.throws(() => subir({ h: { bucket: "b", urlBase: "https://m" }, slug: "s", arquivo: "v.mp4", cwd: ".", rodar: () => ({ status: 1 }) }), /wrangler/);
 });
-import { argsFfmpeg, mesmaProporcao } from "../src/capa-quadro.mjs";
+import { argsFfmpeg, mesmaProporcao } from "../src/capa-quadro.ts";
 test("capa nos quadros: filtro só nos primeiros quadros, áudio copiado, proporção conferida", () => {
   const a = argsFfmpeg({ video: "v.mp4", capa: "c.png", saida: "o.mp4", largura: 1080, altura: 1920, quadros: 2 });
   const f = a[a.indexOf("-filter_complex") + 1];

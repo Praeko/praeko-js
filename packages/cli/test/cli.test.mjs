@@ -4,7 +4,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { executarCli } from "../src/cli.mjs";
+import { executarCli } from "../src/cli.ts";
 
 const FIX = fileURLToPath(new URL("./fixtures", import.meta.url));
 process.env.PRAEKO_SEM_CHAVEIRO = "1";

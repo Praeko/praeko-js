@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import * as t from "../src/provedores/tiktok-api.mjs";
-import { verificarProvedor } from "../src/contrato.mjs";
+import * as t from "../src/provedores/tiktok-api.ts";
+import { verificarProvedor } from "../src/contrato.ts";
 
 const R = (status, corpo) => new Response(JSON.stringify(corpo), { status });
 const OK = (data) => R(200, { data, error: { code: "ok", message: "", log_id: "L" } });

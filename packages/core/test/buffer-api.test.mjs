@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canalDoServico, consultarPost, contarHashtags, montarReelInstagram, validarLegendaInstagram, LEGENDA_MAX } from "../src/buffer-api.mjs";
-import { validarPedido } from "../src/contrato.mjs";
-import { apagarPost, criarPost, gql } from "../src/buffer.mjs"; // o buffer.mjs reexporta (o CLI e os adaptadores continuam importando de lá)
+import { canalDoServico, consultarPost, contarHashtags, montarReelInstagram, validarLegendaInstagram, LEGENDA_MAX } from "../src/buffer-api.ts";
+import { validarPedido } from "../src/contrato.ts";
+import { apagarPost, criarPost, gql } from "../src/buffer.ts"; // o buffer.mjs reexporta (o CLI e os adaptadores continuam importando de lá)
 
 const AGORA = Date.parse("2026-11-04T20:00:00Z");
 const base = { canalId: "CH", texto: "Legenda #a #b", videoUrl: "https://arauto.exemplo/v1/m/ID/TOK/v.mp4", quando: "2026-11-08T15:00:00Z", agora: AGORA };

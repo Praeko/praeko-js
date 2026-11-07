@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarEdicaoPost, editarNoLugar, editarPost } from "../src/buffer-api.mjs";
+import { montarEdicaoPost, editarNoLugar, editarPost } from "../src/buffer-api.ts";
 
 const R = (corpo, status = 200) => ({ ok: status < 400, status, text: async () => JSON.stringify(corpo) });
 const AG = Date.parse("2026-11-05T12:00:00Z");

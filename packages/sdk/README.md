@@ -1,6 +1,6 @@
 # @praeko/sdk
 
-Cliente JavaScript da API do [Praeko](https://praeko.app) (publicador de vídeos curtos para YouTube, Instagram e TikTok). Sem dependências; funciona em Node 22+, Cloudflare Workers, Deno/Bun e navegador. Tem tipos TypeScript. Só ESM.
+Cliente JavaScript da API do [Praeko](https://praeko.app) (publicador de vídeos curtos para YouTube, Instagram e TikTok). Sem dependências; funciona em Node 22+, Cloudflare Workers, Deno/Bun e navegador. Escrito em TypeScript: os tipos (`.d.ts`) são gerados pelo compilador a partir do código, não à mão. Só ESM.
 
 ## Instalação
 
@@ -31,6 +31,21 @@ const post = await praeko.posts.create({
 console.log(post.id);
 ```
 
+Em TypeScript (os tipos vêm no pacote; nada de `@types`):
+
+```ts
+import { Praeko, PraekoError, type PostRequest } from "@praeko/sdk";
+
+const praeko = new Praeko({ url: "https://praeko.app", key: process.env.PRAEKO_KEY! });
+const pedido: PostRequest = {
+  title: "Meu vídeo",
+  media: { video: "ID_DA_MIDIA" },
+  texts: { youtube: { title: "Meu vídeo", text: "…" } },
+  items: [{ network: "youtube", queue: true }],
+};
+const post = await praeko.posts.create(pedido, { idempotencyKey: true }); // post.id: string; um argumento de tipo errado não compila
+```
+
 Fora do Node (Workers, navegador), passe `Uint8Array`, `Blob` ou `{ size, read(start, n) }` para `praeko.media.upload(source, { type, name, mime })`.
 
 ## Autenticação
@@ -55,7 +70,7 @@ try { await praeko.posts.get("nao-existe"); }
 catch (e) { if (e instanceof PraekoError && e.code === "not_found") { /* … */ } else throw e; }
 ```
 
-Os códigos e as rotas estão em `@praeko/sdk/contract` (`ROUTES`, `ERROR_CODES`) e estão tipados em `contract.d.mts`.
+Os códigos e as rotas estão em `@praeko/sdk/contract` (`ROUTES`, `ERROR_CODES`) e saem tipados do próprio código (`RouteKey`, `ErrorCode`, `ContractValues`…): o tipo de cada rota é derivado da tabela `ROUTES`.
 
 ## Versionamento
 

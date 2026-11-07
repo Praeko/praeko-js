@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import * as yt from "../src/provedores/youtube.mjs";
+import * as yt from "../src/provedores/youtube.ts";
 
 const NOW = Date.parse("2026-11-04T20:00:00Z");
 const resp = (status, corpo, cab = {}) => ({ ok: status >= 200 && status < 300, status, headers: { get: (k) => cab[k.toLowerCase()] ?? null }, json: async () => (typeof corpo === "string" ? JSON.parse(corpo) : corpo), text: async () => (typeof corpo === "string" ? corpo : JSON.stringify(corpo)) });

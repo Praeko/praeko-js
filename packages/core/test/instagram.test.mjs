@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import * as ig from "../src/provedores/instagram.mjs";
+import * as ig from "../src/provedores/instagram.ts";
 
 const T0 = new Date("2026-11-06T20:00:00Z");
 /** ctx simulado: `rotas` casa método+caminho e devolve JSON; registra tudo em `chamadas`. */

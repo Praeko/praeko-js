@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { editarVideo, listarComentarios, listarVideos, lerVideo, responderComentario, trocarHashtags } from "../src/provedores/youtube-comunidade.mjs";
+import { editarVideo, listarComentarios, listarVideos, lerVideo, responderComentario, trocarHashtags } from "../src/provedores/youtube-comunidade.ts";
 
 const resp = (corpo, status = 200) => ({ ok: status < 400, status, text: async () => JSON.stringify(corpo), json: async () => corpo });
 /** ctx com rotas simuladas: { "trecho da url": (url, init) => corpo | [corpo, status] } na ordem; guarda as chamadas. */

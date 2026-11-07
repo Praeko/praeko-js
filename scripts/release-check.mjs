@@ -8,11 +8,11 @@ import { REPO_PUBLICO, URL_ISSUES, URL_REPO } from "./repo-publico.mjs";
 
 const raiz = fileURLToPath(new URL("..", import.meta.url));
 export const PACOTES = { sdk: "packages/sdk", cli: "packages/cli" };
-const PROIBIDO = [/(^|\/)test\//, /\.test\.m?js$/, /\.check\.ts$/, /(^|\/)\.env/, /\.dev\.vars/, /segredos/i, /\.praeko\//, /\.arauto\//, /node_modules/, /\.map$/, /(^|\/)tsconfig\.json$/, /\.(pem|key)$/];
+const PROIBIDO = [/(^|\/)test\//, /\.test\.m?js$/, /\.check\.ts$/, /(^|\/)\.env/, /\.dev\.vars/, /segredos/i, /\.praeko\//, /\.arauto\//, /node_modules/, /\.map$/, /(^|\/)tsconfig[\w.]*\.json$/, /(^|\/)src\//, /(?<!\.d)\.m?ts$/, /\.(pem|key)$/];
 
-/** Lista o que o `npm pack` poria no tarball (sem gerar o arquivo). */
+/** Lista o que o `npm pack` poria no tarball (sem gerar o arquivo). Não roda o `prepack`: compile antes (npm run build:sdk, npm run build -w packages/cli), senão a lista sai sem o dist/. */
 export function listarTarball(dir) {
-  const saida = execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts=false"], { cwd: join(raiz, dir), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const saida = execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: join(raiz, dir), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const [info] = JSON.parse(saida.slice(saida.indexOf("[")));
   return { arquivos: info.files.map((f) => f.path), tamanho: info.size, descompactado: info.unpackedSize, nome: info.filename };
 }
@@ -32,6 +32,7 @@ export function problemas(chave) {
   if (pkg.repository?.url !== URL_REPO) p.push(`repository.url deve ser ${URL_REPO} (o publicador confiável do npm exige que bata com o repositório ${REPO_PUBLICO}; scripts/repo-publico.mjs)`);
   if (pkg.repository?.directory !== dir) p.push(`repository.directory deve ser ${dir}`);
   if (pkg.bugs?.url !== URL_ISSUES) p.push(`bugs.url deve ser ${URL_ISSUES}`);
+  for (const [a, n] of [["dist/", "dist/ (rode o build antes: o tarball sairia sem o código compilado)"]]) if (!arquivos.some((x) => x.startsWith(a))) p.push(`falta no tarball: ${n}`);
   for (const ob of ["package.json", "README.md", "CHANGELOG.md", "LICENSE"]) if (!set.has(ob)) p.push(`falta no tarball: ${ob}`);
   for (const a of arquivos) if (PROIBIDO.some((r) => r.test(a))) p.push(`arquivo que não devia ir: ${a}`);
   const alvos = [...alvosExports(pkg.exports), ...(pkg.main ? [pkg.main] : []), ...(pkg.types ? [pkg.types] : []), ...Object.values(typeof pkg.bin === "string" ? { x: pkg.bin } : pkg.bin ?? {})];
@@ -42,7 +43,7 @@ export function problemas(chave) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  execFileSync("npm", ["run", "build", "-w", "packages/cli"], { cwd: raiz, stdio: "inherit" });
+  for (const w of ["packages/sdk", "packages/cli"]) execFileSync("npm", ["run", "build", "-w", w], { cwd: raiz, stdio: "inherit" });
   let falhou = false;
   for (const chave of Object.keys(PACOTES)) {
     const { arquivos, tamanho, descompactado, nome } = listarTarball(PACOTES[chave]), pr = problemas(chave);

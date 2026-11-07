@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { lerToken, chamar, metricasMidia, midiaDe, listarComentarios, responderComentario, REF_META } from "../src/provedores/instagram-meta.mjs";
+import { lerToken, chamar, metricasMidia, midiaDe, listarComentarios, responderComentario, REF_META } from "../src/provedores/instagram-meta.ts";
 
 const R = (status, corpo) => new Response(JSON.stringify(corpo), { status });
 const ctxCom = (fetchFn, token = { token: "TK-TESTE-1234567890", userId: "1784", username: "dev.ocioso" }) => ({ segredos: { obter: async (ref) => (ref === REF_META ? JSON.stringify(token) : null) }, fetchFn });

@@ -17,16 +17,18 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node --test packages/*/test/*.test.mjs",
-    "typecheck": "npm run typecheck -w packages/sdk",
+    "test": "npm run build:sdk && node --test packages/*/test/*.test.mjs",
+    "typecheck": "npm run typecheck -w packages/sdk -w packages/core -w packages/cli",
+    "build:sdk": "node scripts/build-sdk.mjs",
     "build:cli": "node scripts/build-cli.mjs",
-    "types:contract": "node scripts/contract-types.mjs",
-    "release:check": "node scripts/release-check.mjs"
+    "release:check": "node scripts/release-check.mjs",
+    "prepare": "npm run build:sdk"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
+    "@types/node": "^22.19.0",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   }

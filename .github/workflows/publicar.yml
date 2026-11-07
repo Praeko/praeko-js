@@ -30,6 +30,7 @@ jobs:
           [ "$atual" = "$ver" ] || { echo "tag $tag não bate com packages/$pkg/package.json ($atual)"; exit 1; }
           echo "PACOTE=$pkg" >> "$GITHUB_ENV"
       - run: npm ci
+      - run: npm run build:sdk   # tsc: o npm publish só leva dist/ (o prepack do pacote compila de novo)
       - run: npm test
       - run: npm run typecheck
       - run: npm run release:check

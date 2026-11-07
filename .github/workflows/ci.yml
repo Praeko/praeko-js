@@ -1,4 +1,4 @@
-# Integração contínua: testes (sem rede e sem o servidor), tipos e conferência do que iria ao npm.
+# Integração contínua: compila o TypeScript, testes (sem rede e sem o servidor), tipos e conferência do que iria ao npm.
 name: CI
 on:
   push:
@@ -14,6 +14,7 @@ jobs:
       - uses: actions/setup-node@v6
         with: { node-version: 22 }
       - run: npm ci
+      - run: npm run build:sdk   # tsc: dist/ com JS e .d.ts do @praeko/sdk (o `npm ci` já compila pelo `prepare`; aqui falha explícito)
       - run: npm test
       - run: npm run typecheck
       - run: npm run release:check

@@ -1,8 +1,8 @@
 // YouTube Analytics (retenção) e o escopo yt-analytics.readonly: URL de autorização, token antigo sem o escopo, erros que pedem reautorização. Sem rede.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ESCOPOS, ESCOPOS_BASE, ESCOPO_ANALYTICS, REF_TOKEN, registroToken, urlAutorizacao } from "../src/provedores/youtube-api.mjs";
-import { temEscopoAnalytics, retencaoDoVideo, baixarRelatorioAlcance, garantirJobAlcance } from "../src/provedores/youtube-analytics.mjs";
+import { ESCOPOS, ESCOPOS_BASE, ESCOPO_ANALYTICS, REF_TOKEN, registroToken, urlAutorizacao } from "../src/provedores/youtube-api.ts";
+import { temEscopoAnalytics, retencaoDoVideo, baixarRelatorioAlcance, garantirJobAlcance } from "../src/provedores/youtube-analytics.ts";
 
 const R = (status, corpo) => new Response(JSON.stringify(corpo), { status });
 const ctxCom = (token, fetchFn = async () => R(200, {})) => ({ segredos: { obter: async (ref) => (ref === REF_TOKEN && token ? JSON.stringify(token) : null), guardar: async () => {} }, fetchFn, deps: { agora: () => 1e12 } });

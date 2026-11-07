@@ -3,20 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
   "exports": {
-    ".": "./src/index.mjs",
-    "./publicador": "./src/publicador.mjs",
-    "./adaptadores/*": "./src/adaptadores/*.mjs",
-    "./provedores/*": "./src/provedores/*.mjs",
-    "./contrato": "./src/contrato.mjs",
-    "./chaves": "./src/chaves.mjs",
-    "./buffer-api": "./src/buffer-api.mjs"
+    ".": "./src/index.ts",
+    "./publicador": "./src/publicador.ts",
+    "./adaptadores/*": "./src/adaptadores/*.ts",
+    "./provedores/*": "./src/provedores/*.ts",
+    "./contrato": "./src/contrato.ts",
+    "./chaves": "./src/chaves.ts",
+    "./buffer-api": "./src/buffer-api.ts"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "@praeko/sdk": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   }
 }

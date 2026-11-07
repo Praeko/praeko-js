@@ -2,18 +2,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { listarTarball, problemas } from "../../../scripts/release-check.mjs";
 
 const raiz = fileURLToPath(new URL("../../../", import.meta.url));
 execFileSync(process.execPath, [raiz + "scripts/build-cli.mjs"], { stdio: "inherit" });
+// O dist do sdk é compilado antes dos testes (`npm test` e o `prepare` do npm install); só compila aqui se faltar, porque refazer apaga o dist enquanto outros arquivos de teste o importam.
+if (!existsSync(raiz + "packages/sdk/dist/index.js")) execFileSync(process.execPath, [raiz + "scripts/build-sdk.mjs"], { stdio: "inherit" });
 
-test("tarball do sdk: sem problemas e com os tipos do contrato", () => {
+test("tarball do sdk: sem problemas, com o dist compilado (JS + .d.ts gerados pelo tsc) e sem fonte, teste, mapa ou tsconfig", () => {
   assert.deepEqual(problemas("sdk"), []);
   const { arquivos } = listarTarball("packages/sdk");
-  for (const a of ["src/index.mjs", "src/index.d.ts", "src/contract.d.mts", "src/bridge.d.mts", "src/node.d.mts", "src/legacy.mjs"]) assert.ok(arquivos.includes(a), a);
-  assert.ok(!arquivos.some((a) => a.startsWith("test/")));
+  for (const m of ["index", "node", "contract", "bridge", "contract-docs", "openapi", "legacy", "types"]) for (const ext of ["js", "d.ts"]) assert.ok(arquivos.includes(`dist/${m}.${ext}`), `dist/${m}.${ext}`);
+  assert.ok(!arquivos.some((a) => a.startsWith("test/") || a.startsWith("src/") || /\.(map|ts)$/.test(a) && !a.endsWith(".d.ts") || /tsconfig/.test(a)), "só dist/, README, CHANGELOG, LICENSE e package.json");
+  for (const a of arquivos.filter((x) => x.endsWith(".d.ts"))) assert.doesNotMatch(readFileSync(raiz + "packages/sdk/" + a, "utf8"), /from\s+["']\.\.?\/[^"']*\.ts["']/, `${a}: import relativo com .ts nas declarações`);
 });
 test("tarball da cli: sem problemas, sem dependências do monorepo e com o bundle", () => {
   assert.deepEqual(problemas("cli"), []);
@@ -32,7 +35,7 @@ test("cli empacotada: shebang, bit de execução, --version e --help (sem rede, 
   assert.match(execFileSync(process.execPath, [bin, "--help"], { encoding: "utf8" }), /Praeko CLI/);
 });
 test("o Chaveiro (comando security) só liga no macOS", async () => {
-  const { chaveiro } = await import("@praeko/core/segredos").catch(() => import("../../core/src/segredos.mjs"));
+  const { chaveiro } = await import("@praeko/core/segredos").catch(() => import("../../core/src/segredos.ts"));
   const antes = Object.getOwnPropertyDescriptor(process, "platform");
   try { for (const p of ["linux", "win32"]) { Object.defineProperty(process, "platform", { value: p }); assert.equal(chaveiro.ativo(), false); } }
   finally { Object.defineProperty(process, "platform", antes); }

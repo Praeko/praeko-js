@@ -1,8 +1,8 @@
 // SDK: `idempotencyKey` manda o cabeçalho e é o que autoriza repetir um POST (com a MESMA chave); sem ela, POST nunca é repetido. O OpenAPI documenta o cabeçalho.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Praeko } from "../src/index.mjs";
-import { gerarOpenApi } from "../src/openapi.mjs";
+import { Praeko } from "../src/index.ts";
+import { gerarOpenApi } from "../src/openapi.ts";
 
 const resp = (status, corpo) => new Response(JSON.stringify(corpo), { status, headers: { "content-type": "application/json" } });
 function cliente(respostas) {

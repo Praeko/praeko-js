@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { capitulos, link, mmss, pacote, validar, validarCapitulos } from "../src/index.mjs";
+import { capitulos, link, mmss, pacote, validar, validarCapitulos } from "../src/index.ts";
 
 const config = { links: { jogo: "https://exemplo.com" } };
 const CAPS = [{ t: 0, titulo: "O gancho" }, { t: 31, titulo: "O problema" }, { t: 75.3, titulo: "A lição" }, { t: 3725, titulo: "Fim" }];

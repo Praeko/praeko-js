@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { enfileirar, executar, lerFila, cancelarItem, proximaAcao, plistLaunchd, MAX_TENTATIVAS } from "../src/fila.mjs";
+import { enfileirar, executar, lerFila, cancelarItem, proximaAcao, plistLaunchd, MAX_TENTATIVAS } from "../src/fila.ts";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "bardo-fila-"));
 const fx = (o = {}) => ({ slug: "s", rede: "instagram", provedor: "instagram", quando: "2026-11-06T20:30:00.000Z", video: "v.mp4", textos: {}, ...o });

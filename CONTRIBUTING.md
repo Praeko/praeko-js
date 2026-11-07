@@ -7,4 +7,4 @@ Este repositório é o **código-cliente** do Praeko (SDK e CLI), aberto para le
 - **O comportamento da API vive no servidor, que é fechado.** Este repositório não define regras de negócio, limites nem formatos de resposta.
 - Você pode fazer um fork para o seu uso, dentro da [MIT](./LICENSE).
 
-Parte do código deste repositório (o contrato e os tipos) é **gerada** a partir da fonte no repositório privado e sobrescrita a cada sincronização.
+O código é **TypeScript** (`packages/*/src/*.ts`): `npm ci` instala e compila o SDK (`npm run build:sdk` gera `packages/sdk/dist` com JavaScript e declarações `.d.ts` feitas pelo `tsc`; os `.d.ts` não são escritos à mão). Antes de qualquer conferência, rode `npm test`, `npm run typecheck` e `npm run release:check`. Parte do código deste repositório (o contrato e os tipos) é **espelhada** da fonte no repositório privado e sobrescrita a cada sincronização.

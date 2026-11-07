@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { verificarProvedor } from "../src/contrato.mjs";
-import * as youtube from "../src/provedores/youtube.mjs";
-import * as youtubeApi from "../src/provedores/youtube-api.mjs";
-import * as instagram from "../src/provedores/instagram.mjs";
-import * as tiktok from "../src/provedores/tiktok.mjs";
+import { verificarProvedor } from "../src/contrato.ts";
+import * as youtube from "../src/provedores/youtube.ts";
+import * as youtubeApi from "../src/provedores/youtube-api.ts";
+import * as instagram from "../src/provedores/instagram.ts";
+import * as tiktok from "../src/provedores/tiktok.ts";
 
 test("contrato de provedor: YouTube (Node e sem Node), Instagram e TikTok cumprem a interface", () => {
   for (const [nome, mod] of Object.entries({ youtube, youtubeApi, instagram, tiktok })) assert.deepEqual(verificarProvedor(mod), [], nome);
