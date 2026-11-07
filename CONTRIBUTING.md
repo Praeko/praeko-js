@@ -1,10 +1,10 @@
-# Contribuindo
+# Contributing
 
-Este repositório é o **código-cliente** do Praeko (SDK, CLI e Praeko Studio), aberto para leitura e uso sob a licença MIT. O desenvolvimento acontece internamente.
+This repository is the **client code** of Praeko (SDK, CLI and Praeko Studio), open for reading and use under the MIT license. Development happens internally.
 
-- **Issues e pull requests estão desligados por enquanto.** Para reportar um problema, tirar uma dúvida ou pedir um recurso, escreva para **contato@praeko.app** com a versão (`praeko --version` ou a do `@praeko/sdk`), o Node e o sistema.
-- **Vulnerabilidades:** veja [SECURITY.md](./SECURITY.md). Não coloque chaves `praeko_…` em e-mails, logs ou capturas de tela.
-- **O comportamento da API vive no servidor, que é fechado.** Este repositório não define regras de negócio, limites nem formatos de resposta.
-- Você pode fazer um fork para o seu uso, dentro da [MIT](./LICENSE).
+- **Issues and pull requests are turned off for now.** To report a problem, ask a question or request a feature, write to **contato@praeko.app** with the version (`praeko --version` or the `@praeko/sdk` one), Node and your system.
+- **Vulnerabilities:** see [SECURITY.md](./SECURITY.md). Do not put `praeko_…` keys in e-mails, logs or screenshots.
+- **The API behavior lives on the server, which is closed.** This repository does not define business rules, limits or response formats.
+- You may fork it for your own use, under the [MIT](./LICENSE) license.
 
-O código é **TypeScript** (`packages/*/src/*.ts`): `npm ci` instala e compila o SDK (`npm run build:sdk` gera `packages/sdk/dist` com JavaScript e declarações `.d.ts` feitas pelo `tsc`; os `.d.ts` não são escritos à mão). Antes de qualquer conferência, rode `npm test`, `npm run typecheck` e `npm run release:check`. Parte do código deste repositório (o contrato e os tipos) é **espelhada** da fonte no repositório privado e sobrescrita a cada sincronização.
+The code is **TypeScript** (`packages/*/src/*.ts`, `studio/packages/*/src/*.ts`): `npm ci` installs and builds the SDK (`npm run build:sdk` writes `packages/sdk/dist` with JavaScript and `.d.ts` declarations produced by `tsc`; the `.d.ts` files are not handwritten). Before any check, run `npm test`, `npm run typecheck` and `npm run release:check`. Part of the code in this repository (the contract and the types) is **mirrored** from the source in the private repository and overwritten on every sync.

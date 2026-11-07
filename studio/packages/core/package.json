@@ -1,8 +1,8 @@
 {
   "name": "@praeko/studio-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Motor do Praeko Studio: episódio por voz e palavras com tempo, legendas palavra a palavra, golpes de edição, fechamento e tema da marca (peças Remotion). Biblioteca para projetos criados com `praeko studio init`.",
+  "description": "The Praeko Studio engine: voice-driven episodes with timed words, word-by-word captions, editing hits, outro and brand theme (Remotion parts). A library for projects created with `praeko studio init`.",
   "license": "MIT",
   "keywords": [
     "praeko",
@@ -44,7 +44,8 @@
   "scripts": {
     "build": "node ../../../scripts/build-studio.mjs core",
     "prepack": "npm run build",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.ts"
   },
   "peerDependencies": {
     "react": "^19.0.0",

@@ -178,10 +178,10 @@ function duracaoDe(ctx: any, arquivo: any) {
 export async function planejar({ item }: any) {
   const modo = modoDe(item), o = item.opcoes || {};
   let tam; try { tam = statSync(item.video).size; } catch { tam = null; }
-  const linhas = [`modo: ${modo}${modo === "rascunho" ? " (vai para a caixa de entrada do app; capa e legenda você põe no app)" : ""}`];
-  if (modo === "direto") { const p = privacidadeEfetiva({ pedida: o.privacidade, auditado: o.auditado }); linhas.push(`privacidade: ${p.nivel}${p.aviso ? ` (${p.aviso})` : ""}`); linhas.push(`capa: quadro de ${o.capaMs ?? 0} ms`); }
-  else linhas.push("legenda não vai pela API do rascunho: cole no app (fica em .praeko/ no resultado)");
-  if (tam) { const pl = planoChunks(tam, (o.chunkMB || 10) * MB); linhas.push(`vídeo ${(tam / MB).toFixed(1)} MB em ${pl.total} parte(s) de ${(pl.chunk / MB).toFixed(1)} MB`); }
+  const linhas = [`mode: ${modo}${modo === "rascunho" ? " (goes to the app inbox; you set the cover and caption in the app)" : ""}`];
+  if (modo === "direto") { const p = privacidadeEfetiva({ pedida: o.privacidade, auditado: o.auditado }); linhas.push(`privacy: ${p.nivel}${p.aviso ? ` (${p.aviso})` : ""}`); linhas.push(`cover: frame at ${o.capaMs ?? 0} ms`); }
+  else linhas.push("the caption does not go through the draft API: paste it in the app (it is kept in .praeko/ in the result)");
+  if (tam) { const pl = planoChunks(tam, (o.chunkMB || 10) * MB); linhas.push(`video ${(tam / MB).toFixed(1)} MB in ${pl.total} part(s) of ${(pl.chunk / MB).toFixed(1)} MB`); }
   return linhas;
 }
 

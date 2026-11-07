@@ -18,8 +18,8 @@ export const refAntiga = (ref: any) => (ref.startsWith("praeko/") ? "arauto/" + 
 const sufixoEnv = (ref: any) => ref.toUpperCase().replace(/[^A-Z0-9]/g, "_");
 export const envDe = (ref: any) => `PRAEKO_KEY_${sufixoEnv(ref)}`;
 export const envAntigaDe = (ref: any) => `ARAUTO_KEY_${sufixoEnv(refAntiga(ref))}`;
-/** PRAEKO_SEM_CHAVEIRO=1 (ou o antigo ARAUTO_SEM_CHAVEIRO) ignora o Chaveiro: só ambiente e arquivo (testes, Linux). */
-export const semChaveiro = (env = process.env) => !!(env.PRAEKO_SEM_CHAVEIRO || env.ARAUTO_SEM_CHAVEIRO);
+/** PRAEKO_NO_KEYCHAIN=1 (or the old ARAUTO_SEM_CHAVEIRO) ignora o Chaveiro: só ambiente e arquivo (testes, Linux). */
+export const semChaveiro = (env = process.env) => !!(env.PRAEKO_NO_KEYCHAIN || env.ARAUTO_SEM_CHAVEIRO);
 /** O Chaveiro do macOS (comando `security`). É um objeto para os testes trocarem por um dublê em memória: nada aqui precisa do Mac de verdade. */
 export const chaveiro = {
   ativo: () => process.platform === "darwin" && !semChaveiro(),
@@ -27,8 +27,8 @@ export const chaveiro = {
   gravar(servico: any, ref: any, valor: any) { execFileSync("security", ["add-generic-password", "-U", "-s", servico, "-a", ref, "-w", valor], { stdio: ["ignore", "ignore", "pipe"] }); },
 };
 
-/** Onde o arquivo mora: PRAEKO_SEGREDOS (ou o antigo ARAUTO_SEGREDOS, que continua indicando o arquivo escolhido) ou ~/.config/praeko/segredos.json. */
-export const arquivoSegredos = () => process.env.PRAEKO_SEGREDOS || process.env.ARAUTO_SEGREDOS || join(homedir(), ".config", "praeko", "segredos.json");
+/** Onde o arquivo mora: PRAEKO_SECRETS (or the old ARAUTO_SEGREDOS, que continua indicando o arquivo escolhido) ou ~/.config/praeko/secrets.json. */
+export const arquivoSegredos = () => process.env.PRAEKO_SECRETS || process.env.ARAUTO_SEGREDOS || join(homedir(), ".config", "praeko", "secrets.json");
 export const arquivoSegredosAntigo = () => join(homedir(), ".config", "arauto", "segredos.json");
 
 const lerArquivo = (f = arquivoSegredos()) => { if (!existsSync(f)) return {}; try { return JSON.parse(readFileSync(f, "utf8")); } catch { return {}; } };
@@ -77,4 +77,4 @@ export function migrar(loja: any = segredos, refs: readonly string[] = REFS_CONH
   }
   return r;
 }
-export const mascarar = (k: any) => (k ? `${k.slice(0, 3)}…${k.slice(-2)}` : "(sem chave)");
+export const mascarar = (k: any) => (k ? `${k.slice(0, 3)}…${k.slice(-2)}` : "(no key)");

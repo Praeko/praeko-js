@@ -1,8 +1,8 @@
 {
   "name": "@praeko/studio-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Peças de cena do Praeko Studio (painel, caixa, linha, balão, código, janela, celular, moldura) e o episódio declarativo que lê o episodio.yaml compilado. Biblioteca para projetos criados com `praeko studio init`.",
+  "description": "Praeko Studio scene parts (panel, box, line, bubble, code, window, phone, frame) and the declarative episode that reads the compiled episode.yaml. A library for projects created with `praeko studio init`.",
   "license": "MIT",
   "keywords": [
     "praeko",
@@ -44,10 +44,11 @@
   "scripts": {
     "build": "node ../../../scripts/build-studio.mjs kit",
     "prepack": "npm run build",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.ts"
   },
   "peerDependencies": {
-    "@praeko/studio-core": "^0.1.0",
+    "@praeko/studio-core": "^0.2.0",
     "react": "^19.0.0",
     "remotion": "^4.0.539"
   },

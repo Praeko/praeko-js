@@ -1,4 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": false, "declaration": true, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": "src", "stripInternal": true }
+  "compilerOptions": { "noEmit": false, "allowImportingTsExtensions": false, "rewriteRelativeImportExtensions": true, "declaration": true, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": "src", "stripInternal": true, "types": [] },
+  "include": ["src"]
 }

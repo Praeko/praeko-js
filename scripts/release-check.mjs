@@ -1,60 +1,60 @@
-// Confere, sem publicar nada, o que iria para o npm: roda `npm pack --dry-run --json` em @praeko/sdk e @praeko/cli e valida o conteúdo dos tarballs.
-// Uso: node scripts/release-check.mjs   (roda igual no monorepo privado e na árvore exportada para o repositório público; a licença e o repositório são sempre exigidos)
+// Checks, without publishing anything, what would go to npm: runs `npm pack --dry-run --json` on every publishable package and validates the tarball contents.
+// Usage: node scripts/release-check.mjs   (runs the same in the private monorepo and in the tree exported to the public repository; license and repository are always required)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { REPO_PUBLICO, URL_ISSUES, URL_REPO } from "./repo-publico.mjs";
+import { ISSUES_URL, PUBLIC_REPO, REPO_URL } from "./public-repo.mjs";
 
-const raiz = fileURLToPath(new URL("..", import.meta.url));
-export const PACOTES = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit" };
-const PROIBIDO = [/(^|\/)test\//, /\.test\.m?js$/, /\.check\.ts$/, /(^|\/)\.env/, /\.dev\.vars/, /segredos/i, /\.praeko\//, /\.arauto\//, /node_modules/, /\.map$/, /(^|\/)tsconfig[\w.]*\.json$/, /(^|\/)src\//, /(?<!\.d)\.m?ts$/, /\.(pem|key)$/];
+const root = fileURLToPath(new URL("..", import.meta.url));
+export const PACKAGES = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit" };
+const FORBIDDEN = [/(^|\/)test\//, /\.test\.m?[jt]s$/, /\.check\.ts$/, /(^|\/)\.env/, /\.dev\.vars/, /secrets/i, /\.praeko\//, /\.arauto\//, /node_modules/, /\.map$/, /(^|\/)tsconfig[\w.]*\.json$/, /(^|\/)src\//, /(?<!\.d)\.m?ts$/, /\.(pem|key)$/];
 
-/** Lista o que o `npm pack` poria no tarball (sem gerar o arquivo). Não roda o `prepack`: compile antes (npm run build:sdk, npm run build -w packages/cli), senão a lista sai sem o dist/. */
-export function listarTarball(dir) {
-  const saida = execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: join(raiz, dir), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  const [info] = JSON.parse(saida.slice(saida.indexOf("[")));
-  return { arquivos: info.files.map((f) => f.path), tamanho: info.size, descompactado: info.unpackedSize, nome: info.filename };
+/** Lists what `npm pack` would put in the tarball (without writing the file). Does not run `prepack`: build first (npm run build:sdk, npm run build -w packages/cli), otherwise the list comes out without dist/. */
+export function listTarball(dir) {
+  const out = execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: join(root, dir), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const [info] = JSON.parse(out.slice(out.indexOf("[")));
+  return { files: info.files.map((f) => f.path), size: info.size, unpacked: info.unpackedSize, name: info.filename };
 }
 
-const alvosExports = (e) => typeof e === "string" ? [e] : e && typeof e === "object" ? Object.values(e).flatMap(alvosExports) : [];
+const exportTargets = (e) => typeof e === "string" ? [e] : e && typeof e === "object" ? Object.values(e).flatMap(exportTargets) : [];
 
-/** Devolve a lista de problemas (vazia = ok). */
-export function problemas(chave) {
-  const dir = PACOTES[chave], pkg = JSON.parse(readFileSync(join(raiz, dir, "package.json"), "utf8"));
-  const { arquivos } = listarTarball(dir), set = new Set(arquivos), p = [];
-  if (pkg.private) p.push("package.json ainda tem private: true");
-  if (pkg.publishConfig?.access !== "public") p.push("publishConfig.access deve ser public");
-  if (pkg.publishConfig?.provenance) p.push("publishConfig.provenance não deve ser true: o publish manual do dono (fora do CI) falharia; a proveniência vem do workflow (--provenance) e é automática no publicador confiável");
-  if (!pkg.repository?.url || !pkg.homepage || !pkg.bugs?.url) p.push("faltam repository/homepage/bugs");
-  if (!pkg.engines?.node) p.push("falta engines.node");
-  if (pkg.license !== "MIT") p.push("license deve ser MIT");
-  if (pkg.repository?.url !== URL_REPO) p.push(`repository.url deve ser ${URL_REPO} (o publicador confiável do npm exige que bata com o repositório ${REPO_PUBLICO}; scripts/repo-publico.mjs)`);
-  if (pkg.repository?.directory !== dir) p.push(`repository.directory deve ser ${dir}`);
-  if (pkg.bugs?.url !== URL_ISSUES) p.push(`bugs.url deve ser ${URL_ISSUES}`);
-  for (const [a, n] of [["dist/", "dist/ (rode o build antes: o tarball sairia sem o código compilado)"]]) if (!arquivos.some((x) => x.startsWith(a))) p.push(`falta no tarball: ${n}`);
-  for (const ob of ["package.json", "README.md", "CHANGELOG.md", "LICENSE"]) if (!set.has(ob)) p.push(`falta no tarball: ${ob}`);
-  for (const a of arquivos) if (PROIBIDO.some((r) => r.test(a))) p.push(`arquivo que não devia ir: ${a}`);
-  const alvos = [...alvosExports(pkg.exports), ...(pkg.main ? [pkg.main] : []), ...(pkg.types ? [pkg.types] : []), ...Object.values(typeof pkg.bin === "string" ? { x: pkg.bin } : pkg.bin ?? {})];
-  for (const a of alvos) if (a !== "./package.json" && !set.has(a.replace(/^\.\//, ""))) p.push(`aponta para arquivo fora do tarball: ${a}`);
+/** Returns the list of problems (empty = ok). */
+export function problems(key) {
+  const dir = PACKAGES[key], pkg = JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8"));
+  const { files } = listTarball(dir), set = new Set(files), p = [];
+  if (pkg.private) p.push("package.json still has private: true");
+  if (pkg.publishConfig?.access !== "public") p.push("publishConfig.access must be public");
+  if (pkg.publishConfig?.provenance) p.push("publishConfig.provenance must not be true: the owner's manual publish (outside CI) would fail; provenance comes from the workflow (--provenance) and is automatic with the trusted publisher");
+  if (!pkg.repository?.url || !pkg.homepage || !pkg.bugs?.url) p.push("missing repository/homepage/bugs");
+  if (!pkg.engines?.node) p.push("missing engines.node");
+  if (pkg.license !== "MIT") p.push("license must be MIT");
+  if (pkg.repository?.url !== REPO_URL) p.push(`repository.url must be ${REPO_URL} (the npm trusted publisher requires it to match the repository ${PUBLIC_REPO}; scripts/public-repo.mjs)`);
+  if (pkg.repository?.directory !== dir) p.push(`repository.directory must be ${dir}`);
+  if (pkg.bugs?.url !== ISSUES_URL) p.push(`bugs.url must be ${ISSUES_URL}`);
+  for (const [a, n] of [["dist/", "dist/ (run the build first: the tarball would ship without the compiled code)"]]) if (!files.some((x) => x.startsWith(a))) p.push(`missing from the tarball: ${n}`);
+  for (const ob of ["package.json", "README.md", "CHANGELOG.md", "LICENSE"]) if (!set.has(ob)) p.push(`missing from the tarball: ${ob}`);
+  for (const a of files) if (FORBIDDEN.some((r) => r.test(a))) p.push(`file that should not ship: ${a}`);
+  const targets = [...exportTargets(pkg.exports), ...(pkg.main ? [pkg.main] : []), ...(pkg.types ? [pkg.types] : []), ...Object.values(typeof pkg.bin === "string" ? { x: pkg.bin } : pkg.bin ?? {})];
+  for (const a of targets) if (a !== "./package.json" && !set.has(a.replace(/^\.\//, ""))) p.push(`points to a file outside the tarball: ${a}`);
   const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
-  const publicados = new Set(Object.keys(PACOTES).map((k) => JSON.parse(readFileSync(join(raiz, PACOTES[k], "package.json"), "utf8")).name));
-  for (const d of Object.keys(deps)) if (d.startsWith("@praeko/") && !publicados.has(d)) p.push(`dependência do monorepo em dependencies: ${d} (devia estar empacotada ou publicada)`);
-  if (/^(0\.0\.|)$/.test(pkg.version)) p.push("versão ainda 0.0.x");
-  if (chave.startsWith("studio") && !set.has("LICENSES.md")) p.push("falta no tarball: LICENSES.md (o aviso de licenças do Remotion)");
-  if (chave.startsWith("studio")) for (const a of arquivos) if (/\.(mp3|mp4|mov|ttf|otf|woff2?)$/i.test(a)) p.push(`mídia ou fonte no tarball (licença?): ${a}`);
+  const published = new Set(Object.keys(PACKAGES).map((k) => JSON.parse(readFileSync(join(root, PACKAGES[k], "package.json"), "utf8")).name));
+  for (const d of Object.keys(deps)) if (d.startsWith("@praeko/") && !published.has(d)) p.push(`monorepo dependency in dependencies: ${d} (it should be bundled or published)`);
+  if (/^(0\.0\.|)$/.test(pkg.version)) p.push("version still 0.0.x");
+  if (key.startsWith("studio") && !set.has("LICENSES.md")) p.push("missing from the tarball: LICENSES.md (the Remotion license notice)");
+  if (key.startsWith("studio")) for (const a of files) if (/\.(mp3|mp4|mov|ttf|otf|woff2?)$/i.test(a)) p.push(`media or font in the tarball (license?): ${a}`);
   return p;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  for (const w of ["packages/sdk", "packages/cli"]) execFileSync("npm", ["run", "build", "-w", w], { cwd: raiz, stdio: "inherit" });
-  execFileSync(process.execPath, [join(raiz, "scripts", "build-studio.mjs")], { stdio: "inherit" });
-  let falhou = false;
-  for (const chave of Object.keys(PACOTES)) {
-    const { arquivos, tamanho, descompactado, nome } = listarTarball(PACOTES[chave]), pr = problemas(chave);
-    console.log(`\n== ${chave}: ${nome} (${arquivos.length} arquivos, ${tamanho} B compactado, ${descompactado} B descompactado)`);
-    for (const a of arquivos) console.log("  " + a);
-    for (const x of pr) { console.error("  PROBLEMA: " + x); falhou = true; }
+  for (const w of ["packages/sdk", "packages/cli"]) execFileSync("npm", ["run", "build", "-w", w], { cwd: root, stdio: "inherit" });
+  execFileSync(process.execPath, [join(root, "scripts", "build-studio.mjs")], { stdio: "inherit" });
+  let failed = false;
+  for (const key of Object.keys(PACKAGES)) {
+    const { files, size, unpacked, name } = listTarball(PACKAGES[key]), pr = problems(key);
+    console.log(`\n== ${key}: ${name} (${files.length} files, ${size} B packed, ${unpacked} B unpacked)`);
+    for (const a of files) console.log("  " + a);
+    for (const x of pr) { console.error("  PROBLEM: " + x); failed = true; }
   }
-  process.exit(falhou ? 1 : 0);
+  process.exit(failed ? 1 : 0);
 }

@@ -1,23 +1,19 @@
-// Configuração do Praeko: `praeko.json` (plano; o nome antigo `arauto.json` continua valendo) ou, como reserva, a seção `publicacao` de um `marca.json` (Bardo).
-// Depois de normalizada, a configuração é sempre PLANA:
+// Praeko configuration: `praeko.json` (flat). After normalizing, the configuration is always FLAT:
 //   { nome, links, fusoOffset, pasta, utm, limites, hashtags:{permitidas,proibidas}, hospedagem, buffer, provedor, provedores,
 //     youtube:{modo,categoriaId,…}, instagram:{versao,comentar,…}, tiktok:{modo,privacidade,auditado,…} }
+// The public CLI reads the English `praeko.json` and translates it to this internal shape (packages/cli/src/package-folder.ts).
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 export const NOME_PROJETO = "Praeko";
-/** Em cada pasta, nesta ordem: o nome novo, o antigo e o marca.json do Bardo. */
-export const ARQUIVOS_CONFIG = ["praeko.json", "arauto.json", "marca.json"];
+/** In each folder, the config file name. */
+export const ARQUIVOS_CONFIG = ["praeko.json"];
 
 export function normalizarConfig(bruto: any = {}) {
-  if (bruto.publicacao && typeof bruto.publicacao === "object") { // formato do marca.json do Bardo
-    const { publicacao, links, nome, handle } = bruto;
-    return { nome, handle, links, ...publicacao };
-  }
   return { ...bruto };
 }
 
-/** Sobe pastas a partir de `de` até achar praeko.json (ou arauto.json, ou marca.json). Devolve { raiz, config, arquivo } ou null. */
+/** Climbs folders from `de` until it finds praeko.json. Returns { raiz, config, arquivo } or null. */
 export function acharConfig(de = process.cwd()) {
   let d = resolve(de);
   for (;;) {

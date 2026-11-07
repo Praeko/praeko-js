@@ -1,57 +1,72 @@
-// Compila os três pacotes publicáveis do Praeko Studio: node scripts/build-studio.mjs [core|kit|cli ...]  (sem argumento: todos, nessa ordem)
-//   core, kit: esbuild empacota os .ts/.tsx em dist/index.js (ESM; react, remotion e @praeko/studio-core ficam de fora) e o tsc escreve os .d.ts.
-//   cli (@praeko/studio): um bundle por script (praeko-studio, voz-saldo, voz-vozes, voz-conta, voz-config) com cli+voz+publicar+revisar+hyperframes+yaml dentro;
-//   só o SDK do ElevenLabs fica externo (dependência declarada). Também sincroniza LICENSE e LICENSES.md do studio/ para cada pacote.
+// Builds the three publishable Praeko Studio packages: node scripts/build-studio.mjs [core|kit|cli ...]  (no argument: all of them, in that order)
+//   core, kit: esbuild bundles the .ts/.tsx into dist/index.js (ESM; react, remotion and @praeko/studio-core stay external) and tsc writes the .d.ts files
+//              (with relative specifiers rewritten to `.js`, which is what consumers resolve).
+//   cli (@praeko/studio): one bundle per script (praeko-studio, voice-balance, voice-voices, voice-account, voice-config) with cli+voice+publish+review+hyperframes+yaml inside;
+//              only the ElevenLabs SDK stays external (declared dependency). Also syncs LICENSE and LICENSES.md from studio/ into each package.
 import { build } from "esbuild";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { chmodSync, copyFileSync, existsSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-const raiz = fileURLToPath(new URL("..", import.meta.url)), studio = raiz + "studio/";
-const pasta = (n) => ({ core: studio + "packages/core/", kit: studio + "packages/kit/", cli: studio + "packages/cli/" })[n];
+const root = fileURLToPath(new URL("..", import.meta.url)), studio = root + "studio/";
+const folder = (n) => ({ core: studio + "packages/core/", kit: studio + "packages/kit/", cli: studio + "packages/cli/" })[n];
 const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
-const lerVersao = (n) => JSON.parse(readFileSync(pasta(n) + "package.json", "utf8")).version;
+const readVersion = (n) => JSON.parse(readFileSync(folder(n) + "package.json", "utf8")).version;
 
-export async function sincronizarLicencas() {
-  for (const n of ["core", "kit", "cli"]) for (const f of ["LICENSE", "LICENSES.md"]) copyFileSync(studio + f, pasta(n) + f);
-  // studio/skill/praeko-studio/SKILL.md é gerado do mesmo texto que `praeko studio skill install` grava (uma fonte só)
-  const { ALVOS } = await import(studio + "packages/cli/src/skill.mjs");
-  mkdirSync(studio + "skill/praeko-studio", { recursive: true });
-  writeFileSync(studio + "skill/praeko-studio/SKILL.md", ALVOS.claude[0].conteudo("pt"));
+export async function syncLicenses() {
+  for (const n of ["core", "kit", "cli"]) for (const f of ["LICENSE", "LICENSES.md"]) copyFileSync(studio + f, folder(n) + f);
 }
 
-async function biblioteca(n) {
-  const dir = pasta(n);
+/** studio/skill/praeko-studio/SKILL.md is generated from the same text `praeko studio skill install` writes (only needed when the cli is built). */
+export async function syncSkill() {
+  // studio/skill/praeko-studio/SKILL.md is generated from the same text `praeko studio skill install` writes (single source)
+  const { TARGETS } = await import(studio + "packages/cli/src/skill.ts");
+  mkdirSync(studio + "skill/praeko-studio", { recursive: true });
+  writeFileSync(studio + "skill/praeko-studio/SKILL.md", TARGETS.claude[0].content("en"));
+}
+
+async function library(n) {
+  const dir = folder(n);
   rmSync(dir + "dist", { recursive: true, force: true });
   await build({
     entryPoints: [dir + "src/index.ts"], outfile: dir + "dist/index.js", bundle: true, format: "esm", platform: "neutral", target: "es2022", jsx: "automatic", logLevel: "error", legalComments: "none",
     external: ["react", "react/jsx-runtime", "react-dom", "remotion", "@praeko/studio-core"], mainFields: ["module", "main"],
   });
   execFileSync(process.execPath, [tsc, "-p", dir + "tsconfig.build.json"], { stdio: "inherit" });
+  rewriteDtsSpecifiers(dir + "dist");
+}
+
+/** tsc keeps `./x.ts`/`./x.tsx` specifiers in the .d.ts files; consumers need `./x.js`. Rewrites relative specifiers in every .d.ts under `dir`. */
+export function rewriteDtsSpecifiers(dir) {
+  for (const f of readdirSync(dir, { recursive: true })) {
+    if (!String(f).endsWith(".d.ts")) continue;
+    const file = dir + "/" + f, text = readFileSync(file, "utf8");
+    writeFileSync(file, text.replace(/((?:from|import)\s*\(?\s*["'])(\.{1,2}\/[^"']*?)\.tsx?(["'])/g, "$1$2.js$3"));
+  }
 }
 
 async function cli() {
-  const dir = pasta("cli");
+  const dir = folder("cli");
   rmSync(dir + "dist", { recursive: true, force: true });
-  const voz = studio + "packages/voz/bin/";
+  const voice = studio + "packages/voice/bin/";
   await build({
-    entryPoints: { "praeko-studio": dir + "bin/praeko-studio.mjs", "voz-saldo": voz + "saldo.mjs", "voz-vozes": voz + "vozes.mjs", "voz-conta": voz + "conta.mjs", "voz-config": voz + "config.mjs" },
+    entryPoints: { "praeko-studio": dir + "bin/praeko-studio.ts", "voice-balance": voice + "balance.ts", "voice-voices": voice + "voices.ts", "voice-account": voice + "account.ts", "voice-config": voice + "config.ts" },
     outdir: dir + "dist", bundle: true, format: "esm", platform: "node", target: "node22", outExtension: { ".js": ".mjs" }, logLevel: "error", legalComments: "none",
-    external: ["@elevenlabs/elevenlabs-js"], define: { __STUDIO_VERSION__: JSON.stringify(lerVersao("cli")) },
+    external: ["@elevenlabs/elevenlabs-js"], define: { __STUDIO_VERSION__: JSON.stringify(readVersion("cli")) },
     banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   });
-  for (const f of ["praeko-studio.mjs"]) chmodSync(dir + "dist/" + f, 0o755);
+  chmodSync(dir + "dist/praeko-studio.mjs", 0o755);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  await sincronizarLicencas();
-  const alvos = process.argv.slice(2).length ? process.argv.slice(2) : ["core", "kit", "cli"];
-  for (const a of alvos) {
-    if (!["core", "kit", "cli"].includes(a)) { console.error("uso: node scripts/build-studio.mjs [core|kit|cli]"); process.exit(2); }
-    if (a === "cli") await cli(); else await biblioteca(a);
-    if (!existsSync(pasta(a) + "dist")) throw new Error("dist/ não foi gerado em " + pasta(a));
+  await syncLicenses();
+  const targets = process.argv.slice(2).length ? process.argv.slice(2) : ["core", "kit", "cli"];
+  if (targets.includes("cli")) await syncSkill();
+  for (const a of targets) {
+    if (!["core", "kit", "cli"].includes(a)) { console.error("usage: node scripts/build-studio.mjs [core|kit|cli]"); process.exit(2); }
+    if (a === "cli") await cli(); else await library(a);
+    if (!existsSync(folder(a) + "dist")) throw new Error("dist/ was not generated in " + folder(a));
     console.log("ok: " + a);
   }
 }

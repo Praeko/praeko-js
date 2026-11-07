@@ -20,7 +20,7 @@ const pedido = (o = {}) => ({ id: "ped1", titulo: "Meu vídeo", midia: { video: 
 
 test("segredos: env, arquivo 600 e prioridade", () => {
   const dir = tmp(), f = join(dir, "s.json");
-  process.env.PRAEKO_SEGREDOS = f; process.env.PRAEKO_SEM_CHAVEIRO = "1";
+  process.env.PRAEKO_SECRETS = f; process.env.PRAEKO_NO_KEYCHAIN = "1";
   try {
     assert.equal(envDe("buffer/principal"), "PRAEKO_KEY_BUFFER_PRINCIPAL");
     assert.equal(obter("youtube/token"), null);
@@ -29,34 +29,30 @@ test("segredos: env, arquivo 600 e prioridade", () => {
     assert.equal(statSync(f).mode & 0o777, 0o600);
     process.env.PRAEKO_KEY_YOUTUBE_TOKEN = "do-ambiente";
     assert.equal(obter("youtube/token"), "do-ambiente");
-  } finally { delete process.env.PRAEKO_KEY_YOUTUBE_TOKEN; delete process.env.PRAEKO_SEGREDOS; delete process.env.PRAEKO_SEM_CHAVEIRO; rmSync(dir, { recursive: true, force: true }); }
+  } finally { delete process.env.PRAEKO_KEY_YOUTUBE_TOKEN; delete process.env.PRAEKO_SECRETS; delete process.env.PRAEKO_NO_KEYCHAIN; rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("config: praeko.json plano e marca.json (seção publicacao) viram a mesma coisa; acharConfig sobe pastas", () => {
-  assert.deepEqual(normalizarConfig({ links: { jogo: "x" }, buffer: { a: 1 } }), { links: { jogo: "x" }, buffer: { a: 1 } });
-  const n = normalizarConfig({ nome: "Canal", links: { jogo: "x" }, cores: {}, publicacao: { buffer: { a: 1 }, hospedagem: { tipo: "r2" } } });
-  assert.equal(n.nome, "Canal"); assert.deepEqual(n.links, { jogo: "x" }); assert.deepEqual(n.buffer, { a: 1 }); assert.equal(n.cores, undefined);
-  const dir = tmp(); writeFileSync(join(dir, "marca.json"), JSON.stringify({ links: { jogo: "y" }, publicacao: { fusoOffset: "-03:00" } }));
-  const r = acharConfig(join(dir, "a", "b")); // pasta que nem existe: sobe até achar
-  assert.equal(r?.config.links.jogo, "y"); assert.equal(r.config.fusoOffset, "-03:00");
-  writeFileSync(join(dir, "arauto.json"), JSON.stringify({ links: { jogo: "z" } }));
-  assert.equal(acharConfig(dir).config.links.jogo, "z", "arauto.json (nome antigo) ainda vale e vence marca.json");
-  writeFileSync(join(dir, "praeko.json"), JSON.stringify({ links: { jogo: "novo" } }));
-  assert.equal(acharConfig(dir).config.links.jogo, "novo", "praeko.json vence arauto.json");
+test("config: praeko.json plano; acharConfig sobe pastas e só conhece praeko.json", () => {
+  assert.deepEqual(normalizarConfig({ links: { main: "x" }, buffer: { a: 1 } }), { links: { main: "x" }, buffer: { a: 1 } });
+  const dir = tmp(); writeFileSync(join(dir, "marca.json"), JSON.stringify({ links: { main: "y" } }));
+  assert.equal(acharConfig(join(dir, "a", "b")), null, "marca.json não é mais lido");
+  writeFileSync(join(dir, "arauto.json"), JSON.stringify({ links: { main: "z" } }));
+  assert.equal(acharConfig(dir), null, "arauto.json não é mais lido");
+  writeFileSync(join(dir, "praeko.json"), JSON.stringify({ links: { main: "novo" } }));
+  assert.equal(acharConfig(join(dir, "a", "b")).config.links.main, "novo");
   assert.match(acharConfig(dir).arquivo, /praeko\.json$/);
   rmSync(dir, { recursive: true, force: true });
 });
-
 test("segredos (renomeação): variáveis ARAUTO_* e arquivo antigo valem como reserva; o novo vence; a escrita é só no novo", () => {
   const dir = tmp(), novo = join(dir, "novo.json"), velho = join(dir, "velho.json"), ant = { ...process.env };
-  process.env.PRAEKO_SEM_CHAVEIRO = "1"; process.env.PRAEKO_SEGREDOS = novo;
+  process.env.PRAEKO_NO_KEYCHAIN = "1"; process.env.PRAEKO_SECRETS = novo;
   try {
     assert.equal(envAntigaDe("buffer/principal"), "ARAUTO_KEY_BUFFER_PRINCIPAL"); assert.equal(envAntigaDe("praeko/chave"), "ARAUTO_KEY_ARAUTO_CHAVE"); assert.equal(refAntiga("praeko/chave"), "arauto/chave"); assert.equal(refAntiga("youtube/token"), "youtube/token");
     process.env.ARAUTO_KEY_YOUTUBE_TOKEN = "env-antiga"; assert.equal(obter("youtube/token"), "env-antiga", "ARAUTO_KEY_* como reserva");
     process.env.PRAEKO_KEY_YOUTUBE_TOKEN = "env-nova"; assert.equal(obter("youtube/token"), "env-nova", "PRAEKO_KEY_* vence");
     delete process.env.PRAEKO_KEY_YOUTUBE_TOKEN; delete process.env.ARAUTO_KEY_YOUTUBE_TOKEN;
-    // ARAUTO_SEGREDOS sozinha (sem PRAEKO_SEGREDOS) ainda indica o arquivo; um arquivo antigo com a conta arauto/chave é lido como praeko/chave
-    delete process.env.PRAEKO_SEGREDOS; process.env.ARAUTO_SEGREDOS = velho;
+    // ARAUTO_SEGREDOS sozinha (sem PRAEKO_SECRETS) ainda indica o arquivo; um arquivo antigo com a conta arauto/chave é lido como praeko/chave
+    delete process.env.PRAEKO_SECRETS; process.env.ARAUTO_SEGREDOS = velho;
     writeFileSync(velho, JSON.stringify({ "arauto/chave": "arauto_antiga_xxxxxxxxxxxxxxxxx", "youtube/token": "t1" }));
     assert.equal(obter("praeko/chave"), "arauto_antiga_xxxxxxxxxxxxxxxxx"); assert.equal(obterNovo("praeko/chave"), null); assert.equal(obterAntigo("praeko/chave"), "arauto_antiga_xxxxxxxxxxxxxxxxx");
     guardar("praeko/chave", "praeko_nova_xxxxxxxxxxxxxxxxxxxx");
@@ -73,7 +69,7 @@ const chaveiroFalso = (ini = {}) => {
 test("Chaveiro: lê o serviço praeko e cai no arauto (conta arauto/chave); guarda só no praeko; migrar copia sem mostrar segredo", () => {
   const real = { ...chaveiro }, dir = tmp(), ant = { ...process.env };
   const falso = chaveiroFalso({ arauto: { "arauto/chave": "arauto_ANTIGA_segredo1234567890", "youtube/token": "TOKEN-ANTIGO", "buffer/principal": "BUF-ANTIGO" }, praeko: { "buffer/principal": "BUF-NOVO" } });
-  Object.assign(chaveiro, falso); delete process.env.PRAEKO_SEM_CHAVEIRO; delete process.env.ARAUTO_SEM_CHAVEIRO; process.env.PRAEKO_SEGREDOS = join(dir, "s.json");
+  Object.assign(chaveiro, falso); delete process.env.PRAEKO_NO_KEYCHAIN; delete process.env.ARAUTO_SEM_CHAVEIRO; process.env.PRAEKO_SECRETS = join(dir, "s.json");
   const platform = Object.getOwnPropertyDescriptor(process, "platform"); Object.defineProperty(process, "platform", { value: "darwin" });
   try {
     assert.equal(obter("praeko/chave"), "arauto_ANTIGA_segredo1234567890", "cai no serviço arauto, conta arauto/chave");
@@ -120,7 +116,7 @@ test("validarPedido: erros claros, modos por rede, marcador [LINK_X] recusado", 
   assert.match(validarPedido(pedido({ destinos: [{ rede: "youtube", modo: "rascunho" }] })).join(), /modo "rascunho" inválido/);
   assert.deepEqual(validarPedido(pedido({ destinos: [{ rede: "tiktok", modo: "direto" }] })), []);
   assert.match(validarPedido(pedido({ destinos: [{ rede: "youtube", quando: "ontem" }] })).join(), /quando inválido/);
-  assert.match(validarPedido(pedido({ textos: { youtube: { titulo: "T", texto: "veja [LINK_DO_LONGO]" } } })).join(), /marcador/);
+  assert.match(validarPedido(pedido({ textos: { youtube: { titulo: "T", texto: "veja [LINK_DO_LONGO]" } } })).join(), /unfilled marker/);
   assert.match(validarPedido(pedido({ midia: {} })).join(), /midia.video/);
 });
 
@@ -237,7 +233,7 @@ test("adaptador buffer: horário obrigatório, canais, vídeo hospedado, privaci
     else if (query.includes("deletePost")) { apagados.push(variables.id); data = { deletePost: { __typename: "DeletePostSuccess" } }; }
     return { ok: true, status: 200, text: async () => JSON.stringify({ data }) }; };
   const ctx = { raiz, log, fetchFn, segredos: { obter: (r) => (r === "buffer/principal" ? "KEY" : null), guardar() {} }, hospedar: async (a, s) => { hospedados.push(a); return { url: "https://m/v.mp4", chave: "s/x/v.mp4" }; }, removerHospedado: async (c) => { removidos.push(c); }, deps: { capaQuadro: { sondar: () => ({ largura: 1080, altura: 1920 }), dimensoesImagem: () => ({ largura: 1080, altura: 1920 }), mesmaProporcao: () => true, embutirCapa: ({ saida }) => ({ saida }) } } };
-  const B = bufferAd.criar({ config: { links: { jogo: "https://e.com/" }, buffer: {} }, ctx });
+  const B = bufferAd.criar({ config: { links: { main: "https://e.com/" }, buffer: {} }, ctx });
   await assert.rejects(B.publicar(pedido({ destinos: [{ rede: "youtube" }] })), /precisa de horário/);
   const q = "2026-11-06T20:30:00.000Z";
   const r = await B.publicar(pedido({ destinos: [{ rede: "youtube", quando: q, modo: "privado" }, { rede: "instagram", quando: q }] }));

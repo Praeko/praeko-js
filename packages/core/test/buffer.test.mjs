@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseQuando, montarPosts, textosPorRede, gql, listarCanais, escolherCanais, criarPost, apagarPost } from "../src/index.ts";
 import { chaveObjeto, configHospedagem, subir } from "../src/hospedagem.ts";
 
-const config = { links: { jogo: "https://exemplo.com/" }, buffer: { youtube: { categoriaId: 28 } } };
+const config = { links: { main: "https://exemplo.com/" }, buffer: { youtube: { categoriaId: 28 } } };
 const ep = { titulo: "Título", campanha: "camp", formato: "short", yt: { descricao: "Desc" }, ig: { legenda: "Legenda IG", comentarioFixo: "Comenta" }, hashtags: { youtube: ["#a"], instagram: ["#b"] } };
 
 test("parseQuando: dd/mm hh:mm no fuso do Brasil vira UTC", () => {

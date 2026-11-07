@@ -1,15 +1,13 @@
 # @praeko/studio
 
-Praeko Studio faz vídeos curtos (9:16) e longos (16:9) a partir de um roteiro: voz, legenda palavra a palavra, cenas, capa e textos de publicação. Você opera com o **seu próprio agente de código** (Claude Code, Codex, Gemini CLI, Cursor, opencode…) na **sua máquina**: o agente escreve o roteiro e o `episodio.yaml`, roda os comandos e, só depois do seu sim, publica pelo [Praeko](https://praeko.app/docs). Voz, render e agente são por sua conta; o Studio não chama nenhum modelo de linguagem e nenhum roteiro seu sai da máquina até você publicar.
+Praeko Studio makes short (9:16) and long (16:9) videos from a script: voice, word-by-word captions, scenes, cover and publishing texts. You operate it with **your own coding agent** (Claude Code, Codex, Gemini CLI, Cursor, opencode…) on **your machine**: the agent writes the script and `episode.yaml`, runs the commands and, only after your yes, publishes through [Praeko](https://praeko.app/docs). Voice, render and agent are at your own cost; Studio calls no language model and none of your scripts leaves the machine until you publish.
 
-> **Licenças.** O código do Praeko Studio é MIT. O **Remotion** (motor padrão, necessário para capas) **não é MIT**: grátis para pessoas, organizações sem fins lucrativos e empresas de até 3 funcionários; empresas com 4 ou mais pessoas precisam da Company License ([remotion.pro/license](https://www.remotion.pro/license)). A licença é de quem instala e roda o Remotion. O HyperFrames (`--motor hyperframes`) é Apache-2.0. Detalhes: [LICENSES.md](./LICENSES.md) ou `praeko studio licencas`.
->
-> **Licenses.** Praeko Studio's own code is MIT. **Remotion** (the default engine, required for covers) is **not MIT**: free for individuals, non-profits and companies of up to 3 employees; companies of 4+ need the Company License. The license is yours as the person installing and running it. HyperFrames (`--motor hyperframes`) is Apache-2.0. See [LICENSES.md](./LICENSES.md).
+> **Licenses.** Praeko Studio's own code is MIT. **Remotion** (the default engine for videos and covers) is **not MIT**: free for individuals, non-profits and companies of up to 3 employees; companies with 4 or more people need the Company License ([remotion.pro/license](https://www.remotion.pro/license)). The license belongs to whoever installs and runs Remotion. HyperFrames (`--engine hyperframes`, which renders the video and the cover with nothing from Remotion) is Apache-2.0. Details: [LICENSES.md](./LICENSES.md) or `praeko studio licenses`.
 
-## Requisitos
-Node 22 ou mais novo, `ffmpeg` e `ffprobe` no PATH, e um Chrome (o Remotion baixa o Chrome Headless Shell sozinho no primeiro render; precisa de internet nesse momento). macOS e Linux são suportados; Windows é melhor esforço e não foi testado. `praeko studio doctor` confere tudo.
+## Requirements
+Node 22 or newer, `ffmpeg` and `ffprobe` on the PATH, and a Chrome (Remotion downloads the Chrome Headless Shell on its own at the first render; it needs internet at that moment). macOS and Linux are supported; Windows is best effort and untested. `praeko studio doctor` checks everything.
 
-## Instalar
+## Install
 ```sh
 # npm
 npm install -g @praeko/studio
@@ -19,25 +17,28 @@ yarn global add @praeko/studio
 pnpm add -g @praeko/studio
 # bun
 bun add -g @praeko/studio
-# sem instalar
-npx @praeko/studio init meu-canal
+# without installing
+npx @praeko/studio init my-channel
 ```
-Também funciona por `praeko studio <comando>` quando o `@praeko/cli` está instalado (ele entrega ao Studio).
+It also works as `praeko studio <command>` when `@praeko/cli` is installed (it hands over to Studio).
 
-## Primeiro vídeo
+## First video
 ```sh
-praeko-studio init meu-canal --nome "Meu Canal" --agent claude   # projeto + instruções para o seu agente
-cd meu-canal
+praeko-studio init my-channel --name "My Channel" --agent claude   # project + instructions for your agent
+cd my-channel
 praeko-studio doctor
-praeko-studio novo meu-primeiro --titulo "Meu primeiro vídeo"
-praeko-studio voz meu-primeiro --qualidade rascunho              # voz estimada e muda: grátis, sem rede
-praeko-studio checar meu-primeiro
-praeko-studio render meu-primeiro && praeko-studio folha meu-primeiro && praeko-studio capa meu-primeiro && praeko-studio pacote meu-primeiro
+praeko-studio new my-first --title "My first video"
+praeko-studio voice my-first --quality draft                       # estimated, silent voice: free, no network
+praeko-studio check my-first
+praeko-studio render my-first && praeko-studio contact-sheet my-first && praeko-studio cover my-first && praeko-studio package my-first
 ```
-Abra o seu agente na pasta do projeto e peça o vídeo: as instruções (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`/`.cursor/rules`…) já estão lá (`praeko studio skill install --agent all` regrava). Documentação da versão instalada: `praeko studio docs`.
+Open your agent in the project folder and ask for the video: the instructions (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`/`.cursor/rules`…) are already there (`praeko studio skill install --agent all` rewrites them). Docs of the installed version: `praeko studio docs`.
 
-## Publicar
-`praeko studio agendar <slug> --via praeko --quando "dd/mm hh:mm"` só simula; `--enviar` publica de verdade. Pelo MCP do Praeko o envio do arquivo local usa `create_media_upload` e a publicação é sempre em dois passos (prévia e código de confirmação). Declare conteúdo de IA em `publicacao.json` (`"ia": { "sintetico": true }`). Veja `praeko studio docs publicar`.
+## Publish
+`praeko studio schedule <slug> --via praeko --when "dd/mm hh:mm"` only simulates; `--send` really publishes. Through the Praeko MCP the upload of the local file uses `create_media_upload` and publishing is always in two steps (preview and confirmation code). Declare AI content in `publication.json` (`"ai": { "synthetic": true }`). See `praeko studio docs publish`.
 
-## Licença
-MIT (o código deste pacote). Veja também [LICENSES.md](./LICENSES.md).
+## Upgrading from 0.1.0
+0.2.0 is English only (commands, flags, files, keys). Convert an existing project once: `praeko studio migrate --dry-run`, then `praeko studio migrate` (backup in `.studio-backup/`, report at the end).
+
+## License
+MIT (the code of this package). See also [LICENSES.md](./LICENSES.md).

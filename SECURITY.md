@@ -1,15 +1,15 @@
-# Política de segurança
+# Security policy
 
-## Reportar uma vulnerabilidade
+## Reporting a vulnerability
 
-Escreva para **contato@praeko.app** com o assunto "Segurança: praeko-js". Não abra issue pública para falha de segurança.
+Write to **contato@praeko.app** with the subject "Security: praeko-js". Do not open a public issue for a security flaw.
 
-Inclua o pacote e a versão, o que acontece, como reproduzir e o impacto que você enxerga. Respondemos com a confirmação do recebimento e, depois da análise, com o plano de correção. Pedimos que a divulgação pública espere a versão corrigida estar no npm.
+Include the package and version, what happens, how to reproduce it and the impact you see. We reply with an acknowledgement and, after the analysis, with the fix plan. We ask that public disclosure wait until the fixed version is on npm.
 
-## Escopo
+## Scope
 
-Vale para o código deste repositório: `@praeko/sdk` e `@praeko/cli`. Falhas no serviço (praeko.app) também podem ser reportadas nesse mesmo endereço.
+Applies to the code in this repository: `@praeko/sdk`, `@praeko/cli` and the Praeko Studio packages. Flaws in the service (praeko.app) can also be reported at the same address.
 
-## Chaves
+## Keys
 
-Nunca cole chaves `praeko_…` em issues, logs ou capturas de tela. Se uma chave vazou, revogue-a no painel do Praeko e crie outra.
+Never paste `praeko_…` keys in issues, logs or screenshots. If a key leaked, revoke it in the Praeko dashboard and create another.

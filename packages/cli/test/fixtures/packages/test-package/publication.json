@@ -1,0 +1,11 @@
+{
+  "title": "Praeko test video",
+  "format": "short",
+  "campaign": "test",
+  "files": { "video": "video.mp4", "cover": "cover-1080x1920.png" },
+  "beforePublishing": ["Test fixture: none of this is published."],
+  "yt": { "description": "Test description.", "pinnedComment": "Test comment" },
+  "ig": { "caption": "Test caption.", "pinnedComment": "Test comment" },
+  "tiktok": { "caption": "Test caption on TikTok." },
+  "hashtags": { "youtube": ["#shorts", "#test"], "instagram": ["#test"], "tiktok": ["#test"] }
+}

@@ -1,79 +1,79 @@
-# HyperFrames como segundo motor de render
+# HyperFrames as a second render engine
 
-O Praeko Studio renderiza com o **Remotion** (padrão) ou com o **HyperFrames** (HTML + GSAP, render por captura de quadros). O `episodio.yaml`, a voz, a legenda, a capa e o pacote de publicação são os mesmos; só muda quem desenha os quadros.
+Praeko Studio renders with **Remotion** (default) or with **HyperFrames** (HTML + GSAP, frame-capture rendering). `episode.yaml`, the voice, the captions, the cover and the publication package are the same; only who draws the frames changes.
 
 ```
-praeko studio render <slug> --motor hyperframes     # out/<slug>.hf.mp4 (não sobrescreve o do Remotion)
-praeko studio prever <slug> --motor hyperframes     # abre o preview do HyperFrames no projeto gerado
-praeko studio compilar <slug> --motor hyperframes   # avisa as cenas que usam `componente:` (TSX)
+praeko studio render <slug> --engine hyperframes     # out/<slug>.hf.mp4 (does not overwrite the Remotion one)
+praeko studio preview <slug> --engine hyperframes    # opens the HyperFrames preview of the generated project
+praeko studio compile <slug> --engine hyperframes    # warns about scenes that use `component:` (TSX)
 ```
 
-Qual motor um episódio usa (a primeira que existir): `--motor` na linha de comando → `motor: hyperframes` no topo do `episodio.yaml` → `"motor": "hyperframes"` no `marca.json` → `remotion`. Um canal novo pode usar `"motor": "hyperframes"` na marca e nunca tocar no Remotion (a capa continua sendo um `still` do Remotion: `praeko studio capa`).
+Which engine an episode uses (the first one that exists): `--engine` on the command line → `engine: hyperframes` at the top of `episode.yaml` → `"engine": "hyperframes"` in `brand.json` → `remotion`. A new channel can use `"engine": "hyperframes"` in the brand and never touch Remotion (with `--engine hyperframes` the cover is rendered by HyperFrames too: `praeko studio cover <slug> --engine hyperframes`; nothing from Remotion is used).
 
-## O que acontece
+## What happens
 
-1. Compila o `episodio.yaml` (`episodio.spec.json`), como sempre.
-2. `@praeko/studio-hyperframes` gera um projeto em `<projeto>/.hf/<slug>/` (já no `.gitignore` do `praeko studio init`): `index.html`, uma sub-composição por cena em `compositions/`, `assets/` com **só** o que o episódio usa (copiado do `publico` da marca).
-3. `npx hyperframes@0.9.13 check --json`: erros param o render; avisos viram uma linha de resumo (código × quantidade).
+1. Compiles `episode.yaml` (`episode.spec.json`), as always.
+2. `@praeko/studio-hyperframes` generates a project in `<project>/.hf/<slug>/` (already in the `.gitignore` of `praeko studio init`): `index.html`, one sub-composition per scene in `compositions/`, and `assets/` with **only** what the episode uses (copied from the brand's `publicDir`).
+3. `npx hyperframes@0.9.13 check --json`: errors stop the render; warnings become one summary line (code × count).
 4. `npx hyperframes@0.9.13 render --output out/<slug>.hf.mp4`.
 
-O projeto gerado é descartável: não edite `.hf/`, edite o YAML e rode de novo. Para editar visualmente, abra `.hf/<slug>` no app do HyperFrames; o que você mexer lá some na próxima geração.
+The generated project is disposable: do not edit `.hf/`, edit the YAML and run again. To edit visually, open `.hf/<slug>` in the HyperFrames app; whatever you change there disappears at the next generation.
 
 ## Short (1080×1920)
 
-Os itens do YAML (`texto`, `big`, `caixa`, `linha`, `balao`, `codigo`, `janela`, `celular`, `barra`, `barras`, `pilha`, `fila`, `cartao`) viram HTML com as mesmas medidas do kit do Remotion: painel de 70 px de margem, rótulo, legenda palavra a palavra (mesmo agrupamento de 3 palavras), barra de progresso, golpes (tremor, zoom, clarão), fundo de terminal de duas colunas, sons (whoosh, pop por cena, ding no fecho) e fechamento com avatar, handle e CTA. `quando` resolve para o tempo local da cena como no Remotion.
+The YAML items (`text`, `big`, `box`, `line`, `bubble`, `code`, `window`, `phone`, `bar`, `bars`, `stack`, `row`, `card`) become HTML with the same measures as the Remotion kit: a panel with 70 px margins, label, word-by-word captions (same 3-word grouping), progress bar, hits (shake, zoom, flash), a two-column terminal background, sounds (whoosh, pop per scene, ding at the outro) and an outro with avatar, handle and CTA. `when` resolves to the local time of the scene as in Remotion.
 
-Diferenças conhecidas:
-- **Fontes:** só as embutidas do HyperFrames resolvem pelo nome. Arial Black vira Montserrat 900 e Menlo vira JetBrains Mono (largura um pouco diferente; texto que quebra em uma pode quebrar na outra). Com `"hyperframes": { "fontesLocais": true }` no `marca.json` a fonte da marca é carregada do sistema (`local()`), com a embutida de reserva: paridade exata, mas só nesta máquina.
-- **Vídeos gravados de tela ou de app** (`janela`, `celular`): o trecho `[de, duracaoClipe]` repete até o fim da cena (vários `<video>` em sequência, no lugar do `Loop`).
-- **Ponto vermelho** da etiqueta da janela é fixo (no Remotion pisca).
-- **Áudio** sai uns 3 dB mais alto (média −16,8 dB contra −19,8 dB no mesmo Short): conferir com `praeko studio checar` antes de publicar.
-- **Zona segura vertical:** as posições do YAML valem como estão (o rótulo fica em y=70, a legenda em 190 px da base). O `check` do HyperFrames não reclama, mas as bordas dos apps cobrem o topo.
+Known differences:
+- **Fonts:** only the fonts bundled with HyperFrames resolve by name. Arial Black becomes Montserrat 900 and Menlo becomes JetBrains Mono (slightly different width; text that wraps in one may wrap in the other). With `"hyperframes": { "localFonts": true }` in `brand.json` the brand font is loaded from the system (`local()`), with the bundled one as a fallback: exact parity, but only on this machine.
+- **Game videos** (`window`, `phone`): the segment `[from, clipDuration]` repeats until the end of the scene (several `<video>` elements in sequence, instead of `Loop`).
+- **Red dot** of the window label is fixed (it blinks in Remotion).
+- **Audio** comes out about 3 dB louder (mean −16.8 dB against −19.8 dB in the same Short): check with `praeko studio check` before publishing.
+- **Vertical safe zone:** the YAML positions are used as they are (the label sits at y=70, the caption 190 px from the bottom). HyperFrames' `check` does not complain, but the apps' borders cover the top.
 
-## Longo (1920×1080)
+## Long form (1920×1080)
 
-Reaproveita o plano do `episodio.yaml` (`formato: longo`: `codigo`, `cartao`, `chip`, `txt`, `video`, `celular`, `barra`, `contador`, `fluxo`) e acrescenta uma edição própria do motor:
-- barra de capítulos no topo, com o título do capítulo corrente;
-- transição entre capítulos (varredura horizontal, vertical, íris e escurecimento, em rodízio) com o número e o nome do capítulo, no silêncio entre os blocos (`blocos.json`) e com whoosh;
-- número do capítulo ao fundo, brilho de fundo que muda de cor por capítulo;
-- legenda palavra a palavra (a palavra falada fica dourada);
-- tela final com `fecho:` (texto, link, imagem).
+Reuses the plan of `episode.yaml` (`format: long`: `code`, `card`, `chip`, `freetext`, `video`, `phone`, `bar`, `counter`, `flow`) and adds an edit of the engine's own:
+- a chapter bar at the top, with the title of the current chapter;
+- a transition between chapters (horizontal sweep, vertical, iris and fade, in rotation) with the chapter number and name, in the silence between blocks (`blocks.json`) and with a whoosh;
+- chapter number in the background, a background glow that changes color per chapter;
+- word-by-word captions (the spoken word turns gold);
+- an end screen with `endcard:` (text, link, image).
 
-Mascote opcional, só neste motor: no `episodio.yaml` do longo,
+Optional mascot, only in this engine: in the long form's `episode.yaml`,
 
 ```yaml
-mascote:
-  - { quando: "cinco radiantes voltaram", gato: chocado }       # gatos/gato-chocado.png
-  - { quando: "a trava so fazia", gato: cafe, mais: 0.5 }
+mascot:
+  - { when: "five radiants came back", name: shocked }       # mascotPath: mascots/{name}.png
+  - { when: "the lock only did", name: coffee, plus: 0.5 }
 ```
 
-o gato aparece no canto inferior direito por ~3 s na cena em que a frase é falada.
+the mascot appears in the bottom right corner for ~3 s in the scene where the phrase is spoken.
 
-Linhas de código: `hl: [frase-de-início, frase-de-fim]` acende a linha entre as duas frases (como no Remotion).
+Code lines: `hl: [start-phrase, end-phrase]` lights the line between the two phrases (as in Remotion).
 
-## Limites
+## Limits
 
-- **`componente:` (TSX) não existe no HyperFrames.** Cena (ou capa) feita em `cenas.tsx` precisa virar itens no YAML ou o episódio fica no Remotion. O gerador falha com o slug, o número, o título e o componente da cena; `praeko studio compilar --motor hyperframes` avisa antes. A capa de TSX não conta: ela sempre sai do Remotion.
-- Os tempos do `check` são de um instante amostrado: avisos de contraste em barras ainda zeradas e de tela vazia no quadro 0 são esperados (o quadro 0 de um Short é só o fundo; a capa é a miniatura).
-- O HyperFrames busca o GSAP no CDN (jsdelivr) e as fontes embutidas na primeira vez: precisa de internet no primeiro render.
-- Versão fixa: `hyperframes@0.9.13` (`VERSAO_HF` em `packages/hyperframes/src/comum.mjs`). Subir a versão = rodar os testes e comparar quadros.
+- **`component:` (TSX) does not exist in HyperFrames.** A scene (or cover) made in `scenes.tsx` has to become YAML items or the episode stays in Remotion. The generator fails with the slug, the number, the title and the component of the scene; `praeko studio compile --engine hyperframes` warns before. A cover written as a TSX component (`cover.component`) only exists in Remotion; a declarative cover (title/items) renders in HyperFrames too.
+- The `check` times are those of a sampled instant: contrast warnings on still-empty bars and empty-screen warnings on frame 0 are expected (frame 0 of a Short is only the background; the cover is the thumbnail).
+- HyperFrames fetches GSAP from the CDN (jsdelivr) and the bundled fonts the first time: it needs internet on the first render.
+- Pinned version: `hyperframes@0.9.13` (`HF_VERSION` in `packages/hyperframes/src/common.ts`). Raising the version = running the tests and comparing frames.
 
-## Remotion × HyperFrames (medido em 04/11/2026, M4 de 10 núcleos)
+## Remotion × HyperFrames (measured on 2026-11-04, 10-core M4)
 
-| Episódio | Remotion (GL angle) | HyperFrames (render) | HyperFrames (com geração e check) |
+| Episode | Remotion (GL angle) | HyperFrames (render) | HyperFrames (with generation and check) |
 |---|---|---|---|
-| Short `heranca-corte-cofre` (53 s) | 26 s | 32 s | 38 s |
-| Short `raide-ep1` (42 s, janelas, celular, barras) | 43 s | 40 s | 54 s |
-| Longo `heranca-longo` (7:47; saída 38 MB contra 56 MB do Remotion) | 7:12 (GL padrão) · 7:53 (GL angle) | 3:29 | 3:54 |
+| Short (53 s) | 26 s | 32 s | 38 s |
+| Short (42 s, windows, phone, bars) | 43 s | 40 s | 54 s |
+| Long (7:47; output 38 MB against Remotion's 56 MB) | 7:12 (default GL) · 7:53 (GL angle) | 3:29 | 3:54 |
 
-Observações: o `angle` só ajuda nos Shorts (blur, sombras em 1080×1920); no longo ele não ganhou nada (7:12 com o padrão, 7:53 com `angle`; em 1200 quadros, 46 s contra 44 s), então vale medir antes de trocar. O Remotion só ficou rápido nos Shorts depois de `Config.setChromiumOpenGlRenderer("angle")` no `remotion.config.ts` (antes: 102 s para o mesmo Short; PSNR de 48 dB entre os dois renderizadores). O HyperFrames paga ~6 s de compilação por render e ~6 s de `check`. Concorrência do Remotion (5 ou 10) não mudou nada.
+Notes: `angle` only helps the Shorts (blur, shadows at 1080×1920); on the long form it gained nothing (7:12 with the default, 7:53 with `angle`; on 1200 frames, 46 s against 44 s), so it is worth measuring before switching. Remotion only got fast on the Shorts after `Config.setChromiumOpenGlRenderer("angle")` in `remotion.config.ts` (before: 102 s for the same Short; PSNR of 48 dB between the two renderers). HyperFrames pays ~6 s of compilation per render and ~6 s of `check`. Remotion concurrency (5 or 10) changed nothing.
 
-## Quando escolher cada um
+## When to choose each
 
-| Situação | Motor |
+| Situation | Engine |
 |---|---|
-| Episódio com cena em TSX (`componente:`) ou capa de peça própria | Remotion |
-| Short de rotina do canal atual | Remotion (mesmo tempo, mesma aparência de sempre) |
-| Longo, ou qualquer vídeo em que a edição (transições, capítulos, mascote) pesa | HyperFrames |
-| Canal novo, sem TSX legado | HyperFrames como padrão (`"motor": "hyperframes"` na marca) |
-| Quer mexer no resultado em editor visual | HyperFrames (abre `.hf/<slug>` no app) |
+| Episode with a TSX scene (`component:`) or a cover of its own | Remotion |
+| Routine Short of an existing channel | Remotion (same time, same look as always) |
+| Long form, or any video where the edit (transitions, chapters, mascot) matters | HyperFrames |
+| New channel, no legacy TSX | HyperFrames as the default (`"engine": "hyperframes"` in the brand) |
+| You want to tweak the result in a visual editor | HyperFrames (open `.hf/<slug>` in the app) |

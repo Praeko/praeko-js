@@ -1,7 +1,7 @@
 // Agendamento pelo Buffer (https://developers.buffer.com): API GraphQL em https://api.buffer.com, chave no cabeçalho Bearer.
 // O Buffer não recebe arquivo: busca o vídeo numa URL pública estável (ver hospedagem.ts) na hora de publicar.
 // Tudo aqui é puro ou recebe `fetchFn` por parâmetro, para testar sem rede.
-import { capitulos, link } from "./index.ts";
+import { capitulos, link, linkLine } from "./index.ts";
 export { ENDPOINT, gql, listarCanais, criarPost, apagarPost, consultarPost } from "./buffer-api.ts";
 
 /** Nomes curtos aceitos em --redes. */
@@ -37,7 +37,7 @@ export function textosPorRede({ config, ep }: any) {
   if (ep.capitulos?.length) yt.push("", "⏱ Capítulos", capitulos(ep.capitulos));
   if (!longo && ep.artigo) yt.push("", `📖 Artigo completo: ${ep.artigo}`);
   if (!longo && ep.videoCompleto) yt.push(`▶️ Completo: ${ep.videoCompleto}`);
-  yt.push("", `🔗 O jogo: ${lk("youtube")}`, "", tags(ep.hashtags?.youtube));
+  yt.push("", ...linkLine(lk("youtube")), "", tags(ep.hashtags?.youtube));
   return {
     youtube: { titulo: ep.titulo, texto: yt.join("\n").trim(), comentarioFixo: ep.yt?.comentarioFixo },
     instagram: { texto: `${ep.ig?.legenda || ""}${ep.hashtags?.instagram ? " " + tags(ep.hashtags.instagram) : ""}`.trim(), comentarioFixo: ep.ig?.comentarioFixo },

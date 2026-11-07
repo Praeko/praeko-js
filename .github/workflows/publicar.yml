@@ -1,34 +1,34 @@
-# Publica no npm por PUBLICADOR CONFIÁVEL (OIDC): sem NPM_TOKEN. Dispara ao empurrar uma tag `sdk-vX.Y.Z`, `cli-vX.Y.Z`, `studio-vX.Y.Z` (@praeko/studio), `studio-core-vX.Y.Z` ou `studio-kit-vX.Y.Z`.
-# Cada pacote precisa ter o Publicador Confiável configurado no npm (Settings -> Trusted Publisher) e já existir no registro: a 1ª publicação é manual (docs/publicar-npm.md do repositório privado).
-# ATENÇÃO: o npm amarra o publicador confiável ao repositório + NOME DESTE ARQUIVO (publicar.yml). Renomear o arquivo quebra a publicação até
-# reconfigurar em npmjs.com -> pacote -> Settings -> Trusted Publisher (Organization/usuário: Praeko, Repository: praeko-js, Workflow filename: publicar.yml).
-# Exige npm CLI >= 11.5.1 e Node >= 22.14 (docs.npmjs.com/trusted-publishers). A proveniência sai sozinha em repositório público.
-name: Publicar no npm
+# Publishes to npm through a TRUSTED PUBLISHER (OIDC): no NPM_TOKEN. Triggers when a tag `sdk-vX.Y.Z`, `cli-vX.Y.Z`, `studio-vX.Y.Z` (@praeko/studio), `studio-core-vX.Y.Z` or `studio-kit-vX.Y.Z` is pushed.
+# Every package needs the Trusted Publisher configured on npm (Settings -> Trusted Publisher) and must already exist in the registry: the 1st publish is manual (docs/publicar-npm.md of the private repository).
+# WARNING: npm binds the trusted publisher to the repository + THIS FILE NAME (publicar.yml). Renaming the file breaks publishing until
+# you reconfigure it at npmjs.com -> package -> Settings -> Trusted Publisher (Organization/user: Praeko, Repository: praeko-js, Workflow filename: publicar.yml).
+# Requires npm CLI >= 11.5.1 and Node >= 22.14 (docs.npmjs.com/trusted-publishers). Provenance is automatic in a public repository.
+name: Publish to npm
 on:
   push:
     tags: ["sdk-v*", "cli-v*", "studio-v*", "studio-core-v*", "studio-kit-v*"]
 permissions:
   contents: read
-  id-token: write   # obrigatório: o npm troca o token OIDC do GitHub pela permissão de publicar
+  id-token: write   # required: npm exchanges the GitHub OIDC token for the permission to publish
 jobs:
-  publicar:
+  publish:
     if: github.repository == 'Praeko/praeko-js'
-    runs-on: ubuntu-latest   # só runners hospedados na nuvem são aceitos (self-hosted não)
+    runs-on: ubuntu-latest   # only cloud-hosted runners are accepted (not self-hosted)
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
-        with: { node-version: 24, registry-url: "https://registry.npmjs.org" }   # sem cache em build de release
-      - name: Garantir npm >= 11.5.1
+        with: { node-version: 24, registry-url: "https://registry.npmjs.org" }   # no cache in a release build
+      - name: Ensure npm >= 11.5.1
         run: |
           npm install -g npm@11
           v=$(npm -v); echo "npm $v"
-          [ "$(printf '%s\n11.5.1\n' "$v" | sort -V | head -n1)" = "11.5.1" ] || { echo "npm $v é velho demais para publicação confiável"; exit 1; }
-      - name: Conferir que a tag bate com a versão do package.json e achar a pasta do pacote
-        run: node scripts/tag-pacote.mjs "${GITHUB_REF_NAME}" >> "$GITHUB_ENV"   # PACOTE=<sdk|cli|studio|studio-core|studio-kit> e DIR=<pasta>; sai com 1 se não bater
-      - name: Instalar ffmpeg (os testes do Studio usam)
+          [ "$(printf '%s\n11.5.1\n' "$v" | sort -V | head -n1)" = "11.5.1" ] || { echo "npm $v is too old for trusted publishing"; exit 1; }
+      - name: Check that the tag matches the package.json version and find the package folder
+        run: node scripts/tag-package.mjs "${GITHUB_REF_NAME}" >> "$GITHUB_ENV"   # PACKAGE=<sdk|cli|studio|studio-core|studio-kit> and DIR=<folder>; exits 1 if it does not match
+      - name: Install ffmpeg (the Studio tests use it)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: npm ci
-      - run: npm run build:sdk   # tsc: o npm publish só leva dist/ (o prepack do pacote compila de novo)
+      - run: npm run build:sdk   # tsc: npm publish only ships dist/ (the package prepack builds again)
       - run: npm run build:studio
       - run: npm test
       - run: npm run typecheck

@@ -1,8 +1,8 @@
 {
   "name": "@praeko/studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Praeko Studio: vídeos curtos (9:16) e longos (16:9) a partir de um roteiro, para você operar com o seu próprio agente de código (Claude Code, Codex, Gemini CLI, Cursor, opencode). Voz, legenda palavra a palavra, cenas, capa, textos e publicação pelo Praeko.",
+  "description": "Praeko Studio: short (9:16) and long (16:9) videos from a script, for you to run with your own coding agent (Claude Code, Codex, Gemini CLI, Cursor, opencode). Voice, word-by-word captions, scenes, cover, texts and publishing through Praeko.",
   "license": "MIT",
   "keywords": [
     "praeko",
@@ -29,7 +29,7 @@
   },
   "files": [
     "dist",
-    "modelos",
+    "templates",
     "docs",
     "README.md",
     "CHANGELOG.md",
@@ -43,16 +43,17 @@
   "scripts": {
     "build": "node ../../../scripts/build-studio.mjs cli",
     "prepack": "npm run build",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.75.0"
   },
   "devDependencies": {
     "@praeko/studio-hyperframes": "*",
-    "@praeko/studio-publicar": "*",
-    "@praeko/studio-revisar": "*",
-    "@praeko/studio-voz": "*",
+    "@praeko/studio-publish": "*",
+    "@praeko/studio-review": "*",
+    "@praeko/studio-voice": "*",
     "yaml": "^2.9.1"
   },
   "engines": {

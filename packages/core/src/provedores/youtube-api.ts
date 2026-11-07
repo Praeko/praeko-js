@@ -254,9 +254,9 @@ export async function finalizarPublicacao({ item, ctx, video, metadados }: any) 
   if (item.capa) {
     try {
       const pronto = await esperarProcessamento(ctx, id, d);
-      if (!pronto) avisos.push("o vídeo ainda estava processando; a miniatura pode não ter pegado");
+      if (!pronto) avisos.push("the video was still processing; the thumbnail may not have taken");
       miniatura = await definirMiniatura(ctx, id, item.capa, d);
-    } catch (e) { avisos.push(`miniatura não definida (${e.message}); troque no Studio`); }
+    } catch (e) { avisos.push(`thumbnail not set (${e.message}); change it in Studio`); }
   }
   for (const a of avisos) ctx.log?.(`  ⚠ ${a}`);
   const seguinte = acoesSeguintes(item, id, metadados, d);
@@ -294,12 +294,12 @@ export async function canalId(ctx: any) {
 
 /** Linhas de resumo (sem tocar em disco: o Node acrescenta o tamanho do arquivo). */
 export async function planejar({ item }: any) {
-  if (item.acao === "comentar") return [`comentário no vídeo ${item.videoId}`];
+  if (item.acao === "comentar") return [`comment on video ${item.videoId}`];
   const modo = modoDe(item), m = montarMetadados(item, Date.now());
   return [
-    `título: ${m.snippet.title}`,
-    `modo: ${modo} → privacidade ${m.status.privacyStatus}${m.status.publishAt ? ` (publica sozinho em ${m.status.publishAt})` : modo === "privado" ? " (você troca a capa e publica no Studio)" : ""}`,
-    `arquivo: ${item.tamanhoTexto || "?"}; capa: ${item.capa ? String(item.capa).split("/").pop() + " (thumbnails.set)" : "nenhuma"}`,
+    `title: ${m.snippet.title}`,
+    `mode: ${modo} → privacy ${m.status.privacyStatus}${m.status.publishAt ? ` (publishes by itself at ${m.status.publishAt})` : modo === "privado" ? " (you change the cover and publish in Studio)" : ""}`,
+    `file: ${item.tamanhoTexto || "?"}; cover: ${item.capa ? String(item.capa).split("/").pop() + " (thumbnails.set)" : "none"}`,
   ];
 }
 

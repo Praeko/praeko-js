@@ -1,8 +1,8 @@
 # @praeko/cli
 
-Linha de comando do [Praeko](https://praeko.app): publica e agenda vídeos curtos no YouTube, Instagram e TikTok, e fala com a API do serviço (posts, fila, canais, chaves, insights). Comando `praeko` (antes chamado `arauto`). Node 22 ou superior; `ffmpeg`/`ffprobe` só para os comandos que mexem em capa e vídeo.
+Command line for [Praeko](https://praeko.app): publishes and schedules short videos on YouTube, Instagram and TikTok, and talks to the service API (posts, queue, channels, keys, insights). The command is `praeko`. Node 22 or newer; `ffmpeg`/`ffprobe` only for the commands that touch covers and video.
 
-## Instalação
+## Install
 
 ```sh
 npm install -g @praeko/cli
@@ -11,7 +11,7 @@ pnpm add -g @praeko/cli
 bun add -g @praeko/cli
 ```
 
-Sem instalar:
+Without installing:
 
 ```sh
 npx @praeko/cli --help
@@ -20,40 +20,40 @@ bunx @praeko/cli --help
 yarn dlx @praeko/cli --help   # yarn 2+
 ```
 
-## Começando
+## Getting started
 
 ```sh
 praeko --version
 praeko --help
 export PRAEKO_SERVER=https://praeko.app
-export PRAEKO_KEY=praeko_…            # chave criada no painel (ou: echo $CHAVE | praeko key store)
-praeko posts                          # lista os posts do serviço
-praeko post ./meu-pacote --when "30/12 17:30" --networks yt,ig,tt   # SIMULA (nada é enviado)
-praeko post ./meu-pacote --when "30/12 17:30" --networks yt,ig,tt --send
+export PRAEKO_KEY=praeko_…            # key created in the dashboard (or: echo $KEY | praeko key store)
+praeko posts                          # lists the service posts
+praeko post ./my-package --when "30/12 17:30" --networks yt,ig,tt   # SIMULATES (nothing is sent)
+praeko post ./my-package --when "30/12 17:30" --networks yt,ig,tt --send
 ```
 
-Nada é enviado, hospedado ou agendado sem `--send`.
+Nothing is sent, hosted or scheduled without `--send`. A package folder holds `publication.json`, the video and the cover. Project settings live in `praeko.json` (current folder or above); `links.main` is optional.
 
-## Autenticação
+## Authentication
 
-A chave vem de `PRAEKO_KEY`. Sem ela, a CLI procura no Chaveiro do macOS (só no Mac, item `praeko/chave`) e no arquivo `~/.config/praeko/segredos.json` (modo 600; mude com `PRAEKO_SEGREDOS`). No Linux e no Windows valem a variável e o arquivo. `PRAEKO_SEM_CHAVEIRO=1` ignora o Chaveiro. O endereço do serviço vem de `--server` ou `PRAEKO_SERVER`.
+The key comes from `PRAEKO_KEY`. Without it the CLI looks in the macOS Keychain (Mac only, item `praeko/chave`) and in the file `~/.config/praeko/secrets.json` (mode 600; change it with `PRAEKO_SECRETS`). On Linux and Windows the variable and the file apply. `PRAEKO_NO_KEYCHAIN=1` ignores the Keychain. The service address comes from `--server` or `PRAEKO_SERVER`.
 
-## Erros e códigos de saída
+## Errors and exit codes
 
-`0` sucesso; `1` erro (mensagem em português no stderr); `2` comando ou argumento inválido (mostra a ajuda).
+`0` success; `1` error (message in English on stderr); `2` invalid command or argument (shows the help).
 
 ## Praeko Studio
 
-`praeko studio …` (gerador de vídeos) ainda não é distribuído pelo npm; fora do repositório o comando avisa e sai com `1`. Os demais comandos não dependem dele.
+`praeko studio …` hands the command to Praeko Studio (`@praeko/studio`, a separate package). Without it the command shows how to install it (or runs `npx @praeko/studio` if you accept) and exits with `1`. The other commands do not depend on it.
 
-## Versionamento
+## Versioning
 
-[SemVer](https://semver.org/lang/pt-BR/); em `0.x` mudanças incompatíveis podem sair em versões menores, sempre no [CHANGELOG](./CHANGELOG.md). A CLI é publicada com o SDK embutido: não há dependências a instalar.
+[SemVer](https://semver.org/); in `0.x` breaking changes can ship in minor versions, always listed in the [CHANGELOG](./CHANGELOG.md). The CLI is published with the SDK embedded: there are no dependencies to install.
 
 ## Links
 
-Documentação: <https://praeko.app/docs> · Código: <https://github.com/Praeko/praeko-js> · Suporte: contato@praeko.app · SDK: [`@praeko/sdk`](https://www.npmjs.com/package/@praeko/sdk)
+Documentation: <https://praeko.app/docs> · Code: <https://github.com/Praeko/praeko-js> · Support: contato@praeko.app · SDK: [`@praeko/sdk`](https://www.npmjs.com/package/@praeko/sdk)
 
-## Licença
+## License
 
 [MIT](./LICENSE) © 2026 Marcone Santos.

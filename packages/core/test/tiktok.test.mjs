@@ -163,8 +163,8 @@ test("planejar resume modo, privacidade e partes; módulo cumpre o contrato do r
   const dir = tmp(), v = arquivo(dir, 30 * MB);
   const l = await tt.planejar({ item: { video: v, opcoes: { modo: "direto", privacidade: "PUBLIC_TO_EVERYONE" }, textos: {} } });
   assert.ok(l.some((x) => x.includes("SELF_ONLY") && x.includes("sem auditoria")));
-  assert.ok(l.some((x) => /3 parte\(s\) de 10\.0 MB/.test(x)));
-  assert.ok((await tt.planejar({ item: { video: v, opcoes: {}, textos: {} } }))[0].startsWith("modo: rascunho"));
+  assert.ok(l.some((x) => /3 part\(s\) of 10\.0 MB/.test(x)));
+  assert.ok((await tt.planejar({ item: { video: v, opcoes: {}, textos: {} } }))[0].startsWith("mode: rascunho"));
   assert.equal(tt.nome, "tiktok"); assert.equal(tt.rede, "tiktok"); assert.equal(tt.imediato, false);
   for (const f of ["conectar", "status", "publicar", "planejar"]) assert.equal(typeof tt[f], "function");
   rmSync(dir, { recursive: true, force: true });

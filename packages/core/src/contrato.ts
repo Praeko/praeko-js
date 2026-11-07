@@ -42,7 +42,7 @@ export function validarPedido(p: any): string[] {
   }
   const todos = JSON.stringify(p.textos || {});
   const marc = [...new Set(todos.match(/\[[A-Z][A-Z_]{3,}\]/g) || [])];
-  if (marc.length) e.push(`texto com marcador não preenchido: ${marc.join(", ")}`);
+  if (marc.length) e.push(`text with an unfilled marker: ${marc.join(", ")}`);
   return e;
 }
 
@@ -56,7 +56,7 @@ export function verificarProvedor(mod: any): string[] {
   if (typeof mod?.nome !== "string" || !mod.nome) e.push("falta `nome` (texto)");
   if (!REDES_VALIDAS.includes(mod?.rede)) e.push(`\`rede\` precisa ser uma de ${REDES_VALIDAS.join(", ")}`);
   for (const f of ["status", "publicar"]) if (typeof mod?.[f] !== "function") e.push(`falta a função ${f}()`);
-  for (const f of ["conectar", "planejar", "preparar", "publicarEmPassos"]) if (mod?.[f] !== undefined && typeof mod[f] !== "function") e.push(`${f} precisa ser função`);
+  for (const f of ["conectar", "planejar", "preparar", "publicarEmPassos"]) if (mod?.[f] !== undefined && typeof mod[f] !== "function") e.push(`${f} must be a function`);
   if (mod?.imediato !== undefined && typeof mod.imediato !== "boolean") e.push("`imediato` precisa ser true/false");
   if (mod?.antecedenciaMs !== undefined && !(Number.isFinite(mod.antecedenciaMs) && mod.antecedenciaMs >= 0)) e.push("`antecedenciaMs` precisa ser um número ≥ 0");
   if (mod?.preparar && !(mod.antecedenciaMs > 0)) e.push("quem tem preparar() precisa de antecedenciaMs > 0");

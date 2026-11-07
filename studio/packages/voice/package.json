@@ -1,0 +1,14 @@
+{
+  "name": "@praeko/studio-voice",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.75.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

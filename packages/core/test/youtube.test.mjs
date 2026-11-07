@@ -102,7 +102,7 @@ test("publicar: sobe privado, define a miniatura e devolve links", async () => {
 test("publicar: miniatura que falha não derruba (aviso)", async () => {
   const { f } = fluxoCompleto({ miniaturaFalha: true });
   const r = await yt.publicar({ item: item({ capa: "/x/capa.png" }), ctx: mkctx(f, undefined, { abrirArquivo: (a) => arquivoFalso(a.endsWith("png") ? 500 : 1000)() }) });
-  assert.equal(r.id, "VID9"); assert.equal(r.miniatura, false); assert.ok(r.avisos.some((x) => /miniatura não definida/.test(x)));
+  assert.equal(r.id, "VID9"); assert.equal(r.miniatura, false); assert.ok(r.avisos.some((x) => /thumbnail not set/.test(x)));
 });
 test("publicar sem capa não chama thumbnails; status lê o canal", async () => {
   const { f, log } = fluxoCompleto();
@@ -136,7 +136,7 @@ test("conectar sem credencial dá instrução", async () => {
 });
 test("planejar mostra modo e capa", async () => {
   const l = await yt.planejar({ item: item({ capa: "/x/c.png" }), ctx: mkctx(async () => {}) });
-  assert.ok(l.join("\n").includes("privacidade private") && l.join("\n").includes("c.png"));
+  assert.ok(l.join("\n").includes("privacy private") && l.join("\n").includes("c.png"));
 });
 
 test("declaração de conteúdo sintético: só vai ao YouTube quando o item traz opcoes.conteudoSintetico", () => {

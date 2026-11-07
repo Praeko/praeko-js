@@ -6,7 +6,7 @@ packages/cli/dist/
 .env*
 .praeko/
 studio/packages/*/dist/
-studio/packages/cli/modelos/*.tmp
+studio/packages/cli/templates/*.tmp
 .praeko-studio/
 out/
 .hf/

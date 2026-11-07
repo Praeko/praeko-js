@@ -7,15 +7,15 @@ export const PADRAO = {
   hashtagsProibidas: [],
   // marcas de texto escrito por IA (a skill copywriting do projeto proíbe)
   marcasDeIA: [
-    { re: /\bnão é [^.!?]{1,45}, é\s/i, aviso: 'estrutura "não é X, é Y"' },
-    { re: /\bsem [^,.!?]{1,25}, sem [^,.!?]{1,25}, sem\b/i, aviso: 'lista "sem X, sem Y, sem Z"' },
+    { re: /\bnão é [^.!?]{1,45}, é\s/i, aviso: 'structure "it is not X, it is Y"' },
+    { re: /\bsem [^,.!?]{1,25}, sem [^,.!?]{1,25}, sem\b/i, aviso: 'list "no X, no Y, no Z"' },
   ],
 };
 
 /** Link com UTM. `plataforma`: instagram | youtube | tiktok; `formato`: "short" ou "longo" (muda o medium do YouTube). */
-export function link(config: any, { plataforma, destino = "jogo", campanha, formato }: any) {
+export function link(config: any, { plataforma, destino = "main", campanha, formato }: any) {
   const base = config.links?.[destino];
-  if (!base) throw new Error(`links.${destino} não definido na configuração (praeko.json)`);
+  if (!base) return null; // links are optional: without a configured link the package simply carries no tracked link
   const u = { ...PADRAO.utm, ...(config.utm || {}) };
   let [fonte, midia] = u[plataforma] || [plataforma, "bio"];
   if (plataforma === "youtube" && formato) midia = formato === "longo" ? "long" : formato;
@@ -25,6 +25,7 @@ export function link(config: any, { plataforma, destino = "jogo", campanha, form
 }
 
 const tags = (l: any) => (l || []).join(" ");
+export const linkLine = (url: string | null) => (url ? [`🔗 Link: ${url}`] : []);
 
 /** Segundos → "m:ss" (ou "h:mm:ss"). */
 export const mmss = (s: any) => { const t = Math.round(s), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = t % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`; };
@@ -34,9 +35,9 @@ export const capitulos = (lista: any) => lista.map((c: any) => `${mmss(c.t)} ${c
 export function validarCapitulos(lista: any) {
   const e: any[] = [];
   if (!lista?.length) return e;
-  if (lista.length < 3) e.push(`${lista.length} capítulo(s): o YouTube só cria capítulos com 3 ou mais`);
-  if (Math.round(lista[0].t) !== 0) e.push("o primeiro capítulo precisa começar em 0:00");
-  for (let i = 1; i < lista.length; i++) if (lista[i].t - lista[i - 1].t < 10) e.push(`capítulo "${lista[i - 1].titulo}" dura ${(lista[i].t - lista[i - 1].t).toFixed(1)} s (mínimo 10 s)`);
+  if (lista.length < 3) e.push(`${lista.length} chapter(s): YouTube only creates chapters with 3 or more`);
+  if (Math.round(lista[0].t) !== 0) e.push("the first chapter must start at 0:00");
+  for (let i = 1; i < lista.length; i++) if (lista[i].t - lista[i - 1].t < 10) e.push(`chapter "${lista[i - 1].titulo}" lasts ${(lista[i].t - lista[i - 1].t).toFixed(1)} s (minimum 10 s)`);
   return e;
 }
 
@@ -47,20 +48,20 @@ export function validar({ config, ep }: any) {
   const permitidas = (config.hashtags?.permitidas || []).map((h: any) => h.toLowerCase());
   const erros = [], avisos = [];
   const yt = `${ep.yt?.descricao || ""}\n${ep.capitulos ? capitulos(ep.capitulos) : ""}\n${tags(ep.hashtags?.youtube)}`;
-  for (const x of validarCapitulos(ep.capitulos)) erros.push(`capítulos: ${x}`);
-  if ((ep.titulo || "").length > L.youtubeTitulo) erros.push(`título com ${ep.titulo.length} caracteres (limite ${L.youtubeTitulo})`);
-  if (yt.length > L.youtubeDescricao) erros.push(`descrição do YouTube com ${yt.length} caracteres (limite ${L.youtubeDescricao})`);
+  for (const x of validarCapitulos(ep.capitulos)) erros.push(`chapters: ${x}`);
+  if ((ep.titulo || "").length > L.youtubeTitulo) erros.push(`title has ${ep.titulo.length} characters (limit ${L.youtubeTitulo})`);
+  if (yt.length > L.youtubeDescricao) erros.push(`YouTube description has ${yt.length} characters (limit ${L.youtubeDescricao})`);
   const ig = `${ep.ig?.legenda || ""}\n${tags(ep.hashtags?.instagram)}`;
-  if (ig.length > L.instagram) erros.push(`legenda do Instagram com ${ig.length} caracteres (limite ${L.instagram})`);
+  if (ig.length > L.instagram) erros.push(`Instagram caption has ${ig.length} characters (limit ${L.instagram})`);
   const tk = `${ep.tiktok?.legenda || ""}\n${tags(ep.hashtags?.tiktok)}`;
-  if (tk.length > L.tiktok) avisos.push(`legenda do TikTok com ${tk.length} caracteres (limite sugerido ${L.tiktok})`);
-  if ((ep.hashtags?.instagram || []).length > L.hashtagsInstagram) erros.push(`mais de ${L.hashtagsInstagram} hashtags no Instagram`);
+  if (tk.length > L.tiktok) avisos.push(`TikTok caption has ${tk.length} characters (suggested limit ${L.tiktok})`);
+  if ((ep.hashtags?.instagram || []).length > L.hashtagsInstagram) erros.push(`more than ${L.hashtagsInstagram} hashtags on Instagram`);
   for (const [pl, hs] of Object.entries((ep.hashtags || {}) as Record<string, string[]>)) for (const h of hs) {
-    if (proibidas.includes(h.toLowerCase())) erros.push(`hashtag proibida em ${pl}: ${h}`);
-    else if (permitidas.length && !permitidas.includes(h.toLowerCase())) avisos.push(`hashtag fora da lista permitida em ${pl}: ${h}`);
+    if (proibidas.includes(h.toLowerCase())) erros.push(`banned hashtag on ${pl}: ${h}`);
+    else if (permitidas.length && !permitidas.includes(h.toLowerCase())) avisos.push(`hashtag outside the allowed list on ${pl}: ${h}`);
   }
   const tudo = [ep.titulo, ...(ep.alternativas || []), ep.yt?.descricao, ep.ig?.legenda, ep.ig?.comentarioFixo, ep.tiktok?.legenda, ep.respostaComentario].filter(Boolean).join("\n");
-  for (const m of PADRAO.marcasDeIA) if (m.re.test(tudo)) avisos.push(`marca de texto de IA: ${m.aviso}`);
+  for (const m of PADRAO.marcasDeIA) if (m.re.test(tudo)) avisos.push(`AI writing tic: ${m.aviso}`);
   return { erros, avisos };
 }
 
@@ -75,7 +76,7 @@ export function pacote({ config, ep }: any) {
   o.push(`**Nada publicado.**${ep.arquivos?.video ? ` Vídeo: \`${ep.arquivos.video}\`` : ""}${ep.arquivos?.capa ? `. Capa: \`${ep.arquivos.capa}\`` : ""}.${ep.publicarEm ? ` Publicar: ${ep.publicarEm}.` : ""}`);
   o.push("", "## Antes de publicar");
   (ep.antesDePublicar || ["Assistir com som."]).forEach((x: any, i: any) => o.push(`${i + 1}. ${x}`));
-  o.push(`${(ep.antesDePublicar || [1]).length + 1}. Links com marcação: \`${lk("instagram")}\` · \`${lk("youtube")}\` · \`${lk("tiktok")}\``);
+  if (lk("youtube")) o.push(`${(ep.antesDePublicar || [1]).length + 1}. Links com marcação: \`${lk("instagram")}\` · \`${lk("youtube")}\` · \`${lk("tiktok")}\``);
   if (v.erros.length || v.avisos.length) {
     o.push("", "## Conferência automática");
     v.erros.forEach((e) => o.push(`- ERRO: ${e}`));
@@ -86,7 +87,7 @@ export function pacote({ config, ep }: any) {
     if (ep.alternativas?.length) o.push(`Alternativas: ${ep.alternativas.map((a: any) => `\`${a}\``).join(" · ")}`);
     o.push("", "**Descrição**", "```", ep.yt?.descricao || "", "");
     if (ep.capitulos?.length) o.push("⏱ Capítulos", capitulos(ep.capitulos), "");
-    o.push(`🔗 O jogo: ${lk("youtube")}`, "", tags(ep.hashtags?.youtube), "```");
+    o.push(...linkLine(lk("youtube")), "", tags(ep.hashtags?.youtube), "```");
     if (ep.yt?.comentarioFixo) o.push("**Comentário para fixar:**", "```", ep.yt.comentarioFixo, "```");
     o.push("", "## Instagram (Reel do longo): legenda", "Capa vertical: `" + (ep.arquivos?.capaVertical || "capa vertical") + "`", "```", `${ep.ig?.legenda || ""}${ep.hashtags?.instagram ? " " + tags(ep.hashtags.instagram) : ""}`, "```");
     if (ep.ig?.comentarioFixo) o.push("**Comentário para fixar:**", "```", ep.ig.comentarioFixo, "```");
@@ -101,7 +102,7 @@ export function pacote({ config, ep }: any) {
   o.push("", "**Descrição**", "```", ep.yt?.descricao || "", "");
   if (ep.artigo) o.push(`📖 Artigo completo: ${ep.artigo}`);
   if (ep.videoCompleto) o.push(`▶️ Completo: ${ep.videoCompleto}`);
-  o.push(`🔗 O jogo: ${lk("youtube")}`, "", tags(ep.hashtags?.youtube), "```");
+  o.push(...linkLine(lk("youtube")), "", tags(ep.hashtags?.youtube), "```");
   if (ep.respostaComentario) o.push("", "## Resposta sugerida ao comentário original", "```", ep.respostaComentario, "```");
   if (ep.fatos?.length) { o.push("", "---", "", "## Conferido contra os fatos"); ep.fatos.forEach((x: any) => o.push(`- ${x}`)); }
   return o.join("\n") + "\n";

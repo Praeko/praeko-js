@@ -1,11 +1,11 @@
 {
-  "nome": "Canal de teste",
-  "links": { "jogo": "https://exemplo.com/" },
-  "fusoOffset": "-03:00",
-  "provedor": "local",
-  "hospedagem": { "tipo": "r2", "bucket": "teste", "urlBase": "https://exemplo.com/midia" },
-  "buffer": { "canais": { "youtube": "cy", "instagram": "ci", "tiktok": "ct" } },
-  "youtube": { "modo": "privado" },
-  "tiktok": { "modo": "rascunho" },
-  "hashtags": { "permitidas": ["#shorts", "#teste"], "proibidas": ["#bitcoin"] }
+  "name": "Test channel",
+  "links": { "main": "https://example.com/" },
+  "timezoneOffset": "-03:00",
+  "provider": "local",
+  "hosting": { "type": "r2", "bucket": "test", "baseUrl": "https://example.com/media" },
+  "buffer": { "channels": { "youtube": "cy", "instagram": "ci", "tiktok": "ct" } },
+  "youtube": { "mode": "private" },
+  "tiktok": { "mode": "draft" },
+  "hashtags": { "allowed": ["#shorts", "#test"], "banned": ["#bitcoin"] }
 }

@@ -143,10 +143,10 @@ export function avisosTexto(texto: any) {
 }
 
 export async function planejar({ item, ctx }: any) {
-  const l = [`Reel na hora marcada; preparo ${antecedenciaMs / 60e3} min antes (vídeo e capa vão para a hospedagem pública)`];
-  l.push(item.capa ? `capa: ${basename(item.capa)} (vira cover_url; PNG é convertido para JPEG)` : "sem capa: miniatura = quadro 0 do vídeo");
+  const l = [`Reel at the set time; prepared ${antecedenciaMs / 60e3} min before (video and cover go to public hosting)`];
+  l.push(item.capa ? `cover: ${basename(item.capa)} (becomes cover_url; PNG is converted to JPEG)` : "no cover: thumbnail = frame 0 of the video");
   const t = lerToken(ctx);
-  l.push(t ? `conta @${t.username}; token vale mais ${Math.floor(diasRestantes(t, agora(ctx)))} dias` : "⚠ conta não conectada (praeko conta instagram conectar)");
+  l.push(t ? `account @${t.username}; token valid for ${Math.floor(diasRestantes(t, agora(ctx)))} more days` : "⚠ account not connected (praeko account instagram connect)");
   for (const a of [...avisosTexto(item.textos?.texto || ""), ...(item.video ? avisosVideo(item.video, ctx) : [])]) l.push(`⚠ ${a}`);
   return l;
 }

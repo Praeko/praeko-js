@@ -2,7 +2,7 @@
   "name": "praeko-js",
   "version": "0.0.0",
   "private": true,
-  "description": "Código-cliente do Praeko: @praeko/sdk, @praeko/cli e o Praeko Studio (@praeko/studio, studio-core, studio-kit). O servidor é fechado.",
+  "description": "Praeko client code: @praeko/sdk, @praeko/cli and the Praeko Studio (@praeko/studio, studio-core, studio-kit). The server is closed.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://praeko.app/docs",
@@ -18,9 +18,9 @@
     "studio/packages/*"
   ],
   "scripts": {
-    "test": "npm run build:sdk && node --test packages/*/test/*.test.mjs && npm run test:studio",
-    "test:studio": "npm test -w studio/packages/cli -w studio/packages/publicar -w studio/packages/voz -w studio/packages/revisar -w studio/packages/hyperframes",
-    "typecheck": "npm run typecheck -w packages/sdk -w packages/core -w packages/cli -w studio/packages/core -w studio/packages/kit",
+    "test": "npm run build:sdk && node --test packages/*/test/*.test.* && npm run test:studio",
+    "test:studio": "npm test -w studio/packages/cli -w studio/packages/voice -w studio/packages/review -w studio/packages/publish -w studio/packages/hyperframes -w studio/packages/core -w studio/packages/kit",
+    "typecheck": "npm run typecheck -w packages/sdk -w packages/core -w packages/cli -w studio/packages/core -w studio/packages/kit -w studio/packages/voice -w studio/packages/review -w studio/packages/publish -w studio/packages/hyperframes -w studio/packages/cli",
     "build:sdk": "node scripts/build-sdk.mjs",
     "build:cli": "node scripts/build-cli.mjs",
     "build:studio": "node scripts/build-studio.mjs",
