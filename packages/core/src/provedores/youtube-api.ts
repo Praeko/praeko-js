@@ -134,6 +134,8 @@ export function montarMetadados(item: any, agora = Date.now()) {
   let titulo = item.textos?.titulo || item.titulo || item.slug;
   if (titulo.length > 100) titulo = titulo.slice(0, 99).trimEnd() + "…";
   const status: Record<string, any> = { privacyStatus: modo === "publico" ? "public" : "private", selfDeclaredMadeForKids: false, embeddable: true, publicStatsViewable: true };
+  // Declaração de conteúdo realista alterado/sintético (status.containsSyntheticMedia): só vai se o item a trouxer (opcoes.conteudoSintetico), sem decidir por quem publica.
+  if (o.conteudoSintetico != null) status.containsSyntheticMedia = !!o.conteudoSintetico;
   if (modo === "agendado") {
     const t = Date.parse(item.quando);
     if (!(t > agora + 60e3)) throw new Error(`modo agendado: ${item.quando} já passou ou é daqui a menos de 1 minuto`);

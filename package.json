@@ -2,7 +2,7 @@
   "name": "praeko-js",
   "version": "0.0.0",
   "private": true,
-  "description": "Código-cliente do Praeko: @praeko/sdk e @praeko/cli (o servidor é fechado).",
+  "description": "Código-cliente do Praeko: @praeko/sdk, @praeko/cli e o Praeko Studio (@praeko/studio, studio-core, studio-kit). O servidor é fechado.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://praeko.app/docs",
@@ -14,13 +14,16 @@
     "url": "git+https://github.com/Praeko/praeko-js.git"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "studio/packages/*"
   ],
   "scripts": {
-    "test": "npm run build:sdk && node --test packages/*/test/*.test.mjs",
-    "typecheck": "npm run typecheck -w packages/sdk -w packages/core -w packages/cli",
+    "test": "npm run build:sdk && node --test packages/*/test/*.test.mjs && npm run test:studio",
+    "test:studio": "npm test -w studio/packages/cli -w studio/packages/publicar -w studio/packages/voz -w studio/packages/revisar -w studio/packages/hyperframes",
+    "typecheck": "npm run typecheck -w packages/sdk -w packages/core -w packages/cli -w studio/packages/core -w studio/packages/kit",
     "build:sdk": "node scripts/build-sdk.mjs",
     "build:cli": "node scripts/build-cli.mjs",
+    "build:studio": "node scripts/build-studio.mjs",
     "release:check": "node scripts/release-check.mjs",
     "prepare": "npm run build:sdk"
   },

@@ -5,3 +5,8 @@ packages/cli/dist/
 .DS_Store
 .env*
 .praeko/
+studio/packages/*/dist/
+studio/packages/cli/modelos/*.tmp
+.praeko-studio/
+out/
+.hf/

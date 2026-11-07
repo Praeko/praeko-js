@@ -138,3 +138,9 @@ test("planejar mostra modo e capa", async () => {
   const l = await yt.planejar({ item: item({ capa: "/x/c.png" }), ctx: mkctx(async () => {}) });
   assert.ok(l.join("\n").includes("privacidade private") && l.join("\n").includes("c.png"));
 });
+
+test("declaração de conteúdo sintético: só vai ao YouTube quando o item traz opcoes.conteudoSintetico", () => {
+  assert.equal("containsSyntheticMedia" in yt.montarMetadados(item(), NOW).status, false);
+  assert.equal(yt.montarMetadados(item({ opcoes: { conteudoSintetico: true } }), NOW).status.containsSyntheticMedia, true);
+  assert.equal(yt.montarMetadados(item({ opcoes: { conteudoSintetico: false } }), NOW).status.containsSyntheticMedia, false);
+});

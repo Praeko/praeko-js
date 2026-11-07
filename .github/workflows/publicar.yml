@@ -1,11 +1,12 @@
-# Publica no npm por PUBLICADOR CONFIÁVEL (OIDC): sem NPM_TOKEN. Dispara ao empurrar uma tag `sdk-vX.Y.Z` ou `cli-vX.Y.Z`.
+# Publica no npm por PUBLICADOR CONFIÁVEL (OIDC): sem NPM_TOKEN. Dispara ao empurrar uma tag `sdk-vX.Y.Z`, `cli-vX.Y.Z`, `studio-vX.Y.Z` (@praeko/studio), `studio-core-vX.Y.Z` ou `studio-kit-vX.Y.Z`.
+# Cada pacote precisa ter o Publicador Confiável configurado no npm (Settings -> Trusted Publisher) e já existir no registro: a 1ª publicação é manual (docs/publicar-npm.md do repositório privado).
 # ATENÇÃO: o npm amarra o publicador confiável ao repositório + NOME DESTE ARQUIVO (publicar.yml). Renomear o arquivo quebra a publicação até
 # reconfigurar em npmjs.com -> pacote -> Settings -> Trusted Publisher (Organization/usuário: Praeko, Repository: praeko-js, Workflow filename: publicar.yml).
 # Exige npm CLI >= 11.5.1 e Node >= 22.14 (docs.npmjs.com/trusted-publishers). A proveniência sai sozinha em repositório público.
 name: Publicar no npm
 on:
   push:
-    tags: ["sdk-v*", "cli-v*"]
+    tags: ["sdk-v*", "cli-v*", "studio-v*", "studio-core-v*", "studio-kit-v*"]
 permissions:
   contents: read
   id-token: write   # obrigatório: o npm troca o token OIDC do GitHub pela permissão de publicar
@@ -22,16 +23,14 @@ jobs:
           npm install -g npm@11
           v=$(npm -v); echo "npm $v"
           [ "$(printf '%s\n11.5.1\n' "$v" | sort -V | head -n1)" = "11.5.1" ] || { echo "npm $v é velho demais para publicação confiável"; exit 1; }
-      - name: Conferir que a tag bate com a versão do package.json
-        run: |
-          tag="${GITHUB_REF_NAME}"; pkg="${tag%%-v*}"; ver="${tag#*-v}"
-          case "$pkg" in sdk|cli) ;; *) echo "tag inesperada: $tag"; exit 1;; esac
-          atual=$(node -p "require('./packages/${pkg}/package.json').version")
-          [ "$atual" = "$ver" ] || { echo "tag $tag não bate com packages/$pkg/package.json ($atual)"; exit 1; }
-          echo "PACOTE=$pkg" >> "$GITHUB_ENV"
+      - name: Conferir que a tag bate com a versão do package.json e achar a pasta do pacote
+        run: node scripts/tag-pacote.mjs "${GITHUB_REF_NAME}" >> "$GITHUB_ENV"   # PACOTE=<sdk|cli|studio|studio-core|studio-kit> e DIR=<pasta>; sai com 1 se não bater
+      - name: Instalar ffmpeg (os testes do Studio usam)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: npm ci
       - run: npm run build:sdk   # tsc: o npm publish só leva dist/ (o prepack do pacote compila de novo)
+      - run: npm run build:studio
       - run: npm test
       - run: npm run typecheck
       - run: npm run release:check
-      - run: npm publish -w "packages/${PACOTE}" --provenance --access public
+      - run: npm publish -w "${DIR}" --provenance --access public

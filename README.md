@@ -8,7 +8,11 @@ Este repositório tem **só o cliente**. O servidor do Praeko é fechado; o comp
 |---|---|---|
 | [`@praeko/sdk`](./packages/sdk) | Cliente JS da API (Node, Workers e navegador), sem dependências, com tipos | [npm](https://www.npmjs.com/package/@praeko/sdk) |
 | [`@praeko/cli`](./packages/cli) | Comando `praeko`: posts, fila, canais, chaves, insights | [npm](https://www.npmjs.com/package/@praeko/cli) |
-| `packages/core` | Lógica compartilhada; **não é publicado**, entra no bundle da CLI | |
+| [`@praeko/studio`](./studio/packages/cli) | Praeko Studio: vídeos curtos e longos para você operar com o seu próprio agente de código (voz, legenda, cenas, capa, textos, publicação pelo Praeko) | [npm](https://www.npmjs.com/package/@praeko/studio) |
+| [`@praeko/studio-core`](./studio/packages/core), [`@praeko/studio-kit`](./studio/packages/kit) | Motor e peças de cena (Remotion) usados pelos projetos do Studio | [core](https://www.npmjs.com/package/@praeko/studio-core), [kit](https://www.npmjs.com/package/@praeko/studio-kit) |
+| `packages/core`, `studio/packages/{voz,publicar,revisar,hyperframes}` | Lógica compartilhada; **não são publicados**, entram no bundle da CLI e do Studio | |
+
+> **Licenças do Studio.** O código deste repositório é MIT. O **Remotion**, que o Studio usa como motor padrão, **não é MIT**: grátis para pessoas, organizações sem fins lucrativos e empresas de até 3 funcionários; empresas com 4 ou mais pessoas precisam da Company License ([remotion.pro/license](https://www.remotion.pro/license)). Veja [`studio/LICENSES.md`](./studio/LICENSES.md).
 
 ## Instalação
 
@@ -36,7 +40,7 @@ Node 22 ou superior. Guia completo, referência da API e exemplos: <https://prae
 
 ```sh
 npm ci
-npm test               # testes que não dependem do servidor
+npm test               # testes que não dependem do servidor (o Studio precisa de ffmpeg no PATH)
 npm run typecheck
 npm run release:check  # confere o que iria ao npm
 ```

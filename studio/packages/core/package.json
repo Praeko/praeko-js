@@ -1,0 +1,62 @@
+{
+  "name": "@praeko/studio-core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Motor do Praeko Studio: episódio por voz e palavras com tempo, legendas palavra a palavra, golpes de edição, fechamento e tema da marca (peças Remotion). Biblioteca para projetos criados com `praeko studio init`.",
+  "license": "MIT",
+  "keywords": [
+    "praeko",
+    "video",
+    "shorts",
+    "remotion",
+    "captions",
+    "engine"
+  ],
+  "homepage": "https://praeko.app/docs",
+  "bugs": {
+    "url": "https://praeko.app/docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Praeko/praeko-js.git",
+    "directory": "studio/packages/core"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "LICENSES.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../../scripts/build-studio.mjs core",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "remotion": "^4.0.539"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.539"
+  }
+}

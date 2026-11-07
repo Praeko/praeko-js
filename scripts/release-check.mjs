@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { REPO_PUBLICO, URL_ISSUES, URL_REPO } from "./repo-publico.mjs";
 
 const raiz = fileURLToPath(new URL("..", import.meta.url));
-export const PACOTES = { sdk: "packages/sdk", cli: "packages/cli" };
+export const PACOTES = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit" };
 const PROIBIDO = [/(^|\/)test\//, /\.test\.m?js$/, /\.check\.ts$/, /(^|\/)\.env/, /\.dev\.vars/, /segredos/i, /\.praeko\//, /\.arauto\//, /node_modules/, /\.map$/, /(^|\/)tsconfig[\w.]*\.json$/, /(^|\/)src\//, /(?<!\.d)\.m?ts$/, /\.(pem|key)$/];
 
 /** Lista o que o `npm pack` poria no tarball (sem gerar o arquivo). Não roda o `prepack`: compile antes (npm run build:sdk, npm run build -w packages/cli), senão a lista sai sem o dist/. */
@@ -38,12 +38,17 @@ export function problemas(chave) {
   const alvos = [...alvosExports(pkg.exports), ...(pkg.main ? [pkg.main] : []), ...(pkg.types ? [pkg.types] : []), ...Object.values(typeof pkg.bin === "string" ? { x: pkg.bin } : pkg.bin ?? {})];
   for (const a of alvos) if (a !== "./package.json" && !set.has(a.replace(/^\.\//, ""))) p.push(`aponta para arquivo fora do tarball: ${a}`);
   const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
-  for (const d of Object.keys(deps)) if (d.startsWith("@praeko/")) p.push(`dependência do monorepo em dependencies: ${d} (devia estar empacotada ou publicada)`);
+  const publicados = new Set(Object.keys(PACOTES).map((k) => JSON.parse(readFileSync(join(raiz, PACOTES[k], "package.json"), "utf8")).name));
+  for (const d of Object.keys(deps)) if (d.startsWith("@praeko/") && !publicados.has(d)) p.push(`dependência do monorepo em dependencies: ${d} (devia estar empacotada ou publicada)`);
+  if (/^(0\.0\.|)$/.test(pkg.version)) p.push("versão ainda 0.0.x");
+  if (chave.startsWith("studio") && !set.has("LICENSES.md")) p.push("falta no tarball: LICENSES.md (o aviso de licenças do Remotion)");
+  if (chave.startsWith("studio")) for (const a of arquivos) if (/\.(mp3|mp4|mov|ttf|otf|woff2?)$/i.test(a)) p.push(`mídia ou fonte no tarball (licença?): ${a}`);
   return p;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const w of ["packages/sdk", "packages/cli"]) execFileSync("npm", ["run", "build", "-w", w], { cwd: raiz, stdio: "inherit" });
+  execFileSync(process.execPath, [join(raiz, "scripts", "build-studio.mjs")], { stdio: "inherit" });
   let falhou = false;
   for (const chave of Object.keys(PACOTES)) {
     const { arquivos, tamanho, descompactado, nome } = listarTarball(PACOTES[chave]), pr = problemas(chave);

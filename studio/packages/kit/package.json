@@ -1,0 +1,64 @@
+{
+  "name": "@praeko/studio-kit",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Peças de cena do Praeko Studio (painel, caixa, linha, balão, código, janela, celular, moldura) e o episódio declarativo que lê o episodio.yaml compilado. Biblioteca para projetos criados com `praeko studio init`.",
+  "license": "MIT",
+  "keywords": [
+    "praeko",
+    "video",
+    "shorts",
+    "remotion",
+    "captions",
+    "kit"
+  ],
+  "homepage": "https://praeko.app/docs",
+  "bugs": {
+    "url": "https://praeko.app/docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Praeko/praeko-js.git",
+    "directory": "studio/packages/kit"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "LICENSES.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../../scripts/build-studio.mjs kit",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@praeko/studio-core": "^0.1.0",
+    "react": "^19.0.0",
+    "remotion": "^4.0.539"
+  },
+  "devDependencies": {
+    "@praeko/studio-core": "*",
+    "@types/react": "19.2.7",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.539"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

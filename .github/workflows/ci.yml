@@ -1,4 +1,5 @@
-# Integração contínua: compila o TypeScript, testes (sem rede e sem o servidor), tipos e conferência do que iria ao npm.
+# Integração contínua: compila o TypeScript, testes (sem rede e sem o servidor), tipos e conferência do que iria ao npm, para todos os pacotes
+# (sdk, cli, studio, studio-core, studio-kit). O Studio precisa de ffmpeg nos testes de voz/render; roda em Linux e macOS (Windows: melhor esforço, ainda não testado).
 name: CI
 on:
   push:
@@ -8,13 +9,24 @@ permissions:
   contents: read
 jobs:
   verificar:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with: { node-version: 22 }
+      - name: Instalar ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Instalar ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
       - run: npm ci
       - run: npm run build:sdk   # tsc: dist/ com JS e .d.ts do @praeko/sdk (o `npm ci` já compila pelo `prepare`; aqui falha explícito)
+      - run: npm run build:studio   # esbuild + tsc: dist/ de @praeko/studio, studio-core e studio-kit
       - run: npm test
       - run: npm run typecheck
       - run: npm run release:check
