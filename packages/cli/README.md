@@ -1,6 +1,6 @@
 # @praeko/cli
 
-Linha de comando do [Praeko](https://praeko.app): publica e agenda vídeos curtos no YouTube, Instagram e TikTok, e fala com a API do serviço (posts, fila, canais, chaves, insights). Comando `praeko` (o antigo `arauto` continua como apelido). Node 22 ou superior; `ffmpeg`/`ffprobe` só para os comandos que mexem em capa e vídeo.
+Linha de comando do [Praeko](https://praeko.app): publica e agenda vídeos curtos no YouTube, Instagram e TikTok, e fala com a API do serviço (posts, fila, canais, chaves, insights). Comando `praeko` (antes chamado `arauto`). Node 22 ou superior; `ffmpeg`/`ffprobe` só para os comandos que mexem em capa e vídeo.
 
 ## Instalação
 

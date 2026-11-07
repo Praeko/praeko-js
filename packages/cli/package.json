@@ -23,8 +23,7 @@
     "directory": "packages/cli"
   },
   "bin": {
-    "praeko": "dist/praeko.mjs",
-    "arauto": "dist/arauto.mjs"
+    "praeko": "dist/praeko.mjs"
   },
   "files": [
     "dist",

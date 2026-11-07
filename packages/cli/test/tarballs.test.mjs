@@ -18,7 +18,7 @@ test("tarball do sdk: sem problemas e com os tipos do contrato", () => {
 test("tarball da cli: sem problemas, sem dependências do monorepo e com o bundle", () => {
   assert.deepEqual(problemas("cli"), []);
   const { arquivos } = listarTarball("packages/cli");
-  assert.ok(arquivos.includes("dist/praeko.mjs") && arquivos.includes("dist/arauto.mjs"));
+  assert.ok(arquivos.includes("dist/praeko.mjs") && !arquivos.includes("dist/arauto.mjs"), "um só bin (praeko): com dois o npx @praeko/cli falha");
   assert.ok(!arquivos.some((a) => a.startsWith("src/") || a.startsWith("test/") || a.startsWith("bin/")));
   const pkg = JSON.parse(readFileSync(raiz + "packages/cli/package.json", "utf8"));
   assert.equal(pkg.dependencies, undefined);

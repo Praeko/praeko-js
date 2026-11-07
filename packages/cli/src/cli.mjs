@@ -36,7 +36,7 @@ const DIA = { dom: "sun", seg: "mon", ter: "tue", qua: "wed", qui: "thu", sex: "
 const ESTADO_PT = { draft: "rascunho", scheduled: "agendado", sent: "enviado", error: "erro", canceled: "cancelado", private: "privado", queued: "fila" };
 const estadoPt = (e) => ESTADO_PT[e] ?? e;
 
-export const AJUDA = `Praeko CLI (formerly "arauto"; both commands work; "arauto" is kept as an alias for now): personal publisher (YouTube, Instagram, TikTok)
+export const AJUDA = `Praeko CLI (formerly "arauto"): personal publisher (YouTube, Instagram, TikTok)
 
   post <folder|name> --when "06/11 17:30" [--networks yt,ig,tt] [--yt|--ig|--tt "time"]
        [--yt-mode private|scheduled|public] [--tt-mode draft|direct] [--via local|buffer] [--send]
