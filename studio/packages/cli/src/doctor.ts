@@ -5,6 +5,7 @@ import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { balances, getKey, loadConfig, resolveVoice, sameBalanceGroups } from "@praeko/studio-voice";
 import type { AccountBalance } from "@praeko/studio-voice";
+import { praeko } from "@praeko/studio-publish";
 import { findProjectRoot, isLegacyLayout } from "./project.ts";
 import { noticeText, readAcceptance } from "./licenses.ts";
 
@@ -83,6 +84,24 @@ export async function voiceItems({ offline, create }: { offline: boolean; create
   return items;
 }
 
+/**
+ * Praeko key scope. There is no "who am I" route, so it uses the one route that REQUIRES the admin scope and only returns metadata (GET /v1/api-keys):
+ * 200 = the key is admin (warning: Studio only uploads and posts, a write key is enough), 403 = a lower scope (fine), 401 = the key is not accepted.
+ * Anything else (no network, odd answer) is left unsaid. Skipped with --offline. The key goes only to the Praeko URL of the project (https, or localhost).
+ */
+export async function praekoScopeItems({ key, brand, fetchFn = fetch }: { key: string; brand?: any; fetchFn?: typeof fetch }): Promise<DoctorItem[]> {
+  let url: string;
+  try { url = praeko.normalizeUrl(praeko.praekoConfig(brand).url); } catch { return []; }
+  try {
+    const r = await fetchFn(`${url}/v1/api-keys`, { method: "GET", headers: { authorization: `Bearer ${key}`, "x-praeko-contract": "en" }, signal: AbortSignal.timeout(6000) });
+    await (r as Response).body?.cancel?.().catch(() => {});
+    if (r.status === 200) return [{ id: "key-praeko-scope", level: "warning", msg: "Praeko key has the admin scope (Studio only needs to upload and create posts)", fix: "create a key with the write scope in the Praeko dashboard (API keys) and save it: echo $KEY | praeko studio schedule --via praeko --key" }];
+    if (r.status === 403) return [{ id: "key-praeko-scope", level: "ok", msg: "Praeko key scope: write or read (not admin)" }];
+    if (r.status === 401) return [{ id: "key-praeko-scope", level: "warning", msg: "Praeko did not accept the key (invalid, revoked or expired)", fix: "create another key in the dashboard and save it: echo $KEY | praeko studio schedule --via praeko --key" }];
+  } catch { /* no network: the network line below says so */ }
+  return [];
+}
+
 export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn = fetch, voiceCreate }: { offline?: boolean; cwd?: string; fetchFn?: typeof fetch; voiceCreate?: NonNullable<BalanceOpts>["create"] } = {}): Promise<DoctorItem[]> {
   const items: DoctorItem[] = [], add = (id: string, level: Level, msg: string, fix?: string) => items.push({ id, level, msg, ...(fix ? { fix } : {}) });
   const major = +process.versions.node!.split(".")[0]!;
@@ -100,9 +119,11 @@ export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn =
   if (brand) {
     for (const [k, css] of Object.entries<string>(brand.fonts || {})) { const f = primaryFamily(css); if (f && !hasFont(f)) add(`font-${k}`, "warning", `font "${f}" (brand.fonts.${k}) is not installed: the text will fall back to another font and wrap differently`, "install the font or change `fonts` in brand.json to one that exists on both systems (open fonts: Inter, Montserrat, JetBrains Mono)"); else if (f) add(`font-${k}`, "ok", `font "${f}" installed`); }
   } else add("fonts", "info", "fonts are checked inside a project (brand.json)");
-  for (const [ref, name, hint] of [["elevenlabs/principal", "ElevenLabs (final voice)", "only needed for --quality final; the silent draft is free"], ["praeko/main", "Praeko key (publishing)", "create it in the dashboard (write scope); only needed to publish"]] as const) {
+  for (const [ref, name, hint] of [["elevenlabs/principal", "ElevenLabs (final voice)", "only needed for --quality final; the silent draft is free"], ["praeko/main", "Praeko key (publishing)", "create it in the dashboard (write scope, not admin); only needed to publish and upload"]] as const) {
     const has = !!getKey(ref); add(`key-${ref.split("/")[0]}`, has ? "ok" : "info", `${name}: ${has ? "present" : "absent"}`, has ? undefined : hint);
   }
+  const pk = getKey("praeko/main");
+  if (pk && !offline) items.push(...(await praekoScopeItems({ key: pk, brand, fetchFn })));
   items.push(...(await voiceItems({ offline, create: voiceCreate })));
   if (offline) add("network", "info", "network not checked (--offline)");
   else { try { const r = await fetchFn("https://praeko.app/", { method: "HEAD", signal: AbortSignal.timeout(6000) }); add("network", r.status < 500 ? "ok" : "warning", `praeko.app answered ${r.status}`); } catch (e: any) { add("network", "warning", `no access to praeko.app (${e.cause?.code || e.message})`, "only affects publishing; rendering and building the package work without network (after the first Chrome download)"); } }

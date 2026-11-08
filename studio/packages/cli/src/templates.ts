@@ -2,7 +2,7 @@
 // Versions `init` pins in the new project: Remotion, React and Studio's own (injected at build time; in development they come from package.json).
 export const VERSIONS = { remotion: "4.0.539", react: "19.2.3", reactTypes: "19.2.7", typescript: "5.9.3" };
 /** New project: dependencies by published version (semver). With `dev` (path to the Studio repository) it uses `file:` (the way contributors work). */
-export const projectPackage = ({ name, dev = null, studioVersion = "0.2.2" }: { name: string; dev?: string | null; studioVersion?: string }): string => JSON.stringify({
+export const projectPackage = ({ name, dev = null, studioVersion = "0.2.3" }: { name: string; dev?: string | null; studioVersion?: string }): string => JSON.stringify({
   name, version: "0.0.1", private: true,
   scripts: { dev: "remotion studio src/index.ts" },
   dependencies: {

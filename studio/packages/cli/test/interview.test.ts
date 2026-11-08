@@ -216,3 +216,22 @@ test("--yes imports colors and font from ../brand tokens, --brand points elsewhe
   const d5 = join(base, "no-brand-again"), r5 = studio(["init", d5, "--yes", "--no-install", "--name", "Plain"]);
   assert.doesNotMatch(r5.stdout, /imported from/); assert.equal(readFileSync(join(d5, "brand.json"), "utf8"), initialBrand({ name: "Plain", handle: "@plain" }));
 });
+
+test("init and brief end with the two install lines of the local MCP server (the only change in their output)", () => {
+  const d = join(base, "mcp-lines"), r = studio(["init", d, "--yes", "--no-install", "--name", "Lines"]);
+  assert.equal(r.status, 0, r.stderr);
+  const tail = r.stdout.split("\n").slice(-5).join("\n");
+  assert.match(r.stdout, /\nnext step: cd .* && npx praeko-studio new my-first --title "My first video"\n\nlocal MCP server \(for an agent without a terminal, such as Claude Desktop\), same project:\n  claude mcp add praeko-studio -- npx -y @praeko\/studio-mcp --project \S+\n  generic JSON: \{"command":"npx","args":\["-y","@praeko\/studio-mcp","--project","[^"]+"\]\}\n$/, tail);
+  const json = JSON.parse(/generic JSON: (.*)/.exec(r.stdout)![1]!);
+  assert.ok(json.args[3].startsWith("/") || /^[A-Za-z]:/.test(json.args[3]), "the folder is absolute");
+  assert.ok(json.args[3].endsWith("mcp-lines"));
+  const pt = studio(["init", join(base, "mcp-lines-pt"), "--yes", "--no-install", "--lang", "pt"]);
+  assert.match(pt.stdout, /servidor MCP local \(para um agente sem terminal, como o Claude Desktop\), mesmo projeto:\n  claude mcp add praeko-studio -- npx -y @praeko\/studio-mcp/);
+  const b = studio(["brief", "--yes", "--about", "cats"], d);
+  assert.equal(b.status, 0, b.stderr);
+  assert.match(b.stdout, /claude mcp add praeko-studio -- npx -y @praeko\/studio-mcp --project /);
+  // a folder with a space is quoted for the shell and stays one argument in the JSON
+  const sp = join(base, "my channel"), s2 = studio(["init", sp, "--yes", "--no-install", "--name", "Spaced"]);
+  assert.match(s2.stdout, /--project "[^"]*my channel"\n/);
+  assert.equal(JSON.parse(/generic JSON: (.*)/.exec(s2.stdout)![1]!).args[3].endsWith("my channel"), true);
+});

@@ -75,13 +75,13 @@ test("the log is bounded, masked and returns only the tail asked for", async () 
   noSecret("log", leaked.text); assert.doesNotMatch(leaked.text, /abcdefghijklmnop12345/);
   await c.close();
 });
-test("studio_job rejects bad ids and unknown jobs; draft voice only", async () => {
+test("studio_job rejects bad ids and unknown jobs; final voice needs a preview first", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   for (const id of ["x", "job_1", "../../etc", "job_0123456789abcdeg"]) assert.ok((await c.call("studio_job", { jobId: id })).isError, id);
   assert.ok((await c.call("studio_job", { jobId: "job_0123456789abcdef" })).isError);
   assert.ok((await c.call("studio_job", { action: "status" })).isError, "jobId required");
   const f = await c.call("studio_voice", { slug: "quick", quality: "final" });
-  assert.ok(f.isError); assert.match(f.body.error, /phase 3/); assert.equal(c.jobs.list().length, 0, "final never starts a job");
+  assert.ok(f.isError); assert.match(f.body.error, /script\.txt does not exist/); assert.equal(c.jobs.list().length, 0, "final never starts a job without a preview and a code");
   assert.ok((await c.call("studio_voice", { slug: "quick", quality: "local" })).isError);
   assert.ok((await c.call("studio_render", { slug: "quick", scale: 5 })).isError);
   assert.ok((await c.call("studio_render", { slug: "quick", engine: "x;rm" })).isError);

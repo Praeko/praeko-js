@@ -24,7 +24,7 @@ test("init: dependencies by published semver (no file:), @praeko/studio in devDe
   assert.equal(r.status, 0, r.stderr);
   const pj = JSON.parse(read(join(proj, "package.json")));
   assert.match(pj.dependencies["@praeko/studio-core"], /^\^\d+\.\d+\.\d+$/); assert.match(pj.dependencies["@praeko/studio-kit"], /^\^\d+\.\d+\.\d+$/);
-  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.2");
+  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.3");
   assert.match(pj.devDependencies["@praeko/studio"], /^\^\d/);
   assert.doesNotMatch(JSON.stringify(pj), /file:/);
   assert.doesNotMatch(read(join(proj, "remotion.config.ts")), /alias|node_modules\/remotion/);
@@ -158,7 +158,7 @@ test("docs: lists the topics and prints one; an unknown topic fails; --version a
   const help = cli(["--help"]).stdout;
   assert.doesNotMatch(help, /bardo/i);
   const pkg = JSON.parse(read(join(PACKAGE, "package.json")));
-  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.2");
+  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.3");
 });
 test("publication audit: nothing of the owner (name, brand, voice ids, paths, game) in the packages that go public", () => {
   // the patterns are built in parts so this file does not accuse itself in the publication scan
@@ -202,4 +202,44 @@ test("doctor voice section: accounts, balance, final voice, same-balance and mis
   writeFileSync(join(cfgDir, "voices.json"), JSON.stringify({ accounts: { elevenlabs: ["one", "three"] }, voices: { "my-voice": { provider: "elevenlabs", ids: { three: "ID3" } } }, quality: { final: "my-voice" } }));
   const w = JSON.parse(cli(["doctor", "--json", "--offline"], base, env).stdout);
   assert.equal(w.items.find((i: any) => i.id === "voice-final-id").level, "warning"); assert.ok(!w.items.some((i: any) => i.id.startsWith("voice") && i.level === "error"));
+});
+
+test("doctor: warns (a warning, never an error) when the Praeko key is admin; quiet for write/read; skipped offline and without a key; the key only goes to the configured URL", async () => {
+  const KEY = "praeko_FAKEdoctorKEY0123456789";
+  const http = await import("node:http");
+  const seen: { auth: string; path: string }[] = [];
+  let status = 200;
+  const server = http.createServer((req, res) => { seen.push({ auth: String(req.headers.authorization), path: req.url || "" }); res.writeHead(status, { "content-type": "application/json" }); res.end("{}"); });
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const proj = join(base, "scope-proj");
+  cli(["init", proj, "--yes", "--name", "Scope Test", "--handle", "@scopetest", "--agent", "claude", "--no-install"]);
+  const brand = JSON.parse(read(join(proj, "brand.json"))); brand.publishing = { ...(brand.publishing || {}), praeko: { url } };
+  writeFileSync(join(proj, "brand.json"), JSON.stringify(brand));
+  const withVars = async <T,>(vars: Record<string, string | undefined>, f: () => Promise<T>): Promise<T> => {
+    const all = { PRAEKO_NO_KEYCHAIN: "1", PRAEKO_SECRETS: join(base, "none.json"), PRAEKO_STUDIO_CONFIG: join(base, "cfg-scope"), ...vars }, old = Object.keys(all).map((k) => process.env[k]);
+    for (const [k, v] of Object.entries(all)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    try { return await f(); } finally { Object.keys(all).forEach((k, i) => { if (old[i] === undefined) delete process.env[k]; else process.env[k] = old[i]; }); }
+  };
+  const env = { PRAEKO_KEY: KEY };
+  try {
+    const admin = await withVars(env, () => diagnose({ cwd: proj, fetchFn: ((u: string, init: any) => fetch(u.startsWith(url) ? u : url + "/head", init)) as any, voiceCreate: (() => { throw new Error("no account"); }) as any }));
+    const item = admin.find((i) => i.id === "key-praeko-scope")!;
+    assert.equal(item.level, "warning"); assert.match(item.msg, /admin scope/); assert.match(item.fix!, /write scope/);
+    assert.ok(admin.every((i) => i.level !== "error" || ["node", "ffmpeg", "ffprobe"].includes(i.id)), "never an error");
+    assert.deepEqual(seen.filter((s) => s.path === "/v1/api-keys").map((s) => s.auth), [`Bearer ${KEY}`]);
+    assert.doesNotMatch(JSON.stringify(admin), /FAKEdoctorKEY/);
+    status = 403;
+    const write = await withVars(env, () => diagnose({ cwd: proj, fetchFn: ((u: string, init: any) => fetch(u.startsWith(url) ? u : url + "/head", init)) as any }));
+    assert.equal(write.find((i) => i.id === "key-praeko-scope")!.level, "ok");
+    status = 401;
+    assert.equal((await withVars(env, () => diagnose({ cwd: proj, fetchFn: ((u: string, init: any) => fetch(u.startsWith(url) ? u : url + "/head", init)) as any }))).find((i) => i.id === "key-praeko-scope")!.level, "warning");
+    const before = seen.length;
+    assert.equal((await withVars(env, () => diagnose({ cwd: proj, offline: true, fetchFn: (async () => { throw new Error("offline must not call"); }) as any }))).some((i) => i.id === "key-praeko-scope"), false, "--offline skips it");
+    assert.equal((await withVars({ PRAEKO_KEY: undefined }, () => diagnose({ cwd: proj, fetchFn: (async () => ({ status: 200 })) as any }))).some((i) => i.id === "key-praeko-scope"), false, "no key, no check");
+    assert.equal(seen.length, before);
+    const pt = spawnSync(process.execPath, [BIN, "doctor", "--lang", "pt"], { cwd: proj, encoding: "utf8", env: { ...ENV, PRAEKO_KEY: KEY } });
+    status = 200; // (the pt run above used 401: only checks that nothing in the output is the key)
+    assert.doesNotMatch(pt.stdout + pt.stderr, /FAKEdoctorKEY/);
+  } finally { server.close(); }
 });

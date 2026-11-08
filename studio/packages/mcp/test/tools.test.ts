@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { TOOL_NAMES } from "../src/server.ts";
 import { FAKE_BIN, REAL_BIN, SECRETS, connect, fakeProject, noSecret, realProject, tmp } from "./helpers.ts";
 
-const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_status", "studio_voice", "studio_write_script"];
+const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_status", "studio_upload", "studio_voice", "studio_write_script"];
 
-test("the tool list is exactly the expected one and nothing publishes, schedules, queues, uploads or connects", async () => {
+test("the tool list is exactly the expected one and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   const { tools } = await c.client.listTools();
   assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
   assert.deepEqual([...TOOL_NAMES].sort(), EXPECTED);
-  for (const t of tools) assert.doesNotMatch(t.name, /post|schedule|queue|account|connect|upload|publish|login|key/i, t.name);
+  for (const t of tools) assert.doesNotMatch(t.name, /post|schedule|queue|account|connect|publish|login|key/i, t.name);
   await c.close();
 });
 test("every input schema is closed (additionalProperties false) and an extra property is refused", async () => {
@@ -106,8 +106,9 @@ test("end to end: new, write_script, compile, voice draft, check, package, rende
   assert.ok(bad.isError); assert.match(bad.body.error, /not valid YAML/);
   assert.ok((await c.call("studio_write_script", { slug: "demo", file: "episode.yaml", content: "- a\n- b" })).isError, "must be a mapping");
   assert.ok((await c.call("studio_write_script", { slug: "nobody", file: "script.txt", content: "x" })).isError, "unknown episode");
-  const vf = await c.call("studio_voice", { slug: "demo", quality: "final" });
-  assert.ok(vf.isError); assert.match(vf.body.error, /phase 3/);
+  // quality final never runs without the two-step preview (the real one, here, would need ElevenLabs: the preview must stop before any spend)
+  const vf = await c.call("studio_voice", { slug: "demo", quality: "final", confirm: "AAAA-BBBB" });
+  assert.ok(vf.isError); assert.equal(vf.body.reason, "unknown_code");
   const v = await c.call("studio_voice", { slug: "demo" });
   assert.ok(!v.isError, v.text); assert.match(v.body.jobId, /^job_[a-f0-9]{16}$/);
   const done = await c.call("studio_job", { action: "status", jobId: v.body.jobId, waitSeconds: 60 });

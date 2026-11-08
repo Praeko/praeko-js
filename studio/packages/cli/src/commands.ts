@@ -94,7 +94,18 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   console.log("\n" + noticeText());
   if (!has(a, "no-install")) { const c = await npmInstall(dir); if (c) throw new Error("npm install failed"); }
   console.log(`\nnext step: cd ${dir} && npx praeko-studio new my-first --title "My first video"`);
+  console.log("\n" + mcpInstallLines(dir).join("\n"));
   return 0;
+}
+
+/** The two install lines of the local MCP server (@praeko/studio-mcp) for a project folder: the Claude Code command and the generic JSON block (command + args). */
+export function mcpInstallLines(dir: string): string[] {
+  const abs = resolve(dir), quoted = /^[A-Za-z0-9_@%+=:,./~-]+$/.test(abs) ? abs : `"${abs.replace(/(["\\$`])/g, "\\$1")}"`;
+  return [
+    "local MCP server (for an agent without a terminal, such as Claude Desktop), same project:",
+    `  claude mcp add praeko-studio -- npx -y @praeko/studio-mcp --project ${quoted}`,
+    `  generic JSON: ${JSON.stringify({ command: "npx", args: ["-y", "@praeko/studio-mcp", "--project", abs] })}`,
+  ];
 }
 
 /** `praeko studio brief [--only about,tone,…] [answer flags]`: reopens the interview in an existing project. */
@@ -126,6 +137,7 @@ export async function brief(a: string[], io: InitIO = {}): Promise<number> {
   const file = join(proj.root, "brand.json"), cur = readFileSync(file, "utf8"), next = applyBrand(cur, ans, prevBrief?.font);
   if (next !== cur) { writeFileSync(file, next); console.log("brief: updated brand.json"); }
   for (const m of writeBriefFiles(proj.root, ans, prevBrief)) console.log(m);
+  console.log("\n" + mcpInstallLines(proj.root).join("\n"));
   return 0;
 }
 

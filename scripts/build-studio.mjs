@@ -3,7 +3,7 @@
 //              (with relative specifiers rewritten to `.js`, which is what consumers resolve).
 //   cli (@praeko/studio): one bundle per script (praeko-studio, voice-balance, voice-voices, voice-account, voice-config) with cli+voice+publish+review+hyperframes+yaml inside;
 //              only the ElevenLabs SDK stays external (declared dependency).
-//   mcp (@praeko/studio-mcp): one bundle (praeko-studio-mcp) with the server code and yaml inside; the MCP SDK, zod and @praeko/studio (whose CLI it runs) stay external.
+//   mcp (@praeko/studio-mcp): one bundle (praeko-studio-mcp) with the server code, yaml, the voice package and @praeko/sdk inside; the MCP SDK, zod, the ElevenLabs SDK and @praeko/studio (whose CLI it runs) stay external.
 //              Also syncs LICENSE and LICENSES.md from studio/ into each package.
 import { build } from "esbuild";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -66,7 +66,7 @@ async function mcp() {
   rmSync(dir + "dist", { recursive: true, force: true });
   await build({
     entryPoints: { "praeko-studio-mcp": dir + "bin/praeko-studio-mcp.ts" }, outdir: dir + "dist", bundle: true, format: "esm", platform: "node", target: "node22", outExtension: { ".js": ".mjs" }, logLevel: "error", legalComments: "none",
-    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/sdk/*", "zod", "@praeko/studio", "@praeko/studio/*"], define: { __MCP_VERSION__: JSON.stringify(readVersion("mcp")) },
+    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/sdk/*", "zod", "@praeko/studio", "@praeko/studio/*", "@elevenlabs/elevenlabs-js"], define: { __MCP_VERSION__: JSON.stringify(readVersion("mcp")) },
     banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   });
   chmodSync(dir + "dist/praeko-studio-mcp.mjs", 0o755);

@@ -15,7 +15,7 @@ test("the real stdio server: clean protocol on stdout, a tool call works, nothin
   await client.connect(transport);
   transport.stderr?.on("data", (d) => (err += d));
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 13);
+  assert.equal(tools.length, 14);
   const r: any = await client.callTool({ name: "studio_status", arguments: {} });
   assert.match(r.content[0].text, /"id": "node"/);
   noSecret("stdout", JSON.stringify(r));

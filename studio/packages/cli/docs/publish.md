@@ -12,6 +12,9 @@ praeko studio schedule <slug> --status | --cancel | --clear
 ```
 `brand.json` → `publishing.provider: "praeko"` makes Praeko the default (`init` already writes it that way). `publishing.praeko.channels` pins the account when there is more than one per network. YouTube is uploaded as private and scheduled; TikTok goes as a draft (`publishing.praeko.tiktok.mode`); the minimum time is 5 minutes ahead.
 
+## Agent without a terminal (Claude Desktop and others): the local MCP server
+`@praeko/studio-mcp` runs on your machine and exposes the Studio steps as tools (`studio_new_episode`, `studio_voice`, `studio_render`, `studio_package`, …). `studio_upload` puts the rendered video and cover in your Praeko media library (two steps: preview and `confirm`) and returns the media ids; publishing is still the remote `praeko` MCP's `create_post`, in two steps. `praeko studio init` and `brief` end by printing the install lines for the project.
+
 ## Through the Praeko MCP (agent with a shell)
 The video file never goes through the MCP. In one step: `create_media_upload { type: "video", name, mime, size }` (`size` in bytes: `wc -c < file`) returns a ready `curl`; upload the file; then `complete_media_upload { mediaId }` until the state is `ready`. Then `create_post`/`schedule_post` in **two steps**: the 1st call returns only the **preview** and a `confirmation_code`; **show the whole preview to the person**, wait for the yes and repeat the call with the same arguments plus `confirm`. The agent never confirms on its own. See the MCP documentation at praeko.app/docs.
 

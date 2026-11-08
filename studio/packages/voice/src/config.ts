@@ -53,11 +53,11 @@ const merge = (base: any, extra: any): VoicesConfig => ({
   quality: { ...base.quality, ...extra.quality }, voicestudio: { ...base.voicestudio, ...extra.voicestudio },
 });
 
-/** With `file`, reads only that file (tests and advanced use). With no argument, merges default < user < project. */
-export function loadConfig(file?: string): VoicesConfig {
+/** With `file`, reads only that file (tests and advanced use). With no argument, merges default < user < project (`from`: where to look for the project, default the current folder). */
+export function loadConfig(file?: string, from?: string): VoicesConfig {
   if (file) return merge({ accounts: {}, voices: {}, strategy: {} }, readJson(file));
   let c: VoicesConfig = structuredClone(DEFAULT_VOICES);
-  for (const f of [userVoicesFile(), projectVoicesFile()]) if (f && existsSync(f)) c = merge(c, readJson(f));
+  for (const f of [userVoicesFile(), projectVoicesFile(from)]) if (f && existsSync(f)) c = merge(c, readJson(f));
   return c;
 }
 
