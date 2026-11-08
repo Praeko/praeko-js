@@ -14,6 +14,11 @@ You (the agent) run Praeko Studio **on the person's machine**: you write the scr
 
 Full docs for the installed version: \`praeko studio docs\` (list) and \`praeko studio docs episode-yaml\`, \`long-yaml\`, \`voice\`, \`publish\`, \`hyperframes\`. When unsure about the YAML format, read it first. \`praeko studio doctor\` checks the environment (Node, ffmpeg, Chromium, fonts, keys, network).
 
+## First: the brand brief (before the first script)
+- If \`brief.md\` exists in the project, **read it, and \`playbook.md\`, before writing any script** and follow them. Where the playbook says \`TODO\`, complete it (below) and tell the person what you filled in.
+- If \`brief.md\` does **not** exist, run the same interview as \`praeko studio init\`, **by talking**: short questions, **one at a time**, each skippable: channel name and handle, language (pt|en), what the channel is about (one sentence), who it is for, tone of voice (one sentence), colors (accent and background, hex) and font, 0 to 3 references (a URL or a description, plus what the person liked in it), and the voice (name/alias and provider only; **never ask for a key**). If a \`brand/\` folder sits next to the project (\`../brand/build/tokens.json\`), read it (never copy it out) and offer its colors and font as the defaults. Then write \`brief.md\`, \`playbook.md\` and the \`brand.json\` fields (name, handle, \`colors.accent\`, \`colors.background\`, \`fonts.title\`), show the person what you wrote and **only then** make the first video. \`praeko studio brief\` reopens the interview from the terminal (it keeps a \`.bak\` of brief.md and never overwrites an edited playbook.md).
+- References: study each one with the tools **you** already have (open the page, read the transcript or captions, look at frames). Studio does not download or analyze video. Write what you find in \`playbook.md\` as **rules** (pace, how it opens, caption style, length), never as a copy of someone's video: no reusing their script, structure beat by beat, footage or voice. If you cannot access a reference, say so and leave the \`TODO\`; never invent an analysis of a video nobody watched.
+
 ## Short workflow
 1. \`praeko studio new <slug> --title "…"\` creates \`episodes/<slug>/\` (script, publication.json, episode.yaml, scenes.tsx, cover) and registers it in \`src/Root.tsx\`.
 2. Check every fact against its source and write \`script.txt\`. **The person approves the text before any spend** (final voice).
@@ -26,7 +31,7 @@ Full docs for the installed version: \`praeko studio docs\` (list) and \`praeko 
 ## Text rules
 - Spoken text: short sentences, numbers spelled out, addresses as spoken (\`pronunciation\` in \`brand.json\`), few English emotion tags (\`[curious]\`, \`[confident]\`, \`[short pause]\`), about 190 words per minute.
 - No real person's name without consent (\`bannedNames\` in \`brand.json\`). Every number has a source; anything unmeasured is called an estimate.
-- Brand style rules live in \`brand.json\` and the project's \`playbook.md\`, if any. \`package\` flags AI writing tics (\`publishing.aiTics: false\` in \`brand.json\` turns it off).
+- Brand style rules live in \`brand.json\`, \`brief.md\` and the project's \`playbook.md\`. \`package\` flags AI writing tics (\`publishing.aiTics: false\` in \`brand.json\` turns it off).
 
 ## Voice, costs and secrets
 - Keys **never** in project files, logs or chat: \`echo $KEY | praeko studio voice config key elevenlabs/principal\` stores it in the OS keychain (macOS) or in \`~/.config/praeko/secrets.json\`; \`ELEVENLABS_API_KEY\` and \`PRAEKO_KEY\` also work.
@@ -55,6 +60,11 @@ Você (o agente) opera o Praeko Studio **na máquina da pessoa**: escreve o rote
 
 Documentação completa da versão instalada: \`praeko studio docs\` (lista) e \`praeko studio docs episode-yaml\`, \`long-yaml\`, \`voice\`, \`publish\`, \`hyperframes\`. Em dúvida sobre o formato do YAML, leia antes de chutar. \`praeko studio doctor\` confere o ambiente (Node, ffmpeg, Chromium, fontes, chaves, rede).
 
+## Primeiro: o brief da marca (antes do primeiro roteiro)
+- Se existir \`brief.md\` no projeto, **leia-o, e o \`playbook.md\`, antes de escrever qualquer roteiro** e siga os dois. Onde o playbook diz \`TODO\`, complete (abaixo) e conte à pessoa o que preencheu.
+- Se **não** existir \`brief.md\`, faça a mesma entrevista do \`praeko studio init\`, **conversando**: perguntas curtas, **uma de cada vez**, todas puláveis: nome e handle do canal, idioma (pt|en), sobre o que é o canal (uma frase), para quem é, tom de voz (uma frase), cores (destaque e fundo, hex) e fonte, 0 a 3 referências (uma URL ou uma descrição, mais o que a pessoa gostou nela) e a voz (só nome/alias e provedor; **nunca peça uma chave**). Se houver uma pasta \`brand/\` ao lado do projeto (\`../brand/build/tokens.json\`), leia (sem copiar para fora) e ofereça as cores e a fonte dela como padrão. Depois grave \`brief.md\`, \`playbook.md\` e os campos do \`brand.json\` (nome, handle, \`colors.accent\`, \`colors.background\`, \`fonts.title\`), mostre à pessoa o que gravou e **só então** faça o primeiro vídeo. \`praeko studio brief\` reabre a entrevista pelo terminal (guarda um \`.bak\` do brief.md e nunca sobrescreve um playbook.md editado).
+- Referências: estude cada uma com as ferramentas que **você** já tem (abrir a página, ler a transcrição ou a legenda, olhar quadros). O Studio não baixa nem analisa vídeo. Escreva o que achar no \`playbook.md\` como **regras** (ritmo, como abre, estilo de legenda, duração), nunca como cópia do vídeo de alguém: nada de reaproveitar roteiro, estrutura batida a batida, imagens ou voz. Se não conseguir acessar uma referência, diga e deixe o \`TODO\`; nunca invente a análise de um vídeo que ninguém assistiu.
+
 ## Fluxo de um Short
 1. \`praeko studio new <slug> --title "…"\` cria \`episodes/<slug>/\` (script.txt, publication.json, episode.yaml, scenes.tsx, capa) e registra no \`src/Root.tsx\`.
 2. Confira cada fato contra a fonte e escreva \`script.txt\`. **A pessoa aprova o texto antes de qualquer gasto** (voz final).
@@ -67,7 +77,7 @@ Documentação completa da versão instalada: \`praeko studio docs\` (lista) e \
 ## Regras do texto
 - Texto falado: frases curtas, números por extenso, endereço como se fala (\`pronunciation\` no \`brand.json\`), poucas tags de emoção em inglês (\`[curious]\`, \`[confident]\`, \`[short pause]\`), cerca de 190 palavras por minuto.
 - Sem nome de pessoa real sem consentimento (\`bannedNames\` no \`brand.json\`). Cada número tem fonte; o que não foi medido é dito como estimativa.
-- Regras de estilo da marca ficam no \`brand.json\` e no \`playbook.md\` do projeto, se existir. O \`package\` avisa tiques de texto de IA (\`publishing.aiTics: false\` no \`brand.json\` desliga).
+- Regras de estilo da marca ficam no \`brand.json\`, no \`brief.md\` e no \`playbook.md\` do projeto. O \`package\` avisa tiques de texto de IA (\`publishing.aiTics: false\` no \`brand.json\` desliga).
 
 ## Voz, custos e segredos
 - Chaves **nunca** em arquivo do projeto, em log ou no chat: \`echo $CHAVE | praeko studio voice config key elevenlabs/principal\` guarda no cofre do sistema (macOS) ou em \`~/.config/praeko/secrets.json\`; variáveis \`ELEVENLABS_API_KEY\` e \`PRAEKO_KEY\` também valem.

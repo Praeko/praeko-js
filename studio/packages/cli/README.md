@@ -32,6 +32,8 @@ praeko-studio voice my-first --quality draft                       # estimated, 
 praeko-studio check my-first
 praeko-studio render my-first && praeko-studio contact-sheet my-first && praeko-studio cover my-first && praeko-studio package my-first
 ```
+In a terminal, `init` first interviews you (name, audience, tone, colors, font, up to 3 references; Enter skips any question) and writes `brief.md` and a draft `playbook.md` that your agent reads before the first script. Everything can also come by flag (`--about`, `--audience`, `--tone`, `--accent`, `--background`, `--font`, `--reference`, `--reference-note`), and `--yes` (or no terminal) asks nothing. Studio does not watch the references: your agent analyzes them. `praeko-studio brief` reopens the interview later (keeps `brief.md.bak`, never overwrites an edited `playbook.md`).
+
 Open your agent in the project folder and ask for the video: the instructions (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`/`.cursor/rules`…) are already there (`praeko studio skill install --agent all` rewrites them). Docs of the installed version: `praeko studio docs`.
 
 ## Publish

@@ -9,6 +9,11 @@ You (the agent) run Praeko Studio **on the person's machine**: you write the scr
 
 Full docs for the installed version: `praeko studio docs` (list) and `praeko studio docs episode-yaml`, `long-yaml`, `voice`, `publish`, `hyperframes`. When unsure about the YAML format, read it first. `praeko studio doctor` checks the environment (Node, ffmpeg, Chromium, fonts, keys, network).
 
+## First: the brand brief (before the first script)
+- If `brief.md` exists in the project, **read it, and `playbook.md`, before writing any script** and follow them. Where the playbook says `TODO`, complete it (below) and tell the person what you filled in.
+- If `brief.md` does **not** exist, run the same interview as `praeko studio init`, **by talking**: short questions, **one at a time**, each skippable: channel name and handle, language (pt|en), what the channel is about (one sentence), who it is for, tone of voice (one sentence), colors (accent and background, hex) and font, 0 to 3 references (a URL or a description, plus what the person liked in it), and the voice (name/alias and provider only; **never ask for a key**). If a `brand/` folder sits next to the project (`../brand/build/tokens.json`), read it (never copy it out) and offer its colors and font as the defaults. Then write `brief.md`, `playbook.md` and the `brand.json` fields (name, handle, `colors.accent`, `colors.background`, `fonts.title`), show the person what you wrote and **only then** make the first video. `praeko studio brief` reopens the interview from the terminal (it keeps a `.bak` of brief.md and never overwrites an edited playbook.md).
+- References: study each one with the tools **you** already have (open the page, read the transcript or captions, look at frames). Studio does not download or analyze video. Write what you find in `playbook.md` as **rules** (pace, how it opens, caption style, length), never as a copy of someone's video: no reusing their script, structure beat by beat, footage or voice. If you cannot access a reference, say so and leave the `TODO`; never invent an analysis of a video nobody watched.
+
 ## Short workflow
 1. `praeko studio new <slug> --title "…"` creates `episodes/<slug>/` (script, publication.json, episode.yaml, scenes.tsx, cover) and registers it in `src/Root.tsx`.
 2. Check every fact against its source and write `script.txt`. **The person approves the text before any spend** (final voice).
@@ -21,7 +26,7 @@ Full docs for the installed version: `praeko studio docs` (list) and `praeko stu
 ## Text rules
 - Spoken text: short sentences, numbers spelled out, addresses as spoken (`pronunciation` in `brand.json`), few English emotion tags (`[curious]`, `[confident]`, `[short pause]`), about 190 words per minute.
 - No real person's name without consent (`bannedNames` in `brand.json`). Every number has a source; anything unmeasured is called an estimate.
-- Brand style rules live in `brand.json` and the project's `playbook.md`, if any. `package` flags AI writing tics (`publishing.aiTics: false` in `brand.json` turns it off).
+- Brand style rules live in `brand.json`, `brief.md` and the project's `playbook.md`. `package` flags AI writing tics (`publishing.aiTics: false` in `brand.json` turns it off).
 
 ## Voice, costs and secrets
 - Keys **never** in project files, logs or chat: `echo $KEY | praeko studio voice config key elevenlabs/principal` stores it in the OS keychain (macOS) or in `~/.config/praeko/secrets.json`; `ELEVENLABS_API_KEY` and `PRAEKO_KEY` also work.

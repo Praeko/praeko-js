@@ -44,8 +44,8 @@ if (cmd === "list") {
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name)) { console.error("name: use letters, numbers, - or _"); process.exit(2); }
   const key = ((await readKey()) || "").trim();
   if (!key) { console.error("empty key"); process.exit(1); }
-  const alias = opt("voice") || "my-voice";
   const cfg = loadConfig();
+  let alias = opt("voice") || "my-voice";
   if (!cfg.voices[alias]) { console.error(`voice "${alias}" does not exist in voices.json`); process.exit(1); }
   let sub: any = null, voices: any[] | null = null, subError: Error | null = null, voiceError: Error | null = null;
   try { sub = await api("/v1/user/subscription", key); } catch (e) { subError = e; }
@@ -64,10 +64,26 @@ if (cmd === "list") {
   const clones = voices.filter((v) => ["cloned", "professional"].includes(v.category));
   console.log(`${voices.length} voices on this key; clones: ${clones.length ? clones.map((v) => `${v.name} (${v.voice_id})`).join(", ") : "none"}${voiceError ? ` (voice list unavailable: ${voiceError.message})` : ""}`);
   let id = opt("voice-id");
+  if (!id && !opt("voice")) {
+    // no --voice: if exactly one of the project's ElevenLabs voices matches a clone on this key by name, use that voice (the default "my-voice" is only a placeholder)
+    const byName = Object.entries(cfg.voices).filter(([k, v]: [string, any]) => v.provider === "elevenlabs" && k !== "my-voice" && clones.some((c) => c.name.toLowerCase() === k.toLowerCase()));
+    const only = byName[0];
+    if (byName.length === 1 && only) { alias = only[0]; console.log(`using voice "${alias}" (matches a clone on this key)`); }
+  }
   if (!id) {
     const candidates = clones.filter((v) => new RegExp(alias, "i").test(v.name));
     if (candidates.length === 1) id = candidates[0].voice_id;
-    else { console.error(candidates.length ? `several clones look like "${alias}": repeat with --voice-id <id>` : `no clone named "${alias}" on this key: create the clone in that workspace/account or repeat with --voice-id <id>`); process.exit(1); }
+    else {
+      console.error(candidates.length ? `several clones look like "${alias}": repeat with --voice-id <id>` : `no clone named "${alias}" on this key: create the clone in that workspace/account or repeat with --voice-id <id>`);
+      if (!a.includes("--dry-run")) {
+        // the key is valid: keep it, so it is not lost; only the voice id is missing
+        const where = storeKey(`elevenlabs/${name}`, key);
+        console.error(`the key WAS stored (${where}, elevenlabs/${name}); only the voice id is missing.`);
+        const one = clones.length === 1 ? clones[0] : null;
+        console.error(one ? `finish with: praeko studio voice account add ${name} --voice ${alias} --voice-id ${one.voice_id}   (it will ask for the key again)` : `finish with: praeko studio voice account add ${name} --voice ${alias} --voice-id <id>`);
+      }
+      process.exit(1);
+    }
   }
   console.log(`voice "${alias}" on this account: ${id}`);
   if (a.includes("--dry-run")) { console.log("(dry run: nothing was stored)"); process.exit(0); }

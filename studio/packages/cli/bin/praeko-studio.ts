@@ -30,7 +30,7 @@ installTranslation();
 const [cmd, ...a] = argv;
 if (cmd === "--version" || cmd === "-v" || cmd === "version") { console.log(VERSION); process.exit(0); }
 const table: Record<string, (a: string[]) => number | Promise<number>> = {
-  init: C.init, new: C.newEpisode, voice: C.voice, compile: C.compile, cut: C.cut, preview: C.preview, render: C.render, cover: C.cover, "contact-sheet": C.contactSheetCommand,
+  init: C.init, brief: C.brief, new: C.newEpisode, voice: C.voice, compile: C.compile, cut: C.cut, preview: C.preview, render: C.render, cover: C.cover, "contact-sheet": C.contactSheetCommand,
   check: C.check, package: C.packageCommand, schedule, post, queue, account, doctor: doctorCommand, skill: skillCommand, licenses: licensesCommand, docs, migrate: migrateCommand,
 };
 if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h" || !table[cmd]) { console.log(help(VERSION)); process.exit(cmd && !["help", "--help", "-h"].includes(cmd) ? 2 : 0); }

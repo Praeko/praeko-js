@@ -15,6 +15,8 @@ import { HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
 import { noticeText, shortNotice } from "./licenses.ts";
 import { lang } from "./i18n.ts";
 import { detectAgents, installSkill } from "./skill.ts";
+import { GROUPS, agentsOnPath, applyBrand, hasBrief, interview, lineAsk, parseAnswers, readBriefAnswers, readBrandTokens, writeBriefFiles } from "./interview.ts";
+import type { Answers, Ask, Group } from "./interview.ts";
 
 // Voice subcommands (balance, voices, account, config) are their own scripts: in development they live in packages/voice/bin; in the published package, in dist/voice-<name>.mjs (one bundle per script).
 const VOICE_BIN = (n: string): string => { const bundled = join(HERE, "voice-" + n + ".mjs"); return existsSync(bundled) ? bundled : join(HERE, "..", "..", "voice", "bin", n + ".ts"); };
@@ -34,17 +36,29 @@ const runRemotion = (p: Project, args: string[]): Promise<number> => {
 const npmInstall = (cwd: string): Promise<number> => process.platform === "win32" ? run(process.execPath, [join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"), "install", "--loglevel=error"], cwd) : run("npm", ["install", "--loglevel=error"], cwd);
 const ICON = { ok: "✓", warning: "⚠", error: "✗" } as const;
 
-export async function init(a: string[]): Promise<number> {
-  const usage = 'usage: praeko studio init <folder> [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--dev <path of the Studio repository>] [--no-install]';
+export type InitIO = { interactive?: boolean; ask?: Ask; say?: (s: string) => void };
+const isTTY = (): boolean => !!process.stdin.isTTY && !!process.stdout.isTTY;
+/** Question source: the injected one (tests) or readline over stdin/stdout. */
+const openAsk = (io: InitIO): { ask: Ask; close: () => void } => io.ask ? { ask: io.ask, close: () => {} } : lineAsk(process.stdin, process.stdout);
+
+export async function init(a: string[], io: InitIO = {}): Promise<number> {
+  const usage = 'usage: praeko studio init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]';
   if (!a[0] || a[0].startsWith("--")) throw new Error(usage);
   const dir = resolve(a[0]);
   if (existsSync(dir) && readdirSync(dir).length) throw new Error(`${dir} already exists and is not empty`);
-  const name = flag(a, "name") || basename(dir), handle = flag(a, "handle") || "@" + (name.toLowerCase().replace(/[^a-z0-9]+/g, "") || "mychannel");
   const dev = flag(a, "dev") ? resolve(flag(a, "dev")!) : null;
   if (dev && !existsSync(join(dev, "packages", "core", "package.json"))) throw new Error(`--dev ${dev}: I did not find packages/core (point at the studio/ folder of the Praeko repository)`);
+  const given = parseAnswers(a), interactive = !has(a, "yes") && (io.interactive ?? isTTY());
+  let ans: Answers = given;
+  if (interactive) {
+    const q = openAsk(io);
+    try { ans = await interview(q.ask, given, { lang: given.lang ?? lang(), say: io.say ?? console.log, defaults: { name: basename(dir), lang: lang() }, agentsDefault: detectAgents(dir).length ? detectAgents(dir) : agentsOnPath(), tokens: readBrandTokens(dir) }); }
+    finally { q.close(); }
+  }
+  const name = ans.name || basename(dir), handle = ans.handle || "@" + (name.toLowerCase().replace(/[^a-z0-9]+/g, "") || "mychannel");
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "my-channel";
   write(join(dir, "package.json"), T.projectPackage({ name: slug, dev: dev ? relative(dir, dev).split("\\").join("/") : null, studioVersion: VERSION }));
-  write(join(dir, "brand.json"), T.initialBrand({ name, handle }));
+  write(join(dir, "brand.json"), applyBrand(T.initialBrand({ name, handle }), { ...ans, name, handle }));
   write(join(dir, "remotion.config.ts"), dev ? T.remotionConfigDev : T.remotionConfigBase);
   write(join(dir, "tsconfig.json"), T.tsconfig);
   write(join(dir, "src", "index.ts"), T.indexTs);
@@ -56,13 +70,46 @@ export async function init(a: string[]): Promise<number> {
   mkdirSync(join(dir, "public", "cover"), { recursive: true });
   copyFileSync(join(PACKAGE_ROOT, "templates", "avatar.png"), join(dir, "public", "cover", "avatar.png"));
   mkdirSync(join(dir, "episodes"), { recursive: true });
-  const ag = flag(a, "agent"), agents = ag ? (ag === "all" ? "all" : ag.split(",").map((x) => x.trim())) : (detectAgents(dir).length ? detectAgents(dir) : ["claude", "codex"]);
-  const done = installSkill({ dir, agents, lang: flag(a, "lang") || lang() });
+  const agents = ans.agents ?? (detectAgents(dir).length ? detectAgents(dir) : ["claude", "codex"]);
+  const done = installSkill({ dir, agents, lang: ans.lang || lang() });
   console.log(`project created in ${dir}${dev ? " (--dev mode: packages by local path)" : ""}`);
   for (const f of done) console.log(`  instructions for ${f.agent}: ${f.file}`);
+  if (hasBrief(ans)) for (const m of writeBriefFiles(dir, { ...ans, name, handle, lang: ans.lang || lang() }, null)) console.log(m);
   console.log("\n" + noticeText());
   if (!has(a, "no-install")) { const c = await npmInstall(dir); if (c) throw new Error("npm install failed"); }
   console.log(`\nnext step: cd ${dir} && npx praeko-studio new my-first --title "My first video"`);
+  return 0;
+}
+
+/** `praeko studio brief [--only about,tone,…] [answer flags]`: reopens the interview in an existing project. */
+export async function brief(a: string[], io: InitIO = {}): Promise<number> {
+  const proj = findProject(), given = parseAnswers(a), prevBrief = readBriefAnswers(proj.root);
+  const onlyFlag = flag(a, "only"), allowed = GROUPS.filter((g) => g !== "agents");
+  let only: Set<Group> | undefined;
+  if (onlyFlag) {
+    const l = onlyFlag.split(",").map((x) => x.trim()).filter(Boolean);
+    const bad = l.filter((x) => !(allowed as readonly string[]).includes(x));
+    if (bad.length) throw new Error(`--only ${bad.join(",")}: use ${allowed.join(", ")}`);
+    only = new Set(l as Group[]);
+  }
+  const interactive = !has(a, "yes") && (io.interactive ?? isTTY());
+  const b = proj.brand as any;
+  const defaults: Answers = { name: b.name, handle: b.handle, accent: b.colors?.accent, background: b.colors?.background, ...(prevBrief ?? {}) };
+  if (!defaults.lang) defaults.lang = lang();
+  let ans: Answers = { ...defaults, ...given };
+  if (interactive) {
+    const q = openAsk(io), say = io.say ?? console.log;
+    try {
+      if (!only && !Object.keys(given).length) {
+        const v = await q.ask(`Which answers to redo? (${allowed.join(", ")}; Enter = all)`);
+        if (v) { const l = v.split(",").map((x) => x.trim()).filter((x) => (allowed as readonly string[]).includes(x)); if (l.length) only = new Set(l as Group[]); }
+      }
+      ans = await interview(q.ask, given, { lang: given.lang ?? defaults.lang!, say, defaults, tokens: readBrandTokens(proj.root), only: only ?? new Set(allowed) });
+    } finally { q.close(); }
+  } else if (!Object.keys(given).length) throw new Error('usage: praeko studio brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]…  (without answer flags it asks, in a terminal)');
+  const file = join(proj.root, "brand.json"), cur = readFileSync(file, "utf8"), next = applyBrand(cur, ans, prevBrief?.font);
+  if (next !== cur) { writeFileSync(file, next); console.log("brief: updated brand.json"); }
+  for (const m of writeBriefFiles(proj.root, ans, prevBrief)) console.log(m);
   return 0;
 }
 

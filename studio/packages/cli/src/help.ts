@@ -6,8 +6,14 @@ export const help = (version: string): string => `praeko studio <command>   (ver
   skill install [--agent claude|codex|gemini|cursor|opencode|cline|windsurf|all] [--lang en|pt]
                                            writes Studio's instructions in your coding agent's format
   docs [topic]                             documentation of the installed version (episode-yaml, long-yaml, voice, publish, hyperframes, licenses)
-  init <folder> [--name N] [--handle @x] [--agent …] [--lang en|pt] [--dev <studio>] [--no-install]
-                                           creates a new project (brand, Root, sfx, instructions for the agent)
+  init <folder> [--yes] [--name N] [--handle @x] [--agent …] [--lang en|pt] [--dev <studio>] [--no-install]
+       [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"]
+       [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio]
+                                           creates a new project (brand, Root, sfx, instructions for the agent). In a terminal it interviews you
+                                           (brand, tone, references: Enter skips, flags answer ahead); --yes or no terminal = no questions.
+                                           Writes brand.json, brief.md and a draft playbook.md
+  brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [same answer flags]
+                                           reopens the interview in an existing project; rewrites brief.md (backup .bak) and keeps an edited playbook.md
   new <slug> [--title "T"] [--long]        creates an episode (script, scene, cover, publication.json) and registers it in Root
   voice <slug> [--quality draft|final|local] [--voice alias] [--aligner scribe|voicestudio] [--no-failover]
                                            makes the voice and the word timings. draft = silent and estimated (free, no network);
