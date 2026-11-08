@@ -24,7 +24,7 @@ test("init: dependencies by published semver (no file:), @praeko/studio in devDe
   assert.equal(r.status, 0, r.stderr);
   const pj = JSON.parse(read(join(proj, "package.json")));
   assert.match(pj.dependencies["@praeko/studio-core"], /^\^\d+\.\d+\.\d+$/); assert.match(pj.dependencies["@praeko/studio-kit"], /^\^\d+\.\d+\.\d+$/);
-  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.1");
+  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.2");
   assert.match(pj.devDependencies["@praeko/studio"], /^\^\d/);
   assert.doesNotMatch(JSON.stringify(pj), /file:/);
   assert.doesNotMatch(read(join(proj, "remotion.config.ts")), /alias|node_modules\/remotion/);
@@ -158,7 +158,7 @@ test("docs: lists the topics and prints one; an unknown topic fails; --version a
   const help = cli(["--help"]).stdout;
   assert.doesNotMatch(help, /bardo/i);
   const pkg = JSON.parse(read(join(PACKAGE, "package.json")));
-  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.1");
+  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.2");
 });
 test("publication audit: nothing of the owner (name, brand, voice ids, paths, game) in the packages that go public", () => {
   // the patterns are built in parts so this file does not accuse itself in the publication scan
@@ -176,4 +176,30 @@ test("publication audit: nothing of the owner (name, brand, voice ids, paths, ga
   for (const d of ["packages/cli/src", "packages/cli/bin", "packages/cli/docs", "packages/cli/templates", "packages/voice/src", "packages/publish/src", "packages/review/src", "packages/hyperframes/src", "packages/core/src", "packages/kit/src", "skill"]) if (existsSync(join(STUDIO, d))) scan(join(STUDIO, d));
   assert.deepEqual(dirty, []);
   for (const old of ["legado", "referencias", "exemplos", "config"]) assert.ok(!existsSync(join(STUDIO, old)), `${old}/ does not go to publication`);
+});
+const withEnv = async <T>(env: Record<string, string | undefined>, f: () => Promise<T>): Promise<T> => {
+  const keys = ["PRAEKO_STUDIO_CONFIG", "PRAEKO_STUDIO_KEY_ELEVENLABS_ONE", "PRAEKO_STUDIO_KEY_ELEVENLABS_TWO", "PRAEKO_SECRETS", "PRAEKO_NO_KEYCHAIN"], old = keys.map((k) => process.env[k]);
+  for (const k of keys) process.env[k] = env[k]!;
+  try { return await f(); } finally { keys.forEach((k, i) => { if (old[i] === undefined) delete process.env[k]; else process.env[k] = old[i]; }); }
+};
+test("doctor voice section: accounts, balance, final voice, same-balance and missing-id warnings; offline makes no call; the key never shows", async () => {
+  const cfgDir = join(base, "cfg-voice"); mkdirSync(cfgDir, { recursive: true });
+  writeFileSync(join(cfgDir, "voices.json"), JSON.stringify({ accounts: { elevenlabs: ["one", "two", "three"] }, voices: { "my-voice": { provider: "elevenlabs", ids: { one: "ID1", two: "ID2" } } }, quality: { final: "my-voice" } }));
+  const env = { ...ENV, PRAEKO_STUDIO_CONFIG: cfgDir, PRAEKO_STUDIO_KEY_ELEVENLABS_ONE: "sk_secret_one", PRAEKO_STUDIO_KEY_ELEVENLABS_TWO: "sk_secret_two" };
+  const off = cli(["doctor", "--json", "--offline"], base, env);
+  assert.doesNotMatch(off.stdout + off.stderr, /sk_secret/);
+  const j = JSON.parse(off.stdout), by = (id: string) => j.items.find((i: any) => i.id === id);
+  assert.match(by("voice-account-one").msg, /key present \(balance not checked: --offline\)/);
+  assert.match(by("voice-account-three").msg, /no key/);
+  assert.match(by("voice-final").msg, /final voice "my-voice": id on "one", "two"/);
+  assert.equal(by("voice-final-id"), undefined);
+  assert.match(cli(["doctor", "--offline"], base, env).stdout, /ElevenLabs account "three": no key/);
+  const resets = new Date("2026-12-01T00:00:00Z"), same = { used: 10, limit: 100000, remaining: 99990, plan: "creator", resets };
+  const online = await withEnv(env, () => diagnose({ cwd: base, fetchFn: (async () => ({ status: 200 })) as any, voiceCreate: ((acct: string) => ({ name: "t", balance: async () => same, generate: async () => Buffer.alloc(0) })) as any }));
+  assert.match(online.find((i) => i.id === "voice-account-one")!.msg, /99,990 left of 100,000 \(creator\), resets 2026-12-01/);
+  assert.equal(online.find((i) => i.id === "voice-same-balance")!.level, "warning");
+  // the final voice has an id only on an account with no key: warning, not error
+  writeFileSync(join(cfgDir, "voices.json"), JSON.stringify({ accounts: { elevenlabs: ["one", "three"] }, voices: { "my-voice": { provider: "elevenlabs", ids: { three: "ID3" } } }, quality: { final: "my-voice" } }));
+  const w = JSON.parse(cli(["doctor", "--json", "--offline"], base, env).stdout);
+  assert.equal(w.items.find((i: any) => i.id === "voice-final-id").level, "warning"); assert.ok(!w.items.some((i: any) => i.id.startsWith("voice") && i.level === "error"));
 });

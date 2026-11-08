@@ -63,3 +63,9 @@ test("resolveVoice: name, the oldest shape and a clear error", () => {
   assert.equal((resolveVoice({ provider: "elevenlabs", idEnv: "X_ID", model: "m" }, CONFIG).ids as Record<string, string>).principal, "ABC");
   assert.throws(() => resolveVoice("nothing", CONFIG), /does not exist/);
 });
+test("sameBalanceGroups groups accounts with identical balance and ignores errors", async () => {
+  const { sameBalanceGroups } = await import("../src/router.ts");
+  const r = new Date("2026-12-01"), mk = (account: string, used: number) => ({ account, used, limit: 100, remaining: 100 - used, plan: "x", resets: r });
+  assert.deepEqual(sameBalanceGroups([mk("a", 1), mk("b", 1), mk("c", 2), { account: "d", error: "no key" }]), [["a", "b"]]);
+  assert.deepEqual(sameBalanceGroups([mk("a", 1), mk("c", 2)]), []);
+});

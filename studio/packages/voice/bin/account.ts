@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createInterface } from "node:readline";
-import { balances, loadConfig, maskKey, storeKey, writableVoicesFile } from "../src/index.ts";
+import { balances, loadConfig, maskKey, sameBalanceGroups, storeKey, writableVoicesFile } from "../src/index.ts";
 
 const a = process.argv.slice(2), cmd = a[0], name = a[1];
 const opt = (k: string): string | undefined => { const i = a.indexOf("--" + k); return i >= 0 ? a[i + 1] : undefined; };
@@ -37,9 +37,7 @@ if (cmd === "list") {
   const cfg = loadConfig();
   const s = await balances({ config: cfg });
   for (const c of s) console.log(`${c.account.padEnd(12)} ${"error" in c ? c.error : `${fmt(c.remaining)} left of ${fmt(c.limit)} (${c.plan}), resets ${c.resets?.toLocaleDateString("en-US")}`}`);
-  const seen = new Map<string, string[]>();
-  for (const c of s) { if ("error" in c) continue; const k = `${c.used}|${c.limit}|${c.resets?.getTime()}`; seen.set(k, [...(seen.get(k) || []), c.account]); }
-  for (const [, l] of seen) if (l.length > 1) console.log(`WARNING: ${l.join(" and ")} show the SAME balance: they are probably the same workspace/plan (credits are shared).`);
+  for (const l of sameBalanceGroups(s)) console.log(`WARNING: ${l.join(" and ")} show the SAME balance: they are probably the same workspace/plan (credits are shared).`);
 } else if (cmd === "add" && name) {
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name)) { console.error("name: use letters, numbers, - or _"); process.exit(2); }
   const key = ((await readKey()) || "").trim();

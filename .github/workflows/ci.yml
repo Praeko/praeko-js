@@ -1,5 +1,5 @@
 # Continuous integration: builds the TypeScript, runs the tests (no network, no server), types and the check of what would go to npm, for every package
-# (sdk, cli, studio, studio-core, studio-kit). Studio needs ffmpeg in the voice/render tests; runs on Linux and macOS (Windows: best effort, not tested yet).
+# (sdk, cli, studio, studio-core, studio-kit, studio-mcp). Studio needs ffmpeg in the voice/render tests; runs on Linux and macOS (Windows: best effort, not tested yet).
 name: CI
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
         run: brew install ffmpeg
       - run: npm ci
       - run: npm run build:sdk   # tsc: dist/ with JS and .d.ts of @praeko/sdk (`npm ci` already builds via `prepare`; here it fails explicitly)
-      - run: npm run build:studio   # esbuild + tsc: dist/ of @praeko/studio, studio-core and studio-kit
+      - run: npm run build:studio   # esbuild + tsc: dist/ of @praeko/studio, studio-core, studio-kit and studio-mcp
       - run: npm test
       - run: npm run typecheck
       - run: npm run release:check

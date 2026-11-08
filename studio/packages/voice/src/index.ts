@@ -15,7 +15,7 @@ import { blockCacheKey, narrateBlocks, readBlocks } from "./blocks.ts";
 
 export * from "./config.ts";
 export { DEFAULT_VOICES } from "./defaults.ts";
-export { generateWithFailover, balances } from "./router.ts";
+export { generateWithFailover, balances, sameBalanceGroups } from "./router.ts";
 export type { Attempt, AccountBalance } from "./router.ts";
 export { createVoiceStudio, prepareText } from "./providers/voicestudio.ts";
 export { estimateWords, silentAudio } from "./estimated.ts";

@@ -15,8 +15,8 @@ import { HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
 import { noticeText, shortNotice } from "./licenses.ts";
 import { lang } from "./i18n.ts";
 import { detectAgents, installSkill } from "./skill.ts";
-import { GROUPS, agentsOnPath, applyBrand, hasBrief, interview, lineAsk, parseAnswers, readBriefAnswers, readBrandTokens, writeBriefFiles } from "./interview.ts";
-import type { Answers, Ask, Group } from "./interview.ts";
+import { GROUPS, agentsOnPath, applyBrand, hasBrief, interview, lineAsk, parseAnswers, readBriefAnswers, readBrandTokens, readTokensIn, writeBriefFiles } from "./interview.ts";
+import type { Answers, Ask, Group, Tokens } from "./interview.ts";
 
 // Voice subcommands (balance, voices, account, config) are their own scripts: in development they live in packages/voice/bin; in the published package, in dist/voice-<name>.mjs (one bundle per script).
 const VOICE_BIN = (n: string): string => { const bundled = join(HERE, "voice-" + n + ".mjs"); return existsSync(bundled) ? bundled : join(HERE, "..", "..", "voice", "bin", n + ".ts"); };
@@ -42,7 +42,7 @@ const isTTY = (): boolean => !!process.stdin.isTTY && !!process.stdout.isTTY;
 const openAsk = (io: InitIO): { ask: Ask; close: () => void } => io.ask ? { ask: io.ask, close: () => {} } : lineAsk(process.stdin, process.stdout);
 
 export async function init(a: string[], io: InitIO = {}): Promise<number> {
-  const usage = 'usage: praeko studio init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]';
+  const usage = 'usage: praeko studio init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--brand <brand folder>] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]';
   if (!a[0] || a[0].startsWith("--")) throw new Error(usage);
   const dir = resolve(a[0]);
   if (existsSync(dir) && readdirSync(dir).length) throw new Error(`${dir} already exists and is not empty`);
@@ -50,10 +50,25 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   if (dev && !existsSync(join(dev, "packages", "core", "package.json"))) throw new Error(`--dev ${dev}: I did not find packages/core (point at the studio/ folder of the Praeko repository)`);
   const given = parseAnswers(a), interactive = !has(a, "yes") && (io.interactive ?? isTTY());
   let ans: Answers = given;
+  const brandFlag = flag(a, "brand");
+  let tokens: Tokens | null = null;
+  if (brandFlag) {
+    tokens = readTokensIn(resolve(brandFlag));
+    if (!tokens) throw new Error(`--brand ${brandFlag}: I did not find build/tokens.json or tokens.json with colors or a font in that folder`);
+  } else tokens = readBrandTokens(dir);
   if (interactive) {
     const q = openAsk(io);
-    try { ans = await interview(q.ask, given, { lang: given.lang ?? lang(), say: io.say ?? console.log, defaults: { name: basename(dir), lang: lang() }, agentsDefault: detectAgents(dir).length ? detectAgents(dir) : agentsOnPath(), tokens: readBrandTokens(dir) }); }
+    try { ans = await interview(q.ask, given, { lang: given.lang ?? lang(), say: io.say ?? console.log, defaults: { name: basename(dir), lang: lang() }, agentsDefault: detectAgents(dir).length ? detectAgents(dir) : agentsOnPath(), tokens }); }
     finally { q.close(); }
+  }
+  let imported = "";
+  if (!interactive && tokens) {
+    // --yes / no TTY: the tokens fill what no flag gave (flags win)
+    const took: string[] = [];
+    if (ans.accent === undefined && tokens.accent) { ans = { ...ans, accent: tokens.accent }; took.push(`accent ${tokens.accent}`); }
+    if (ans.background === undefined && tokens.background) { ans = { ...ans, background: tokens.background }; took.push(`background ${tokens.background}`); }
+    if (ans.font === undefined && tokens.font) { ans = { ...ans, font: tokens.font }; took.push(`font ${tokens.font}`); }
+    if (took.length) imported = `imported from ${tokens.file}: ${took.join(", ")}`;
   }
   const name = ans.name || basename(dir), handle = ans.handle || "@" + (name.toLowerCase().replace(/[^a-z0-9]+/g, "") || "mychannel");
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "my-channel";
@@ -73,6 +88,7 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   const agents = ans.agents ?? (detectAgents(dir).length ? detectAgents(dir) : ["claude", "codex"]);
   const done = installSkill({ dir, agents, lang: ans.lang || lang() });
   console.log(`project created in ${dir}${dev ? " (--dev mode: packages by local path)" : ""}`);
+  if (imported) console.log(imported);
   for (const f of done) console.log(`  instructions for ${f.agent}: ${f.file}`);
   if (hasBrief(ans)) for (const m of writeBriefFiles(dir, { ...ans, name, handle, lang: ans.lang || lang() }, null)) console.log(m);
   console.log("\n" + noticeText());

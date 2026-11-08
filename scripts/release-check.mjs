@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { ISSUES_URL, PUBLIC_REPO, REPO_URL } from "./public-repo.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-export const PACKAGES = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit" };
+export const PACKAGES = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit", "studio-mcp": "studio/packages/mcp" };
 const FORBIDDEN = [/(^|\/)test\//, /\.test\.m?[jt]s$/, /\.check\.ts$/, /(^|\/)\.env/, /\.dev\.vars/, /secrets/i, /\.praeko\//, /\.arauto\//, /node_modules/, /\.map$/, /(^|\/)tsconfig[\w.]*\.json$/, /(^|\/)src\//, /(?<!\.d)\.m?ts$/, /\.(pem|key)$/];
 
 /** Lists what `npm pack` would put in the tarball (without writing the file). Does not run `prepack`: build first (npm run build:sdk, npm run build -w packages/cli), otherwise the list comes out without dist/. */

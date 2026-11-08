@@ -10,7 +10,7 @@ export const DESCRIPTION: Record<Lang, string> = {
 
 const EN = `# Praeko Studio: making a video with your own agent
 
-You (the agent) run Praeko Studio **on the person's machine**: you write the script and \`episode.yaml\`, run the commands and hand over the files. The person pays for the voice, the render and their own agent; Studio never calls a language model. Open the session **in the project folder** (where \`brand.json\` is). The command is \`praeko studio <command>\` (or \`npx praeko-studio <command>\`).
+You (the agent) need a **terminal (shell)** to render: without one (e.g. Claude Desktop with no shell) only publishing and metrics through the remote Praeko MCP work, not rendering; say so to the person instead of improvising. You (the agent) run Praeko Studio **on the person's machine**: you write the script and \`episode.yaml\`, run the commands and hand over the files. The person pays for the voice, the render and their own agent; Studio never calls a language model. Open the session **in the project folder** (where \`brand.json\` is). The command is \`praeko studio <command>\` (or \`npx praeko-studio <command>\`).
 
 Full docs for the installed version: \`praeko studio docs\` (list) and \`praeko studio docs episode-yaml\`, \`long-yaml\`, \`voice\`, \`publish\`, \`hyperframes\`. When unsure about the YAML format, read it first. \`praeko studio doctor\` checks the environment (Node, ffmpeg, Chromium, fonts, keys, network).
 
@@ -56,7 +56,7 @@ A project from Studio 0.1.x (Portuguese file and key names) is converted once wi
 
 const PT = `# Praeko Studio: como fazer um vídeo com o seu agente
 
-Você (o agente) opera o Praeko Studio **na máquina da pessoa**: escreve o roteiro e o \`episode.yaml\`, roda os comandos e entrega os arquivos. A pessoa paga a voz, o render e o seu próprio agente; o Studio não chama nenhum modelo de linguagem. Abra a sessão **na pasta do projeto** (onde está \`brand.json\`). O comando é \`praeko studio <comando>\` (ou \`npx praeko-studio <comando>\`). Os nomes de comandos, flags, arquivos e chaves são em inglês; só este texto está em português.
+Você (o agente) precisa de **terminal (shell)** para renderizar: sem ele (por exemplo, o Claude Desktop sem shell) só funcionam a publicação e as métricas pelo MCP remoto do Praeko, não a renderização; diga isso à pessoa em vez de improvisar. Você (o agente) opera o Praeko Studio **na máquina da pessoa**: escreve o roteiro e o \`episode.yaml\`, roda os comandos e entrega os arquivos. A pessoa paga a voz, o render e o seu próprio agente; o Studio não chama nenhum modelo de linguagem. Abra a sessão **na pasta do projeto** (onde está \`brand.json\`). O comando é \`praeko studio <comando>\` (ou \`npx praeko-studio <comando>\`). Os nomes de comandos, flags, arquivos e chaves são em inglês; só este texto está em português.
 
 Documentação completa da versão instalada: \`praeko studio docs\` (lista) e \`praeko studio docs episode-yaml\`, \`long-yaml\`, \`voice\`, \`publish\`, \`hyperframes\`. Em dúvida sobre o formato do YAML, leia antes de chutar. \`praeko studio doctor\` confere o ambiente (Node, ffmpeg, Chromium, fontes, chaves, rede).
 

@@ -1,12 +1,12 @@
 // Text of `praeko studio --help`. In its own module so the public documentation test can check the commands against it (docs-publica-studio.test.mjs).
 export const help = (version: string): string => `praeko studio <command>   (version ${version})
 
-  doctor [--json] [--offline]              checks Node, ffmpeg, Chrome, fonts, keys (without showing them), network and licenses
+  doctor [--json] [--offline]              checks Node, ffmpeg, Chrome, fonts, keys and voice accounts (balance; never the key), network and licenses
   licenses [--accept] [--lang en|pt]       license notice (Remotion is not MIT); --accept records that you read it
   skill install [--agent claude|codex|gemini|cursor|opencode|cline|windsurf|all] [--lang en|pt]
                                            writes Studio's instructions in your coding agent's format
   docs [topic]                             documentation of the installed version (episode-yaml, long-yaml, voice, publish, hyperframes, licenses)
-  init <folder> [--yes] [--name N] [--handle @x] [--agent …] [--lang en|pt] [--dev <studio>] [--no-install]
+  init <folder> [--yes] [--name N] [--handle @x] [--agent …] [--lang en|pt] [--brand <brand folder>] [--dev <studio>] [--no-install]
        [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"]
        [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio]
                                            creates a new project (brand, Root, sfx, instructions for the agent). In a terminal it interviews you

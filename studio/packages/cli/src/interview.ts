@@ -69,9 +69,11 @@ export const hasBrief = (x: Answers): boolean => !!(x.about || x.audience || x.t
 // ---------- ../brand/ tokens ----------
 export type Tokens = { file: string; accent?: string; background?: string; font?: string };
 /** Reads (never copies) design tokens of a `brand/` folder next to the project: `../brand/build/tokens.json` or `../brand/tokens.json` (keys cor.acento/cor.fundo/fonte, or colors.accent/colors.background/font). */
-export function readBrandTokens(projectDir: string): Tokens | null {
-  for (const rel of [["..", "brand", "build", "tokens.json"], ["..", "brand", "tokens.json"]]) {
-    const file = resolve(projectDir, ...rel);
+export function readBrandTokens(projectDir: string): Tokens | null { return readTokensIn(resolve(projectDir, "..", "brand")); }
+/** Same read for an explicit brand folder (`--brand <folder>`): `build/tokens.json` or `tokens.json` inside it. */
+export function readTokensIn(brandDir: string): Tokens | null {
+  for (const rel of [["build", "tokens.json"], ["tokens.json"]]) {
+    const file = resolve(brandDir, ...rel);
     if (!existsSync(file)) continue;
     try {
       const j = JSON.parse(readFileSync(file, "utf8"));

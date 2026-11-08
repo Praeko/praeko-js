@@ -1,8 +1,10 @@
-// Builds the three publishable Praeko Studio packages: node scripts/build-studio.mjs [core|kit|cli ...]  (no argument: all of them, in that order)
+// Builds the four publishable Praeko Studio packages: node scripts/build-studio.mjs [core|kit|cli|mcp ...]  (no argument: all of them, in that order)
 //   core, kit: esbuild bundles the .ts/.tsx into dist/index.js (ESM; react, remotion and @praeko/studio-core stay external) and tsc writes the .d.ts files
 //              (with relative specifiers rewritten to `.js`, which is what consumers resolve).
 //   cli (@praeko/studio): one bundle per script (praeko-studio, voice-balance, voice-voices, voice-account, voice-config) with cli+voice+publish+review+hyperframes+yaml inside;
-//              only the ElevenLabs SDK stays external (declared dependency). Also syncs LICENSE and LICENSES.md from studio/ into each package.
+//              only the ElevenLabs SDK stays external (declared dependency).
+//   mcp (@praeko/studio-mcp): one bundle (praeko-studio-mcp) with the server code and yaml inside; the MCP SDK, zod and @praeko/studio (whose CLI it runs) stay external.
+//              Also syncs LICENSE and LICENSES.md from studio/ into each package.
 import { build } from "esbuild";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -10,12 +12,12 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url)), studio = root + "studio/";
-const folder = (n) => ({ core: studio + "packages/core/", kit: studio + "packages/kit/", cli: studio + "packages/cli/" })[n];
+const folder = (n) => ({ core: studio + "packages/core/", kit: studio + "packages/kit/", cli: studio + "packages/cli/", mcp: studio + "packages/mcp/" })[n];
 const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 const readVersion = (n) => JSON.parse(readFileSync(folder(n) + "package.json", "utf8")).version;
 
 export async function syncLicenses() {
-  for (const n of ["core", "kit", "cli"]) for (const f of ["LICENSE", "LICENSES.md"]) copyFileSync(studio + f, folder(n) + f);
+  for (const n of ["core", "kit", "cli", "mcp"]) for (const f of ["LICENSE", "LICENSES.md"]) copyFileSync(studio + f, folder(n) + f);
 }
 
 /** studio/skill/praeko-studio/SKILL.md is generated from the same text `praeko studio skill install` writes (only needed when the cli is built). */
@@ -59,13 +61,24 @@ async function cli() {
   chmodSync(dir + "dist/praeko-studio.mjs", 0o755);
 }
 
+async function mcp() {
+  const dir = folder("mcp");
+  rmSync(dir + "dist", { recursive: true, force: true });
+  await build({
+    entryPoints: { "praeko-studio-mcp": dir + "bin/praeko-studio-mcp.ts" }, outdir: dir + "dist", bundle: true, format: "esm", platform: "node", target: "node22", outExtension: { ".js": ".mjs" }, logLevel: "error", legalComments: "none",
+    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/sdk/*", "zod", "@praeko/studio", "@praeko/studio/*"], define: { __MCP_VERSION__: JSON.stringify(readVersion("mcp")) },
+    banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
+  });
+  chmodSync(dir + "dist/praeko-studio-mcp.mjs", 0o755);
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   await syncLicenses();
-  const targets = process.argv.slice(2).length ? process.argv.slice(2) : ["core", "kit", "cli"];
+  const targets = process.argv.slice(2).length ? process.argv.slice(2) : ["core", "kit", "cli", "mcp"];
   if (targets.includes("cli")) await syncSkill();
   for (const a of targets) {
-    if (!["core", "kit", "cli"].includes(a)) { console.error("usage: node scripts/build-studio.mjs [core|kit|cli]"); process.exit(2); }
-    if (a === "cli") await cli(); else await library(a);
+    if (!["core", "kit", "cli", "mcp"].includes(a)) { console.error("usage: node scripts/build-studio.mjs [core|kit|cli|mcp]"); process.exit(2); }
+    if (a === "cli") await cli(); else if (a === "mcp") await mcp(); else await library(a);
     if (!existsSync(folder(a) + "dist")) throw new Error("dist/ was not generated in " + folder(a));
     console.log("ok: " + a);
   }

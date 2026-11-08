@@ -1,10 +1,10 @@
-// Maps a release tag to its package and checks the version: `sdk-v0.2.0`, `cli-v0.4.0`, `studio-v0.2.0`, `studio-core-v0.2.0`, `studio-kit-v0.2.0`.
+// Maps a release tag to its package and checks the version: `sdk-v0.2.0`, `cli-v0.4.0`, `studio-v0.2.0`, `studio-core-v0.2.0`, `studio-kit-v0.2.0`, `studio-mcp-v0.1.0`.
 // Used by the workflow (publicar.yml): node scripts/tag-package.mjs "$GITHUB_REF_NAME"   -> prints PACKAGE=<key> and DIR=<folder> (exits 1 if the tag is odd or the version does not match).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const DIRS = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit" };
+export const DIRS = { sdk: "packages/sdk", cli: "packages/cli", studio: "studio/packages/cli", "studio-core": "studio/packages/core", "studio-kit": "studio/packages/kit", "studio-mcp": "studio/packages/mcp" };
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 /** `tag` -> { key, dir, version } or throws. The key is what comes before `-v<semver>` (semver has no "-v"; neither does a package name). */

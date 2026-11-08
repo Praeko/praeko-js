@@ -1,6 +1,6 @@
 {
   "name": "@praeko/studio",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Praeko Studio: short (9:16) and long (16:9) videos from a script, for you to run with your own coding agent (Claude Code, Codex, Gemini CLI, Cursor, opencode). Voice, word-by-word captions, scenes, cover, texts and publishing through Praeko.",
   "license": "MIT",

@@ -80,3 +80,10 @@ export async function balances({ config = loadConfig(), create }: { config?: Voi
   }
   return out;
 }
+
+/** Groups of accounts that show the SAME balance (same used, limit and renewal date): they are probably one workspace, so credits are shared and failover would not help. */
+export function sameBalanceGroups(list: AccountBalance[]): string[][] {
+  const seen = new Map<string, string[]>();
+  for (const c of list) { if ("error" in c) continue; const k = `${c.used}|${c.limit}|${c.resets?.getTime()}`; seen.set(k, [...(seen.get(k) || []), c.account]); }
+  return [...seen.values()].filter((l) => l.length > 1);
+}

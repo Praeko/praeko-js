@@ -195,3 +195,24 @@ test("hasBrief, help and the skill texts mention the interview", () => {
   for (const l of ["en", "pt"] as const) { const t = BODY[l]; for (const k of ["brief.md", "playbook.md", "praeko studio brief", "brand/build/tokens.json", "TODO"]) assert.ok(t.includes(k), `${l}: ${k}`); }
   assert.match(BODY.en, /one at a time/); assert.match(BODY.pt, /uma de cada vez/);
 });
+test("--yes imports colors and font from ../brand tokens, --brand points elsewhere, flags win, and it says what it imported", () => {
+  const ws = mkdtempSync(join(base, "wsy-")); mkdirSync(join(ws, "brand", "build"), { recursive: true });
+  writeFileSync(join(ws, "brand", "build", "tokens.json"), JSON.stringify({ cor: { fundo: "#141414", acento: "#7ccf77" }, fonte: "Inter" }));
+  const d1 = join(ws, "site1"), r1 = studio(["init", d1, "--yes", "--no-install", "--name", "Site"]);
+  assert.equal(r1.status, 0, r1.stderr); assert.match(r1.stdout, /imported from .*tokens\.json: accent #7ccf77, background #141414, font Inter/);
+  const b1 = JSON.parse(readFileSync(join(d1, "brand.json"), "utf8")); assert.equal(b1.colors.accent, "#7ccf77"); assert.equal(b1.colors.background, "#141414"); assert.match(b1.fonts.title, /^'Inter'/);
+  const d2 = join(ws, "site2"), r2 = studio(["init", d2, "--yes", "--no-install", "--accent", "#00ff00", "--font", "Lato"]);
+  assert.equal(r2.status, 0, r2.stderr);
+  const b2 = JSON.parse(readFileSync(join(d2, "brand.json"), "utf8")); assert.equal(b2.colors.accent, "#00ff00"); assert.equal(b2.colors.background, "#141414"); assert.match(b2.fonts.title, /^'Lato'/);
+  assert.match(r2.stdout, /background #141414/); assert.doesNotMatch(r2.stdout, /accent #7ccf77/);
+  // explicit --brand (folder with tokens.json), project far from any brand/ folder
+  const other = mkdtempSync(join(base, "other-")); writeFileSync(join(other, "tokens.json"), JSON.stringify({ colors: { accent: "#123456" } }));
+  const d3 = join(base, "far-site"), r3 = studio(["init", d3, "--yes", "--no-install", "--brand", other]);
+  assert.equal(r3.status, 0, r3.stderr); assert.equal(JSON.parse(readFileSync(join(d3, "brand.json"), "utf8")).colors.accent, "#123456");
+  // clear error and nothing written
+  const d4 = join(base, "bad-brand"), r4 = studio(["init", d4, "--yes", "--no-install", "--brand", join(base, "nope")]);
+  assert.notEqual(r4.status, 0); assert.match(r4.stderr, /--brand .*did not find/); assert.ok(!existsSync(d4));
+  // without a brand folder and without --brand the output is the old one (see the snapshot test above)
+  const d5 = join(base, "no-brand-again"), r5 = studio(["init", d5, "--yes", "--no-install", "--name", "Plain"]);
+  assert.doesNotMatch(r5.stdout, /imported from/); assert.equal(readFileSync(join(d5, "brand.json"), "utf8"), initialBrand({ name: "Plain", handle: "@plain" }));
+});

@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
-import { getKey } from "@praeko/studio-voice";
+import { balances, getKey, loadConfig, resolveVoice, sameBalanceGroups } from "@praeko/studio-voice";
+import type { AccountBalance } from "@praeko/studio-voice";
 import { findProjectRoot, isLegacyLayout } from "./project.ts";
 import { noticeText, readAcceptance } from "./licenses.ts";
 
@@ -50,7 +51,39 @@ export function remotionNeeded(root: string | null, brand: any): boolean {
   return engines.length ? engines.includes("remotion") : brandEngine === "remotion";
 }
 
-export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn = fetch }: { offline?: boolean; cwd?: string; fetchFn?: typeof fetch } = {}): Promise<DoctorItem[]> {
+const fmtN = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+type BalanceOpts = Parameters<typeof balances>[0];
+/** Voice section: ElevenLabs accounts (name, balance when the key reads it, never the key), the final voice and which accounts have its id. Warnings, never errors. */
+export async function voiceItems({ offline, create }: { offline: boolean; create?: NonNullable<BalanceOpts>["create"] }): Promise<DoctorItem[]> {
+  const items: DoctorItem[] = [], add = (id: string, level: Level, msg: string, fix?: string) => items.push({ id, level, msg, ...(fix ? { fix } : {}) });
+  let config;
+  try { config = loadConfig(); } catch (e: any) { add("voice-config", "warning", `voices.json unreadable: ${e.message}`, "fix the JSON or remove the file"); return items; }
+  const el = config.accounts?.elevenlabs, names = Array.isArray(el) ? el : [];
+  const withKey = names.filter((n) => !!getKey(`elevenlabs/${n}`));
+  let list: AccountBalance[] = [];
+  if (!offline && withKey.length) list = await balances({ config, ...(create ? { create } : {}) });
+  for (const n of names) {
+    const c = list.find((x) => x.account === n);
+    if (!withKey.includes(n)) add(`voice-account-${n}`, "info", `ElevenLabs account "${n}": no key`, `praeko studio voice account add ${n}`);
+    else if (offline || !c) add(`voice-account-${n}`, "info", `ElevenLabs account "${n}": key present (balance not checked${offline ? ": --offline" : ""})`);
+    else if ("error" in c) add(`voice-account-${n}`, "warning", `ElevenLabs account "${n}": balance unavailable (${c.error})`, "enable the User (read) permission on the key to see the credits");
+    else add(`voice-account-${n}`, "ok", `ElevenLabs account "${n}": ${fmtN(c.remaining)} left of ${fmtN(c.limit)} (${c.plan}), resets ${c.resets ? c.resets.toISOString().slice(0, 10) : "unknown"}`);
+  }
+  if (!names.length) add("voice-accounts", "info", "no ElevenLabs account configured (the silent draft is free)", "praeko studio voice account add <name>");
+  for (const g of sameBalanceGroups(list)) add("voice-same-balance", "warning", `${g.join(" and ")} show the SAME balance: they are probably the same workspace/plan (credits are shared)`, "failover between them does not help; use a key from another workspace");
+  const alias = config.quality?.final;
+  if (!alias) { add("voice-final", "info", "no final voice set (quality.final)"); return items; }
+  let v;
+  try { v = resolveVoice(alias, config); } catch (e: any) { add("voice-final", "warning", `final voice "${alias}": ${e.message}`); return items; }
+  if (v.provider !== "elevenlabs") { add("voice-final", "info", `final voice "${alias}" (${v.provider})`); return items; }
+  const ids = (v.ids || {}) as Record<string, string>;
+  const haveId = names.filter((n) => ids[n]);
+  add("voice-final", haveId.length ? "ok" : "info", `final voice "${alias}": id on ${haveId.length ? haveId.map((n) => `"${n}"`).join(", ") : "no account"}`);
+  if (!haveId.some((n) => withKey.includes(n))) add("voice-final-id", "warning", `final voice "${alias}" has no voice id on any account that has a key: --quality final will fail`, `praeko studio voice account add <name> --voice ${alias}`);
+  return items;
+}
+
+export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn = fetch, voiceCreate }: { offline?: boolean; cwd?: string; fetchFn?: typeof fetch; voiceCreate?: NonNullable<BalanceOpts>["create"] } = {}): Promise<DoctorItem[]> {
   const items: DoctorItem[] = [], add = (id: string, level: Level, msg: string, fix?: string) => items.push({ id, level, msg, ...(fix ? { fix } : {}) });
   const major = +process.versions.node!.split(".")[0]!;
   add("node", major >= 22 ? "ok" : "error", `Node ${process.versions.node}`, major >= 22 ? undefined : "install Node 22 or newer (nodejs.org)");
@@ -70,6 +103,7 @@ export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn =
   for (const [ref, name, hint] of [["elevenlabs/principal", "ElevenLabs (final voice)", "only needed for --quality final; the silent draft is free"], ["praeko/main", "Praeko key (publishing)", "create it in the dashboard (write scope); only needed to publish"]] as const) {
     const has = !!getKey(ref); add(`key-${ref.split("/")[0]}`, has ? "ok" : "info", `${name}: ${has ? "present" : "absent"}`, has ? undefined : hint);
   }
+  items.push(...(await voiceItems({ offline, create: voiceCreate })));
   if (offline) add("network", "info", "network not checked (--offline)");
   else { try { const r = await fetchFn("https://praeko.app/", { method: "HEAD", signal: AbortSignal.timeout(6000) }); add("network", r.status < 500 ? "ok" : "warning", `praeko.app answered ${r.status}`); } catch (e: any) { add("network", "warning", `no access to praeko.app (${e.cause?.code || e.message})`, "only affects publishing; rendering and building the package work without network (after the first Chrome download)"); } }
   const ac = readAcceptance();
