@@ -58,7 +58,7 @@ test("@praeko/studio-core and @praeko/studio-kit tarballs: dist with .d.ts, remo
     for (const f of ["dist/index.js", "dist/index.d.ts", "LICENSES.md", "LICENSE"]) assert.ok(files.includes(f), `${key}: ${f}`);
     assert.ok(!files.some((a) => a.startsWith("src/") || a.startsWith("test/")));
     assert.match(pkg.peerDependencies.remotion, /^\^4\./); assert.match(pkg.peerDependencies.react, /^\^19/); assert.equal(pkg.dependencies, undefined);
-    assert.equal(pkg.license, "MIT"); assert.equal(pkg.publishConfig.access, "public"); assert.equal(pkg.version, "0.2.4");
+    assert.equal(pkg.license, "MIT"); assert.equal(pkg.publishConfig.access, "public"); assert.equal(pkg.version, "0.2.5");
   }
   assert.equal(JSON.parse(readFileSync(root + "studio/packages/kit/package.json", "utf8")).peerDependencies["@praeko/studio-core"], "^0.2.0");
 });

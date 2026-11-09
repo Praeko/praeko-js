@@ -304,7 +304,7 @@ export function compile(a: string[]): number {
   const r = compileEpisode(ep.folder);
   if (!r.errors.length && engineOf(p, ep, flag(a, "engine")) === "hyperframes") r.warnings.push(...hyperframesWarnings(ep));
   r.warnings.forEach((x) => console.log(`${ICON.warning} ${x}`)); r.errors.forEach((x) => console.log(`${ICON.error} ${x}`));
-  if (!r.errors.length) console.log(`${ICON.ok} episodes/${ep.slug}/episode.spec.json (${r.spec.scenes.length} scenes)`);
+  if (!r.errors.length) { const sp = r.spec as { scenes?: unknown[]; slides?: unknown[] }; console.log(`${ICON.ok} episodes/${ep.slug}/episode.spec.json (${sp.slides ? `${sp.slides.length} slide${sp.slides.length === 1 ? "" : "s"}` : `${sp.scenes?.length ?? 0} scenes`})`); }
   console.log(`\n${r.errors.length} error(s), ${r.warnings.length} warning(s)`);
   return r.errors.length ? 1 : 0;
 }

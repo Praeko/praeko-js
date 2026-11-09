@@ -236,3 +236,13 @@ function fs_write(root: string, slug: string, yaml: string): void {
   const id = /id: (\w+)/.exec(yaml)![1]; writeFileSync(join(d, "episode.json"), JSON.stringify({ id, title: slug }));
 }
 function fs_json(root: string, slug: string, pub: any): void { writeFileSync(join(root, "episodes", slug, "publication.json"), JSON.stringify(pub)); }
+
+test("compile command on an image piece and on a carousel piece prints the slide count and exits 0 (it used to read spec.scenes and crash)", () => {
+  const root = project();
+  assert.equal(studio(["new", "foto", "--title", "Foto", "--image"], root).status, 0);
+  const a = studio(["compile", "foto"], root);
+  assert.equal(a.status, 0, a.stdout + a.stderr); assert.match(a.stdout, /episode\.spec\.json \(1 slide\)/); assert.doesNotMatch(a.stderr, /Cannot read properties/);
+  assert.equal(studio(["new", "serie", "--title", "Serie", "--carousel"], root).status, 0);
+  const b = studio(["compile", "serie"], root);
+  assert.equal(b.status, 0, b.stdout + b.stderr); assert.match(b.stdout, /episode\.spec\.json \(\d+ slides\)/);
+});
