@@ -22,17 +22,17 @@ export function fileSource(path: string): FileSource {
 /** @deprecated use fileSource */
 export const arquivoComoFonte: typeof fileSource = fileSource;
 
-/** Uploads a file from disk. `type`: "video" | "cover" (old "capa" accepted). Returns the ready media. Works with the new client (media.upload) and the old one (midia.enviar). */
-export async function uploadFile(cliente: Praeko, path: string, { type, onProgress, tipo, aoProgredir }: { type?: "video" | "cover"; onProgress?: (done: number, total: number) => void; /** @deprecated */ tipo?: string; /** @deprecated */ aoProgredir?: (done: number, total: number) => void } = {}): Promise<Media> {
+/** Uploads a file from disk. `type`: "video" | "cover" | "image" (old "capa" accepted; without `type` an image file is a cover, as always: pass `type: "image"` for the photo of an image post). Returns the ready media. Works with the new client (media.upload) and the old one (midia.enviar). */
+export async function uploadFile(cliente: Praeko, path: string, { type, onProgress, tipo, aoProgredir }: { type?: "video" | "cover" | "image"; onProgress?: (done: number, total: number) => void; /** @deprecated */ tipo?: string; /** @deprecated */ aoProgredir?: (done: number, total: number) => void } = {}): Promise<Media> {
   const f = fileSource(path);
   try {
     if (!f.mime) throw new Error(`não sei o tipo de ${path} (use .mp4, .mov, .png ou .jpg)`);
     const t = type || tipo || (f.mime.startsWith("video/") ? "video" : "cover"), cb = onProgress || aoProgredir;
-    if (cliente.media?.upload) return await cliente.media.upload(f, { type: t === "capa" ? "cover" : (t as "video" | "cover"), name: f.name, mime: f.mime, onProgress: cb });
-    return await cliente.midia.enviar(f, { tipo: t === "cover" ? "capa" : (t as "video" | "capa"), nome: f.name, mime: f.mime, aoProgredir: cb });
+    if (cliente.media?.upload) return await cliente.media.upload(f, { type: t === "capa" ? "cover" : (t as "video" | "cover" | "image"), name: f.name, mime: f.mime, onProgress: cb });
+    return await cliente.midia.enviar(f, { tipo: (t === "cover" ? "capa" : t === "image" ? "imagem" : t) as "video" | "capa", nome: f.name, mime: f.mime, aoProgredir: cb });
   } finally { f.close(); }
 }
 /** @deprecated use uploadFile */
-export const enviarArquivo = (cliente: Praeko, caminho: string, { tipo, aoProgredir, type, onProgress }: Parameters<typeof uploadFile>[2] = {}) => uploadFile(cliente, caminho, { type: (type ?? tipo) as "video" | "cover" | undefined, onProgress: onProgress ?? aoProgredir });
+export const enviarArquivo = (cliente: Praeko, caminho: string, { tipo, aoProgredir, type, onProgress }: Parameters<typeof uploadFile>[2] = {}) => uploadFile(cliente, caminho, { type: (type ?? tipo) as "video" | "cover" | "image" | undefined, onProgress: onProgress ?? aoProgredir });
 
 export type { Source };

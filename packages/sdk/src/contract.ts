@@ -200,6 +200,8 @@ const KEY_ROWS = [
   // retenção, impressões e CTR (/v1/insights/retention)
   ["retencao", "retention"], ["curva", "curve"], ["impressoes", "impressions"], ["posicao", "position"], ["assistida", "watched"], ["relativa", "relative"], ["percentualMedio", "avgViewPercentage"],
   ["taxaPulo", "skipRate"], ["desde", "since"], ["pontos", "points"], ["coletadoEm", "collectedAt"],
+  // avisos de um item (ex.: alt_ignored)
+  ["avisos", "warnings"],
 ] as const satisfies readonly KeyRow[];
 export const KEYS: ReadonlyArray<KeyRow> = KEY_ROWS.filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i);
 /** Campo legado (PT) → campo do contrato (EN) (a primeira linha de cada campo vale; veja o comentário de cada linha acima). */
@@ -211,7 +213,7 @@ export type LegacyField = keyof FieldMap;
 export const SCOPED_KEYS = { reorganizados: [["de", "from"], ["para", "to"]], leitura48h: [["destinoId", "itemId"]] } as const satisfies Record<string, ReadonlyArray<readonly [string, string]>>;
 
 /** Chaves que são iguais nos dois idiomas (ou nomes de rede/métrica): passam sem tradução e não disparam o aviso de "chave em português". */
-const SAME_LIST = (["id", "ctr", "item", "url", "views", "tags", "meta", "host", "token", "userId", "ok", "total", "pct", "manual", "custom", "studio", "video", "mime", "etag", "avatar", "youtube", "instagram", "tiktok", "publishAt", "parentId", "permalink", "thumbnail", "posts", "topPosts", "videos", "redirect", "chunkMB", "via", "videoId", "postId", "threadId", "limit", "max", "publishId", "status", "p95Ms", "cursor", "webhooks", "theme", "language", "notifications", "email", "panel", "postSent", "postFailed", "scheduledFail", "weeklySummary", "newComment", "unread", "ids", "all", "link", "topViews"] as const);
+const SAME_LIST = (["id", "ctr", "item", "url", "views", "tags", "meta", "host", "token", "userId", "ok", "total", "pct", "manual", "custom", "studio", "video", "mime", "etag", "avatar", "youtube", "instagram", "tiktok", "publishAt", "parentId", "permalink", "thumbnail", "posts", "topPosts", "videos", "redirect", "chunkMB", "via", "videoId", "postId", "threadId", "limit", "max", "publishId", "status", "p95Ms", "cursor", "webhooks", "theme", "language", "notifications", "email", "panel", "postSent", "postFailed", "scheduledFail", "weeklySummary", "newComment", "unread", "ids", "all", "link", "topViews", "kind", "images", "alt"] as const);
 /** Campos iguais nos dois idiomas. */
 export type SameField = (typeof SAME_LIST)[number];
 export const SAME_KEYS: ReadonlySet<string> = new Set<string>(SAME_LIST);
@@ -225,7 +227,7 @@ export const VALUES = {
   grupo: [["sem", "idea"], ["fazer", "scripting"], ["andamento", "ready"], ["feito", "posted"]], // grupos do quadro de ideias (Ideia, Roteirizando, Pronto para postar, Postado)
   modo: [["privado", "private"], ["agendado", "scheduled"], ["publico", "public"], ["rascunho", "draft"], ["direto", "direct"], ["agora", "now"]],
   mover: [["rascunho", "draft"], ["fila", "queue"]],
-  tipo: [["capa", "cover"], ["longo", "long"], ["comentar", "comment"], ["agendar", "schedule"]],
+  tipo: [["capa", "cover"], ["imagem", "image"], ["carrossel", "carousel"], ["longo", "long"], ["comentar", "comment"], ["agendar", "schedule"]],
   formato: [["longo", "long"]],
   dia: [["dom", "sun"], ["seg", "mon"], ["ter", "tue"], ["qua", "wed"], ["qui", "thu"], ["sex", "fri"], ["sab", "sat"],
     ["dom", "sunday", "req"], ["seg", "monday", "req"], ["ter", "tuesday", "req"], ["qua", "wednesday", "req"], ["qui", "thursday", "req"], ["sex", "friday", "req"], ["sab", "saturday", "req"]],
@@ -376,6 +378,7 @@ export const ERROR_CODES = {
   webhook_inexistente: "webhook_not_found", entrega_inexistente: "delivery_not_found", url_insegura: "unsafe_url", limite_webhooks: "webhook_limit_reached",
   ideia_inexistente: "idea_not_found", limite_ideias: "idea_limit_reached",
   idempotencia_reutilizada: "idempotency_key_reuse", idempotencia_em_andamento: "idempotency_in_progress", idempotencia_resposta_grande: "idempotency_response_too_large",
+  imagem_invalida: "invalid_image", imagem_proporcao: "image_aspect_ratio", imagem_grande: "image_too_large", rede_nao_suporta_kind: "kind_not_supported_by_network", carrossel_muitas_imagens: "carousel_too_many_images", carrossel_poucas_imagens: "carousel_too_few_images",
   buffer_erro: "buffer_error", instagram_erro: "instagram_error", tiktok_indisponivel: "tiktok_unavailable", youtube_erro: "youtube_error",
 } as const;
 /** Código de erro legado (PT) → código do contrato (EN). */

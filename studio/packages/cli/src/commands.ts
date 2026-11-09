@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { hookHash, joinAudios, narrate, narratePiece } from "@praeko/studio-voice";
 import { buildPackage, validate } from "@praeko/studio-publish";
@@ -8,7 +8,8 @@ import { checkEpisode, contactSheet } from "@praeko/studio-review";
 import { episodeOf, findProject, pascal } from "./project.ts";
 import type { Episode, Project } from "./project.ts";
 import * as T from "./templates.ts";
-import { compileEpisode } from "./compile.ts";
+import { compileEpisode, imageEngine, imageFormat, isImagePiece } from "./compile.ts";
+import { IMAGE_LIMITS, SLIDE_TIMEOUT_S, checkJpeg, slideFile } from "./image.ts";
 import { cutAudio, readJson, resolvePoint, sliceWords } from "./cut.ts";
 import { coverHyperframes, engineOf, hyperframesWarnings, previewHyperframes, renderHyperframes } from "./engine.ts";
 import { HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
@@ -24,13 +25,18 @@ export const flag = (a: string[], k: string): string | undefined => { const i = 
 export const has = (a: string[], k: string): boolean => a.includes("--" + k);
 const publicDir = (p: Project): string => resolve(p.root, p.brand.publicDir || "public");
 const write = (file: string, text: string): void => { mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, text); };
-const run = (cmd: string, args: string[], cwd: string): Promise<number> => new Promise((ok) => { const c = spawn(cmd, args, { cwd, stdio: "inherit", shell: false }); c.on("error", (e) => { console.error(`error running ${cmd}: ${e.message}`); ok(1); }); c.on("exit", (code) => ok(code ?? 1)); });
+const run = (cmd: string, args: string[], cwd: string, timeoutMs?: number): Promise<number> => new Promise((ok) => {
+  const c = spawn(cmd, args, { cwd, stdio: "inherit", shell: false });
+  const timer = timeoutMs ? setTimeout(() => { console.error(`error: ${cmd} did not finish in ${Math.round(timeoutMs / 1000)} s: stopped`); c.kill("SIGKILL"); }, timeoutMs) : null;
+  c.on("error", (e) => { if (timer) clearTimeout(timer); console.error(`error running ${cmd}: ${e.message}`); ok(1); });
+  c.on("exit", (code) => { if (timer) clearTimeout(timer); ok(code ?? 1); });
+});
 /** Runs the project's Remotion directly through Node (no npx or .cmd: the same on macOS, Linux and Windows). */
-const runRemotion = (p: Project, args: string[]): Promise<number> => {
+const runRemotion = (p: Project, args: string[], timeoutMs?: number): Promise<number> => {
   let cli: string;
   try { cli = join(dirname(createRequire(join(p.root, "package.json")).resolve("@remotion/cli/package.json")), "remotion-cli.js"); }
   catch { throw new Error("@remotion/cli is not installed in this project: run `npm install` in the project folder (or create it with `praeko studio init`)"); }
-  return run(process.execPath, [cli, ...args], p.root);
+  return run(process.execPath, [cli, ...args], p.root, timeoutMs);
 };
 /** `npm` without a shell: on Windows, the npm-cli.js that ships with Node; elsewhere, the `npm` on PATH. */
 const npmInstall = (cwd: string): Promise<number> => process.platform === "win32" ? run(process.execPath, [join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"), "install", "--loglevel=error"], cwd) : run("npm", ["install", "--loglevel=error"], cwd);
@@ -143,14 +149,22 @@ export async function brief(a: string[], io: InitIO = {}): Promise<number> {
 
 export function newEpisode(a: string[]): number {
   const proj = findProject(), slug = a[0];
-  if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error('usage: praeko studio new <slug-in-lowercase-with-hyphens> [--title "Video title"] [--long]');
+  if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error('usage: praeko studio new <slug-in-lowercase-with-hyphens> [--title "Video title"] [--long | --image | --carousel]');
   const folder = join(proj.root, "episodes", slug);
   if (existsSync(folder)) throw new Error(`${folder} already exists`);
   const id = pascal(slug), cover = `Cover${id}`, title = flag(a, "title") || slug.replace(/-/g, " ");
-  const longForm = has(a, "long");
+  const longForm = has(a, "long"), carouselForm = has(a, "carousel"), imageForm = has(a, "image") || carouselForm;
+  if ([longForm, has(a, "image"), carouselForm].filter(Boolean).length > 1) throw new Error("--long, --image and --carousel cannot go together");
   const upper = title.toUpperCase().split(/\s+/).filter(Boolean), size = Math.ceil(upper.length / Math.min(3, upper.length));
   const lines: string[] = [];
   for (let i = 0; i < upper.length; i += size) lines.push(upper.slice(i, i + size).join(" "));
+  if (imageForm) { // a photo post or a carousel: no script, voice or video; the slides are rendered to JPEG by `praeko studio slides`
+    write(join(folder, "publication.json"), T.imagePublication({ title, carousel: carouselForm }));
+    write(join(folder, "episode.json"), JSON.stringify({ id, title, format: carouselForm ? "carousel" : "image" }, null, 2) + "\n");
+    write(join(folder, "episode.yaml"), carouselForm ? T.carouselYaml({ id, title }) : T.imageYaml({ id, title }));
+    write(join(folder, "scenes.tsx"), T.imageScenesTsx);
+    write(join(folder, "episode.tsx"), T.imageTsx({ id, slug }));
+  } else {
   write(join(folder, "script.txt"), longForm ? T.longScript : T.initialScript);
   write(join(folder, "publication.json"), T.initialPublication({ title }));
   write(join(folder, "episode.json"), JSON.stringify({ id, cover, title }, null, 2) + "\n");
@@ -164,6 +178,7 @@ export function newEpisode(a: string[]): number {
     write(join(folder, "scenes.tsx"), T.scenesTsx({ cover, lines }));
     write(join(folder, "episode.tsx"), T.episodeTsx({ id, slug }));
   }
+  }
   const r0 = compileEpisode(folder);
   if (r0.errors.length) throw new Error("the initial episode did not compile: " + r0.errors.join("; "));
   // registers it in Root.tsx (between the "praeko-studio:" comments)
@@ -172,14 +187,19 @@ export function newEpisode(a: string[]): number {
   if (!s.includes(`// ${T.MARKER_IMPORTS}`) || !s.includes(`{/* ${T.MARKER_COMPOSITIONS} */}`)) throw new Error(`src/Root.tsx has no \`${T.MARKER_IMPORTS}\` and \`${T.MARKER_COMPOSITIONS}\` markers: register the episode by hand`);
   s = s.replace(`// ${T.MARKER_IMPORTS_END}`, `import { ${id}Composition } from "../episodes/${slug}/episode";\n// ${T.MARKER_IMPORTS_END}`).replace(`{/* ${T.MARKER_COMPOSITIONS_END} */}`, `<${id}Composition />\n    {/* ${T.MARKER_COMPOSITIONS_END} */}`);
   writeFileSync(root, s);
-  console.log(`episode created: episodes/${slug}/ (id ${id}). Next: write script.txt and run \`praeko studio voice ${slug} --quality draft\``);
+  if (imageForm) console.log(`${carouselForm ? "carousel" : "image post"} created: episodes/${slug}/ (id ${id}). Next: edit the ${carouselForm ? "slides" : "slide"} in episode.yaml (each with its alt text), the caption in publication.json, then \`praeko studio slides ${slug}\``);
+  else console.log(`episode created: episodes/${slug}/ (id ${id}). Next: write script.txt and run \`praeko studio voice ${slug} --quality draft\``);
   return 0;
 }
+
+/** Image pieces have no voice, video or cover: the commands of a video say what to run instead. */
+const notForImage = (ep: Episode, what: string): void => { if (isImagePiece(ep.folder)) throw new Error(`"${ep.slug}" is an image piece (format: ${imageFormat(ep.folder)}): it has no ${what}. Render it with \`praeko studio slides ${ep.slug}\``); };
 
 export async function voice(a: string[]): Promise<number> {
   const sub = a[0];
   if (["balance", "voices", "account", "config"].includes(sub!)) return run(process.execPath, [VOICE_BIN(sub!), ...a.slice(1)], process.cwd());
   const proj = findProject(), ep = episodeOf(proj, sub);
+  notForImage(ep, "voice");
   if (existsSync(join(ep.folder, "cut.json"))) throw new Error(`"${sub}" is a cut derived from a long video: the voice comes from there. Make the voice of the long video and run \`praeko studio cut ${sub} --redo\``);
   const r = await narrate({ folder: ep.folder, brand: proj.brand as any, log: (m: string) => console.error(m), noFailover: has(a, "no-failover"), voice: flag(a, "voice"), quality: flag(a, "quality"), aligner: flag(a, "aligner") });
   const target = join(publicDir(proj), "audio", `${ep.id}.mp3`);
@@ -295,6 +315,7 @@ export function preview(a: string[] = []): Promise<number> | number {
 }
 export async function render(a: string[]): Promise<number> {
   const p = findProject(), ep = episodeOf(p, a[0]), scale = flag(a, "scale");
+  notForImage(ep, "video");
   if (compileIfPresent(ep)) return 1;
   if (engineOf(p, ep, flag(a, "engine")) === "hyperframes") return renderHyperframes(p, ep);
   shortNotice();
@@ -305,6 +326,7 @@ export async function render(a: string[]): Promise<number> {
 }
 export async function cover(a: string[]): Promise<number> {
   const p = findProject(), ep = episodeOf(p, a[0]);
+  notForImage(ep, "cover");
   if (compileIfPresent(ep)) return 1;
   if (engineOf(p, ep, flag(a, "engine")) === "hyperframes") return coverHyperframes(p, ep);
   shortNotice();
@@ -322,6 +344,65 @@ export async function cover(a: string[]): Promise<number> {
   if (!c) console.log(`cover: ${relative(process.cwd(), ep.png)}`);
   return c;
 }
+/**
+ * `praeko studio slides <slug>`: renders the slide(s) of an image piece or a carousel to out/<slug>-slide-NN.jpg (NN = 01, 02, … in the order of `slides:`): 1080x1350 (4:5), sRGB JPEG
+ * (`remotion still --image-format=jpeg --jpeg-quality=92`, one still per slide), then checks each file (JPEG, size, at most 8 MB). Remotion only: HyperFrames has no image mode.
+ * Each slide is its own `remotion still` call (Remotion keeps its webpack cache between calls, so only the first one pays for the full bundle); a slide that takes more than
+ * `--timeout <seconds>` (default 180) is stopped and named. A slide that fails does not stop the others from being listed: the command reports every failed slide and exits 1.
+ */
+export async function slides(a: string[]): Promise<number> {
+  const p = findProject(), ep = episodeOf(p, a[0]);
+  if (!isImagePiece(ep.folder)) throw new Error(`"${a[0]}" is not an image piece: set \`format: image\` (one slide) or \`format: carousel\` (2 to 20) and \`slides:\` in episode.yaml (create one with \`praeko studio new <slug> --image\` or \`--carousel\`). Videos use render and cover`);
+  if (flag(a, "engine") === "hyperframes" || imageEngine(ep.folder) === "hyperframes") throw new Error("image pieces render only with Remotion: HyperFrames has no image mode yet (remove --engine hyperframes / engine: hyperframes)");
+  if (flag(a, "engine") && flag(a, "engine") !== "remotion") throw new Error(`engine "${flag(a, "engine")}" does not exist (image pieces use remotion)`);
+  if (compileIfPresent(ep)) return 1;
+  const spec = JSON.parse(readFileSync(join(ep.folder, "episode.spec.json"), "utf8"));
+  shortNotice();
+  mkdirSync(join(p.root, "out"), { recursive: true });
+  const timeoutS = flag(a, "timeout") ? Number(flag(a, "timeout")) : SLIDE_TIMEOUT_S;
+  if (!(timeoutS > 0)) throw new Error("--timeout takes a number of seconds (per slide)");
+  const total = (spec.slides as any[]).length, failedSlides: number[] = [];
+  let failed = 0;
+  for (const [i, s] of (spec.slides as any[]).entries()) {
+    const file = slideFile(p.root, ep.slug, i + 1);
+    rmSync(file, { force: true }); // never leave the file of an older render standing in for a slide that failed now
+    const c = await runRemotion(p, ["still", "src/index.ts", s.id, file, "--image-format=jpeg", `--jpeg-quality=${IMAGE_LIMITS.quality}`], timeoutS * 1000);
+    if (c) { console.log(`${ICON.error} slide ${i + 1} of ${total} (${s.id}) failed to render (exit ${c}; limit ${timeoutS} s per slide): fix that slide in episode.yaml and run \`praeko studio slides ${ep.slug}\` again`); failedSlides.push(i + 1); failed++; continue; }
+    const r = checkJpeg(file);
+    r.errors.forEach((x) => console.log(`${ICON.error} slide ${i + 1}: ${x}`)); r.warnings.forEach((x) => console.log(`${ICON.warning} slide ${i + 1}: ${x}`));
+    console.log(`${r.errors.length ? ICON.error : ICON.ok} slide ${i + 1}: ${relative(process.cwd(), file)} (${r.width}x${r.height}, ${(r.bytes / 1024).toFixed(0)} KB)`);
+    if (r.errors.length) failedSlides.push(i + 1);
+    failed += r.errors.length;
+  }
+  if (failedSlides.length) console.log(`${ICON.error} ${failedSlides.length} of ${total} slide(s) failed: ${failedSlides.join(", ")}`);
+  else console.log("next: `praeko studio check " + ep.slug + "` and `praeko studio package " + ep.slug + "`");
+  return failed ? 1 : 0;
+}
+/** publication.json of an image piece with `images` filled from the compiled spec (alt text) and the slide files. */
+function withImages(p: Project, ep: Episode, publication: any, compiled?: any): any {
+  const specFile = join(ep.folder, "episode.spec.json");
+  const spec = compiled ?? (existsSync(specFile) ? JSON.parse(readFileSync(specFile, "utf8")) : null);
+  const kind = spec?.format === "carousel" || publication.format === "carousel" || publication.kind === "carousel" ? "carousel" : "image";
+  if (!spec?.slides) return { ...publication, kind };
+  return { ...publication, kind, format: kind, images: spec.slides.map((s: any, i: number) => ({ file: relative(p.root, slideFile(p.root, ep.slug, i + 1)), ...(s.alt ? { alt: s.alt } : {}) })) };
+}
+/** `check` of an image piece: compile, alt text, the rendered JPEG and the Instagram caption (no voice, no video). */
+function checkImage(p: Project, ep: Episode): number {
+  const extra = compileEpisode(ep.folder, { write: false });
+  const res: { level: "error" | "warning"; msg: string }[] = [...extra.errors.map((msg) => ({ level: "error" as const, msg })), ...extra.warnings.map((msg) => ({ level: "warning" as const, msg }))];
+  const publication = withImages(p, ep, JSON.parse(readFileSync(join(ep.folder, "publication.json"), "utf8")), extra.spec);
+  for (const [i, im] of (publication.images || []).entries()) {
+    const abs = resolve(p.root, im.file);
+    if (!existsSync(abs)) res.push({ level: "warning", msg: `slide ${i + 1} is not rendered yet (${im.file}): run \`praeko studio slides ${ep.slug}\`` });
+    else for (const x of checkJpeg(abs).errors) res.push({ level: "error", msg: x });
+  }
+  const v = validate({ brand: p.brand, publication });
+  res.push(...v.errors.map((msg) => ({ level: "error" as const, msg })), ...v.warnings.map((msg) => ({ level: "warning" as const, msg })));
+  for (const x of res) console.log(`${ICON[x.level]} ${x.msg}`);
+  const errors = res.filter((x) => x.level === "error").length;
+  console.log(`\n${errors} error(s), ${res.length - errors} warning(s)`);
+  return errors ? 1 : 0;
+}
 export function contactSheetCommand(a: string[]): number {
   const p = findProject(), target = a[0];
   const video = existsSync(target || "") ? resolve(target!) : episodeOf(p, target).mp4;
@@ -332,6 +413,7 @@ export function contactSheetCommand(a: string[]): number {
 }
 export function check(a: string[]): number {
   const p = findProject(), ep = episodeOf(p, a[0]);
+  if (isImagePiece(ep.folder)) return checkImage(p, ep);
   const estimated = existsSync(join(ep.folder, "voice.estimated")) ? [{ level: "warning" as const, msg: "the voice is ESTIMATED (silent draft): make the final one before publishing (praeko studio voice " + ep.slug + " --quality final)" }] : [];
   const extra = existsSync(join(ep.folder, "episode.yaml")) ? compileEpisode(ep.folder, { write: false }) : null;
   const res = [...estimated, ...(extra ? [...extra.errors.map((msg) => ({ level: "error" as const, msg })), ...extra.warnings.map((msg) => ({ level: "warning" as const, msg }))] : []), ...checkEpisode({ folder: ep.folder, brand: p.brand as any, video: existsSync(ep.mp4) ? ep.mp4 : undefined })];
@@ -342,7 +424,14 @@ export function check(a: string[]): number {
 }
 export function packageCommand(a: string[]): number {
   const p = findProject(), ep = episodeOf(p, a[0]);
-  const publication = JSON.parse(readFileSync(join(ep.folder, "publication.json"), "utf8"));
+  let publication = JSON.parse(readFileSync(join(ep.folder, "publication.json"), "utf8"));
+  if (isImagePiece(ep.folder)) { // an image piece: images (file + alt) come from the compiled spec; publication.json keeps them for `schedule`
+    const c = compileEpisode(ep.folder);
+    c.errors.forEach((x) => console.log(`${ICON.error} ${x}`));
+    if (c.errors.length) return 1;
+    publication = withImages(p, ep, publication, c.spec);
+    writeFileSync(join(ep.folder, "publication.json"), JSON.stringify(publication, null, 2) + "\n");
+  }
   const specFile = join(ep.folder, "episode.spec.json");
   if (publication.format === "long" && !publication.chapters && existsSync(specFile)) { // chapters = the scenes of the long video (lowercase title, first letter capitalized)
     const spec = JSON.parse(readFileSync(specFile, "utf8"));

@@ -35,7 +35,14 @@ const HINTS: Record<string, string> = {
   media_not_found: "the media does not exist on Praeko",
   media_in_use: "the media is in use by a pending post",
   media_not_ready: "the media has not finished uploading",
-  media_type_mismatch: "the media type does not match (video and cover are different media)",
+  media_type_mismatch: "the media type does not match (video, cover and image are different media)",
+  invalid_image: "the file is not a JPEG (an image post takes only sRGB JPEG: `praeko studio slides` exports it)",
+  image_too_large: "the image is over 8 MB (the Instagram limit)",
+  image_aspect_ratio: "the image proportion is outside 4:5 to 1.91:1 (Instagram refuses it; slides are 1080x1350)",
+  kind_not_supported_by_network: "that network does not take image or carousel posts yet (only Instagram does)",
+  carousel_too_many_images: "a carousel takes at most 20 slides",
+  carousel_too_few_images: "a carousel takes at least 2 slides (a single image is `format: image`)",
+  carousel_not_supported: "carousel arrives in a later phase: an image post takes exactly one image", // older servers (before the carousel phase)
   file_too_large: "the file is too large for this kind of upload",
   part_too_small: "an upload part is smaller than the server's minimum",
   channel_not_connected: "the network is not connected on Praeko (connect it under Channels in the dashboard)",
@@ -202,6 +209,30 @@ export function buildPost({ brand, publication, id, media, networkMedia = {}, ne
     media: { video: media.video, ...(media.cover ? { cover: media.cover } : {}) },
     texts, items,
     options: { format: publication.format === "long" ? "long" : "short", ...(tt ? { tiktok: tt } : {}) },
+  };
+}
+
+/**
+ * Body of `POST /v1/posts` for an IMAGE post (one photo) or a CAROUSEL (2 to 20 images IN SLIDE ORDER), Instagram only: `kind: "image"` (one image) or `"carousel"`, `media.images: [{ media, alt }]`.
+ * `images`: [{ media: <id of a media uploaded with type image>, alt }] in the order of the slides. `when.instagram` in ISO UTC. Deterministic `id` (the episode slug).
+ */
+export function buildImagePost({ brand, publication, id, images, networks = ["instagram"], when, offset = "-03:00" }: {
+  brand: Brand; publication: Publication; id: string; images: { media: string; alt?: string }[]; networks?: string[]; when: Record<string, string | undefined>; offset?: string;
+}): Record<string, any> {
+  if (networks.some((r) => r !== "instagram")) throw new Error("image and carousel posts go only to Instagram for now (YouTube has no image posts; TikTok photo mode arrives in a later phase)");
+  if (images.length < 1 || images.length > 20) throw new Error(`a post takes 1 image or 2 to 20 slides (${images.length} given)`);
+  if (images.length === 1 && publication.kind === "carousel") throw new Error("a carousel takes at least 2 slides (1 given: use format image)");
+  const cfg = praekoConfig(brand), tx = (textsByNetwork({ brand, publication }) as Record<string, { text: string; pinnedComment?: string }>).instagram!;
+  const at = when.instagram;
+  if (!at) throw new Error("no time set for instagram");
+  const item: Record<string, any> = { network: "instagram", scheduledFor: isoWithOffset(at, offset), via: cfg.instagram.via };
+  const channel = (cfg.channels as Record<string, string> | undefined)?.instagram;
+  if (channel) item.channel = channel;
+  return {
+    id, kind: images.length > 1 ? "carousel" : "image", title: publication.title,
+    media: { images: images.map((x) => ({ media: x.media, ...(x.alt ? { alt: x.alt } : {}) })) },
+    texts: { instagram: { text: tx.text, ...(tx.pinnedComment ? { pinnedComment: tx.pinnedComment } : {}) } },
+    items: [item],
   };
 }
 

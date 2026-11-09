@@ -2,7 +2,23 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/). In the 0.x series a breaking change may ship in a minor version, always recorded here.
 
-## [0.2.0] - unreleased
+## [0.2.3] - 2026-11-08
+
+Version aligned with `@praeko/studio-mcp` 0.1.1; the project templates depend on `@praeko/studio-core` and `@praeko/studio-kit` 0.2.3. No other change.
+
+## [0.2.2] - 2026-11-08
+
+- `init --yes` (or without a terminal) imports the brand tokens (colors, font) from `--brand <folder-or-tokens.json>` or from `../brand/build/tokens.json` / `../brand/tokens.json` when present.
+- `doctor` has a voice section: it lists the configured voice accounts (without showing keys) and warns when a voice id is in no account.
+- The docs and the agent skill say plainly that the agent needs a terminal to render.
+
+## [0.2.1] - 2026-11-08
+
+- Interactive `init`: in a terminal it interviews you (name, audience, tone, colors, font, up to 3 references; Enter skips each question, flags answer ahead) and writes `brief.md` and a draft `playbook.md` that the agent reads before the first script.
+- New `praeko studio brief` command: reopens the interview in an existing project, rewrites `brief.md` (with a `.bak` backup) and keeps an edited `playbook.md`.
+- `voice account add` keeps the key even when the voice is not found, and picks the project voice that matches the cloned voice.
+
+## [0.2.0] - 2026-11-07
 
 **Breaking: everything is English now.** The 0.1.0 surface was Portuguese; this is day 0 with almost no users, so the rename is done at once. No Portuguese alias is kept.
 

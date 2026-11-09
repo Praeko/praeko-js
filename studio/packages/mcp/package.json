@@ -1,6 +1,6 @@
 {
   "name": "@praeko/studio-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Local MCP server for Praeko Studio: lets an agent without a terminal (Claude Desktop and others) write the brief and script, compile, make the draft voice, render, cover and package a video, and upload it to the Praeko media library. Stdio only; it never publishes and never shows a key.",
   "license": "MIT",

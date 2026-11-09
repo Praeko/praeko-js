@@ -145,3 +145,21 @@ export const Frame: React.FC<{ glow: string; title: [string, string, string?]; c
     </AbsoluteFill>
   );
 };
+
+/** Frame of an image piece (a 4:5 photo post, 1080x1350). Like `Frame` (title in up to 3 lines, the second one highlighted) but sized for the feed instead of a vertical video cover. */
+export const SlideFrame: React.FC<{ glow: string; title?: [string, string?, string?]; color: string; children: React.ReactNode; size?: number }> = ({ glow, title, color, children, size = 110 }) => {
+  const { coverBackground: BG, text: INK, accent: LAMP, font: FONT, handle } = useTheme();
+  return (
+    <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 46%, ${glow} 0%, rgba(0,0,0,0) 58%), ${BG}`, alignItems: "center", fontFamily: FONT, textAlign: "center" }}>
+      {title && title[0] ? (
+        <div style={{ marginTop: 130, fontSize: size, fontWeight: 900, color: INK, lineHeight: 1.02, textShadow: "0 8px 0 #000", whiteSpace: "nowrap" }}>
+          {title[0]}
+          {title[1] ? (<><br /><span style={{ color }}>{title[1]}</span></>) : null}
+          {title[2] ? (<><br />{title[2]}</>) : null}
+        </div>
+      ) : null}
+      <div style={{ marginTop: title && title[0] ? 90 : 220, display: "flex", flexDirection: "column", alignItems: "center", width: 940 }}>{children}</div>
+      <div style={{ position: "absolute", bottom: 70, fontSize: 44, color: LAMP, letterSpacing: 2 }}>{handle}</div>
+    </AbsoluteFill>
+  );
+};

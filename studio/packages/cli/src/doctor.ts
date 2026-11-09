@@ -14,6 +14,17 @@ export type DoctorItem = { id: string; level: Level; msg: string; fix?: string }
 
 const runVersion = (cmd: string, args = ["-version"]): string | null => { try { const r = spawnSync(cmd, args, { encoding: "utf8", shell: false, timeout: 15000 }); return r.status === 0 ? (r.stdout || r.stderr).split("\n")[0]!.trim() : null; } catch { return null; } };
 
+/** Install hints per system. Only commands that are stable and official; Windows and Linux are untested by us, so the hints say to check the official site. */
+export const nodeHint = (os: string = platform()): string => os === "darwin" ? "install Node 22 or newer: brew install node (or nodejs.org)"
+  : os === "win32" ? "install Node 22 or newer: winget install OpenJS.NodeJS (or nodejs.org; Windows is untested, check the official site)"
+  : "install Node 22 or newer from nodejs.org or with a version manager such as nvm (distribution packages are often older)";
+export const ffmpegHint = (os: string = platform()): string => os === "darwin" ? "brew install ffmpeg"
+  : os === "win32" ? "winget install Gyan.FFmpeg, then open a new terminal (Windows is best effort and untested; check ffmpeg.org/download.html)"
+  : "sudo apt install ffmpeg (Debian/Ubuntu; on other distributions use your package manager, see ffmpeg.org/download.html)";
+export const chromiumHint = (needsRemotion: boolean): string => needsRemotion
+  ? "run `npx remotion browser ensure` in the project folder (needs internet), or let Remotion download Chrome Headless Shell on the first render; or install Chrome/Chromium and set CHROME_PATH"
+  : "HyperFrames manages its own browser for videos and covers (`npx hyperframes browser`)";
+
 /** Chrome that Remotion can use: the Chrome Headless Shell it downloaded in the project, or an installed Chrome/Chromium (browserExecutable). */
 export function findChromium(root?: string): { where: string; path: string } | null {
   const env = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -105,8 +116,8 @@ export async function praekoScopeItems({ key, brand, fetchFn = fetch }: { key: s
 export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn = fetch, voiceCreate }: { offline?: boolean; cwd?: string; fetchFn?: typeof fetch; voiceCreate?: NonNullable<BalanceOpts>["create"] } = {}): Promise<DoctorItem[]> {
   const items: DoctorItem[] = [], add = (id: string, level: Level, msg: string, fix?: string) => items.push({ id, level, msg, ...(fix ? { fix } : {}) });
   const major = +process.versions.node!.split(".")[0]!;
-  add("node", major >= 22 ? "ok" : "error", `Node ${process.versions.node}`, major >= 22 ? undefined : "install Node 22 or newer (nodejs.org)");
-  for (const b of ["ffmpeg", "ffprobe"]) { const v = runVersion(b); add(b, v ? "ok" : "error", v || `${b} not found on PATH`, v ? undefined : platform() === "darwin" ? "brew install ffmpeg" : platform() === "win32" ? "winget install ffmpeg (Windows is best effort, untested)" : "sudo apt install ffmpeg (or your distribution's package manager)"); }
+  add("node", major >= 22 ? "ok" : "error", `Node ${process.versions.node}`, major >= 22 ? undefined : nodeHint());
+  for (const b of ["ffmpeg", "ffprobe"]) { const v = runVersion(b); add(b, v ? "ok" : "error", v || `${b} not found on PATH`, v ? undefined : ffmpegHint()); }
   const root = findProjectRoot(cwd);
   let brand: any = null;
   if (root && !isLegacyLayout(root)) { try { brand = JSON.parse(readFileSync(join(root, "brand.json"), "utf8")); } catch { /* unreadable brand.json */ } }
@@ -114,8 +125,8 @@ export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn =
   const needsRemotion = remotionNeeded(root, brand);
   if (!needsRemotion) add("engine", "info", "engine: hyperframes (Remotion not needed)");
   const ch = findChromium(root ?? undefined);
-  if (needsRemotion) add("chromium", ch ? "ok" : "warning", ch ? `Chrome/Chromium: ${ch.where}` : "no Chrome/Chromium found", ch ? undefined : "Remotion downloads Chrome Headless Shell by itself on the first render (needs internet at that moment); or install Chrome/Chromium and set CHROME_PATH");
-  else add("chromium", ch ? "ok" : "info", ch ? `Chrome/Chromium: ${ch.where}` : "no system Chrome/Chromium found", ch ? undefined : "HyperFrames manages its own browser for videos and covers (`npx hyperframes browser`)");
+  if (needsRemotion) add("chromium", ch ? "ok" : "warning", ch ? `Chrome/Chromium: ${ch.where}` : "no Chrome/Chromium found", ch ? undefined : chromiumHint(true));
+  else add("chromium", ch ? "ok" : "info", ch ? `Chrome/Chromium: ${ch.where}` : "no system Chrome/Chromium found", ch ? undefined : chromiumHint(false));
   if (brand) {
     for (const [k, css] of Object.entries<string>(brand.fonts || {})) { const f = primaryFamily(css); if (f && !hasFont(f)) add(`font-${k}`, "warning", `font "${f}" (brand.fonts.${k}) is not installed: the text will fall back to another font and wrap differently`, "install the font or change `fonts` in brand.json to one that exists on both systems (open fonts: Inter, Montserrat, JetBrains Mono)"); else if (f) add(`font-${k}`, "ok", `font "${f}" installed`); }
   } else add("fonts", "info", "fonts are checked inside a project (brand.json)");

@@ -2,7 +2,11 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
-## [0.1.0] - unreleased
+## [0.1.1] - 2026-11-08
+
+Version bump published on npm, together with Praeko Studio 0.2.3. Same 14 tools; nothing publishes.
+
+## [0.1.0] - 2026-11-08
 
 First version: a local MCP server (stdio) for Praeko Studio.
 

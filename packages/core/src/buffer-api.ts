@@ -116,12 +116,13 @@ export async function lerPostAtual(id: any, op: any) {
   const d = await gql(Q_ATUAL, { id }, op);
   const p = d.post;
   if (!p) throw new Error(`o Buffer não achou o post ${id}`);
-  const a = (p.assets || []).find((x: any) => x?.source);
+  const todas = (p.assets || []).filter((x: any) => x?.source); // TODOS os assets, na ordem: um carrossel editado não pode perder slides
+  const a = todas[0];
   if (!a) throw new Error(`o post ${id} não tem mídia no Buffer; não dá para editar no lugar`);
   const ehVideo = /video/i.test(String(a.type || ""));
-  const assets = [ehVideo ? { video: { url: a.source } } : { image: { url: a.source } }];
+  const assets = todas.map((x: any) => (/video/i.test(String(x.type || "")) ? { video: { url: x.source } } : { image: { url: x.source } }));
   const m = p.metadata || {};
-  const metadata = { instagram: { type: m.type || "reel", shouldShareToFeed: m.shouldShareToFeed ?? true } };
+  const metadata = { instagram: { type: m.type || (ehVideo ? "reel" : "post"), shouldShareToFeed: m.shouldShareToFeed ?? true } }; // sem tipo no post: foto = "post", vídeo = "reel"
   return { post: p, assets, metadata };
 }
 /**
@@ -167,6 +168,46 @@ export function montarReelInstagram({ canalId, texto, videoUrl, quando, miniatur
     assets: [{ video: { url: videoUrl, metadata: { thumbnailOffset: miniaturaMs } } }],
     metadata: { instagram: { type: "reel", shouldShareToFeed: true } },
   };
+}
+
+/**
+ * `CreatePostInput` de uma FOTO ÚNICA para o Instagram (assets com UMA imagem, `metadata.instagram.type = "post"`; developers.buffer.com/examples/create-image-post.md).
+ * O Buffer não documenta texto alternativo: `alt` NÃO é enviado (o Praeko avisa no item com `alt_ignored`). `imagemUrl`: https pública, direta e estável (a mídia pública do Praeko).
+ * Mesmas regras de horário de `montarReelInstagram`.
+ */
+export function montarFotoInstagram({ canalId, texto, imagemUrl, quando, agora = Date.now(), agoraMesmo = false }: any) {
+  const erros = validarLegendaInstagram(texto);
+  if (erros.length) throw new Error(erros.join("; "));
+  if (!canalId) throw new Error("falta o canal do Instagram no Buffer");
+  if (!/^https:\/\//.test(String(imagemUrl || ""))) throw new Error("a imagem precisa de uma URL pública https para o Buffer buscar");
+  const t = Date.parse(quando);
+  if (!agoraMesmo) {
+    if (Number.isNaN(t)) throw new Error(`horário inválido: ${quando}`);
+    if (t < agora + ANTECEDENCIA_MIN_MS) throw new Error("o horário precisa ser daqui a pelo menos 5 minutos");
+  }
+  return {
+    channelId: canalId, schedulingType: "automatic", needsApproval: false, source: "arauto",
+    ...(agoraMesmo ? { mode: "shareNow" } : { mode: "customScheduled", dueAt: new Date(t).toISOString() }),
+    text: texto,
+    assets: [{ image: { url: imagemUrl } }],
+    metadata: { instagram: { type: "post", shouldShareToFeed: true } },
+  };
+}
+
+/** Máximo de imagens de um carrossel do Instagram pelo Buffer (central de ajuda do Buffer; a API não documenta um número). */
+export const CARROSSEL_BUFFER_MAX = 20;
+/**
+ * `CreatePostInput` de um CARROSSEL para o Instagram: `assets` com N imagens NA ORDEM dos slides, `metadata.instagram.type = "post"`.
+ * ATENÇÃO: a documentação da API do Buffer (developers.buffer.com/examples/create-image-post.md) só mostra UMA imagem; a lista ordenada de assets com várias imagens é a leitura da
+ * referência ("uma lista ordenada em que cada entrada traz exatamente um de image, video ou document") e da central de ajuda (carrossel de até 20). NÃO foi testado ao vivo.
+ * `alt` não é enviado (o Buffer não o documenta). Mesmas regras de horário de `montarReelInstagram`.
+ */
+export function montarCarrosselInstagram({ canalId, texto, imagensUrls, quando, agora = Date.now(), agoraMesmo = false }: any) {
+  const urls = Array.isArray(imagensUrls) ? imagensUrls : [];
+  if (urls.length < 2 || urls.length > CARROSSEL_BUFFER_MAX) throw new Error(`um carrossel leva de 2 a ${CARROSSEL_BUFFER_MAX} imagens (${urls.length} recebidas)`);
+  if (urls.some((u: any) => !/^https:\/\//.test(String(u || "")))) throw new Error("cada imagem precisa de uma URL pública https para o Buffer buscar");
+  const base = montarFotoInstagram({ canalId, texto, imagemUrl: urls[0], quando, agora, agoraMesmo });
+  return { ...base, assets: urls.map((url: string) => ({ image: { url } })) };
 }
 
 // ---------- Métricas de um post (developers.buffer.com/examples/get-post-metrics: `post(input:{id}){ metrics{type name value unit} metricsUpdatedAt }`) ----------

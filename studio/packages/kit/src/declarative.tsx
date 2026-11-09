@@ -1,7 +1,7 @@
 import { Composition, Still, useCurrentFrame } from "remotion";
 import { Episode, FPS, ThemeProvider, makeAt, pop, ramp, appear, useTheme } from "@praeko/studio-core";
 import type { EpisodeData, Theme, Word } from "@praeko/studio-core";
-import { Bubble, Big, Box, Code, Frame, Line, Panel, Phone, Window } from "./parts.tsx";
+import { Bubble, Big, Box, Code, Frame, Line, Panel, Phone, SlideFrame, Window } from "./parts.tsx";
 import { resolveColor } from "./color.ts";
 
 /* ============ Declarative episode: `episode.spec.json` (generated from episode.yaml by `praeko studio compile`) becomes an EpisodeData ============ */
@@ -136,6 +136,29 @@ export const EpisodeDecl: React.FC<{ spec: EpisodeSpec; words: Word[]; theme: Th
     <>
       <Composition id={spec.id} component={() => <ThemeProvider theme={theme}><Episode d={d} /></ThemeProvider>} durationInFrames={Math.round(spec.durS * FPS)} fps={FPS} width={1080} height={1920} />
       {spec.cover ? <Still id={spec.cover.id} component={() => <ThemeProvider theme={theme}>{CoverC ? <CoverC /> : <CoverDecl spec={spec.cover!} />}</ThemeProvider>} width={1080} height={1920} /> : null}
+    </>
+  );
+};
+
+// ---------- image pieces: `format: image` (one slide) or `format: carousel` (2 to 20) in episode.yaml → one Still per slide (1080x1350, the 4:5 feed size) ----------
+export const IMAGE_SIZES = { "4x5": { width: 1080, height: 1350 } } as const;
+export type SlideSpec = { id: string; alt?: string; component?: string; title?: [string, string?, string?]; color?: Color; glow?: string; size?: number; items?: Item[] };
+export type ImageSpec = { id: string; format: "image" | "carousel"; size?: keyof typeof IMAGE_SIZES; width?: number; height?: number; slides: SlideSpec[] };
+
+const SlideDecl: React.FC<{ spec: SlideSpec }> = ({ spec }) => {
+  const T = useTheme();
+  return <SlideFrame glow={spec.glow ?? "rgba(244,185,66,.16)"} title={spec.title} color={resolveColor(T, spec.color) ?? T.accent} size={spec.size}>{(spec.items ?? []).map((it, i) => <Render key={i} it={it} t={99} dur={99} />)}</SlideFrame>;
+};
+
+/** `<ImageDecl spec theme components />` registers one Still per slide (id = `slides[].id`); there is no video Composition. */
+export const ImageDecl: React.FC<{ spec: ImageSpec; theme: Theme; components?: Record<string, React.FC<any>> }> = ({ spec, theme, components = {} }) => {
+  const { width, height } = IMAGE_SIZES[spec.size ?? "4x5"];
+  return (
+    <>
+      {spec.slides.map((s) => {
+        const C = s.component ? components[s.component] : undefined;
+        return <Still key={s.id} id={s.id} component={() => <ThemeProvider theme={theme}>{C ? <C /> : <SlideDecl spec={s} />}</ThemeProvider>} width={width} height={height} />;
+      })}
     </>
   );
 };

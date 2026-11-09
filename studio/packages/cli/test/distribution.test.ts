@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENTS, TARGETS, installSkill } from "../src/skill.ts";
-import { findChromium, diagnose, primaryFamily } from "../src/doctor.ts";
+import { findChromium, diagnose, primaryFamily, nodeHint, ffmpegHint, chromiumHint } from "../src/doctor.ts";
 import { NOTICE, noticeText, writeAcceptance, readAcceptance, licensesCommand } from "../src/licenses.ts";
 
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url)), BIN = join(PACKAGE, "bin", "praeko-studio.ts"), STUDIO = join(PACKAGE, "..", "..");
@@ -24,7 +24,7 @@ test("init: dependencies by published semver (no file:), @praeko/studio in devDe
   assert.equal(r.status, 0, r.stderr);
   const pj = JSON.parse(read(join(proj, "package.json")));
   assert.match(pj.dependencies["@praeko/studio-core"], /^\^\d+\.\d+\.\d+$/); assert.match(pj.dependencies["@praeko/studio-kit"], /^\^\d+\.\d+\.\d+$/);
-  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.3");
+  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.4");
   assert.match(pj.devDependencies["@praeko/studio"], /^\^\d/);
   assert.doesNotMatch(JSON.stringify(pj), /file:/);
   assert.doesNotMatch(read(join(proj, "remotion.config.ts")), /alias|node_modules\/remotion/);
@@ -158,7 +158,7 @@ test("docs: lists the topics and prints one; an unknown topic fails; --version a
   const help = cli(["--help"]).stdout;
   assert.doesNotMatch(help, /bardo/i);
   const pkg = JSON.parse(read(join(PACKAGE, "package.json")));
-  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.3");
+  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.4");
 });
 test("publication audit: nothing of the owner (name, brand, voice ids, paths, game) in the packages that go public", () => {
   // the patterns are built in parts so this file does not accuse itself in the publication scan
@@ -242,4 +242,17 @@ test("doctor: warns (a warning, never an error) when the Praeko key is admin; qu
     status = 200; // (the pt run above used 401: only checks that nothing in the output is the key)
     assert.doesNotMatch(pt.stdout + pt.stderr, /FAKEdoctorKEY/);
   } finally { server.close(); }
+});
+
+test("doctor: install hints exist for Node, ffmpeg and Chrome on macOS, Linux and Windows, and with an empty PATH ffmpeg and ffprobe are errors with a hint", async () => {
+  assert.match(nodeHint("darwin"), /brew install node/); assert.match(nodeHint("linux"), /nodejs\.org.*nvm/); assert.match(nodeHint("win32"), /winget install OpenJS\.NodeJS/);
+  assert.match(ffmpegHint("darwin"), /brew install ffmpeg/); assert.match(ffmpegHint("linux"), /apt install ffmpeg/); assert.match(ffmpegHint("win32"), /winget install Gyan\.FFmpeg/);
+  assert.match(chromiumHint(true), /npx remotion browser ensure/); assert.match(chromiumHint(true), /CHROME_PATH/);
+  const saved = process.env.PATH; process.env.PATH = "";
+  try {
+    const items = await diagnose({ offline: true, cwd: base });
+    for (const id of ["ffmpeg", "ffprobe"]) { const i = items.find((x) => x.id === id)!; assert.equal(i.level, "error"); assert.ok(i.fix && /ffmpeg/.test(i.fix), id); }
+  } finally { process.env.PATH = saved; }
+  const pt = spawnSync(process.execPath, [BIN, "doctor", "--offline", "--lang", "pt"], { cwd: base, encoding: "utf8", env: { ...ENV, PATH: "" } });
+  assert.match(pt.stdout, /não encontrado no PATH/); assert.equal(pt.status, 1);
 });

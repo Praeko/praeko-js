@@ -2,7 +2,7 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
-## [0.4.0] - unreleased (prepared)
+## [0.4.0] - 2026-11-08
 
 Breaking: the CLI is English only.
 - Removed every deprecated Portuguese alias: commands (`postar`, `agendar`, `fila`, `conta`, `canais`, `calendario`, `vagas`, `publicar-agora`, `youtube-agendar`, `adotar-buffer`, `importar`, `conteudo`, `seguidores`, `chave`, `ajuda`), subcommands, flags (`--quando`, `--redes`, `--enviar`, ...) and old value spellings. Use the English names listed in `praeko --help`.

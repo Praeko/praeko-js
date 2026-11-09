@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { getKey, storeKey } from "@praeko/studio-voice";
-import { NETWORKS, cancelItem, enqueue, hosting, launchdPlist, parseWhen, providers, readQueue, run, textsByNetwork, validate } from "@praeko/studio-publish";
+import { NETWORKS, cancelItem, enqueue, hosting, isImage, launchdPlist, parseWhen, providers, readQueue, run, textsByNetwork, validate } from "@praeko/studio-publish";
 import type { Ctx, NetworkName } from "@praeko/studio-publish";
 import { episodeOf, findProject } from "./project.ts";
 import type { Project } from "./project.ts";
@@ -34,6 +34,7 @@ export async function post(a: string[]): Promise<number> {
   const slug = (() => { for (let i = 0; i < a.length; i++) { if (a[i]!.startsWith("--")) { if (WITH_VALUE.has(a[i]!.slice(2))) i++; continue; } return a[i]; } })();
   if (!slug) throw new Error('usage: praeko studio post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--yt|--ig|--tt "time"] [--send]');
   const p = findProject(), ep = episodeOf(p, slug), publication = readPublication(ep);
+  if (isImage(publication)) throw new Error("image posts do not go through the direct providers: use `praeko studio schedule <slug> --via praeko --when \"…\" --send` (Instagram, through Buffer or Meta)");
   const v = validate({ brand: p.brand, publication });
   if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); return 1; }
   const networks = networksOf(a, publication.format === "long" ? ["youtube", "instagram"] : ["youtube", "instagram", "tiktok"]);

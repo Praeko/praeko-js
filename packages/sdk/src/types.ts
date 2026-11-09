@@ -9,14 +9,27 @@ export type SourceReader = { size: number; read(start: number, n: number): Promi
 export type Scope = "read" | "write" | "admin";
 export type ItemState = "draft" | "scheduled" | "sent" | "private" | "error" | "canceled";
 export type PostState = "draft" | "queued" | "sent" | "error" | "canceled";
-export interface Media { id: string; type: "video" | "cover"; name: string; mime: string; size: number; state: "uploading" | "ready"; createdAt: string; publicUrl?: string; durationMs?: number; width?: number; height?: number }
+/** `video` and `cover` as always; `image` is a photo for an image post (JPEG; see `PostRequest.kind`). */
+export type MediaType = "video" | "cover" | "image";
+export interface Media { id: string; type: MediaType; name: string; mime: string; size: number; state: "uploading" | "ready"; createdAt: string; publicUrl?: string; durationMs?: number; width?: number; height?: number }
+/** One image of an image post: a ready media of `type: "image"` and its alternative text (`alt`, up to 1000 characters; applied on Instagram via Meta, ignored via Buffer with an `alt_ignored` item warning). */
+export interface ImageRef { media: string; alt?: string }
+/** A notice on an item that does not stop it (`code` is stable, e.g. `alt_ignored`). */
+export interface ItemWarning { code: string; message: string }
 export interface ItemRequest { network: Network; channel?: string; scheduledFor?: string | null; queue?: boolean; draft?: boolean; mode?: string; media?: { video?: string; cover?: string }; via?: "meta" | "buffer"; replaces?: { provider: "buffer"; id: string } }
 /** `options.tiktok`: mode (draft = app inbox | direct), privacy (default SELF_ONLY until the app is audited), coverFrameMs, disableComments, disableDuet, disableStitch, commercialContent, ownBrand, thirdPartyBrand. */
 export interface TiktokOptions { mode?: "draft" | "direct"; privacy?: "PUBLIC_TO_EVERYONE" | "MUTUAL_FOLLOW_FRIENDS" | "FOLLOWER_OF_CREATOR" | "SELF_ONLY"; coverFrameMs?: number; disableComments?: boolean; disableDuet?: boolean; disableStitch?: boolean; commercialContent?: boolean; ownBrand?: boolean; thirdPartyBrand?: boolean; chunkMB?: number }
 export interface Texts { youtube?: { title?: string; text: string; pinnedComment?: string }; instagram?: { text: string; pinnedComment?: string }; tiktok?: { text: string } }
-export interface PostRequest { id?: string; title: string; media: { video: string; cover?: string }; texts: Texts; items: ItemRequest[]; queue?: boolean; draft?: boolean; tags?: string[]; options?: { format?: "short" | "long"; tiktok?: TiktokOptions; [k: string]: unknown } }
-export interface Item { id: string; network: Network; channel?: string; state: ItemState; scheduledFor: string | null; custom: boolean; mode?: string; url?: string; studio?: string; warning?: string; adopted?: boolean; external?: { provider: string; id: string }; runAt?: string; privacy?: string; actions?: Record<string, boolean>; media?: { video?: string; cover?: string } }
-export interface Post { id: string; title: string; state: PostState; type: string; origin: string; items: Item[]; tags: string[]; texts: Texts; media: { video: string; cover: string | null }; thumb: string | null; createdAt: string; updatedAt: string }
+interface PostRequestBase { id?: string; title: string; texts: Texts; items: ItemRequest[]; queue?: boolean; draft?: boolean; tags?: string[]; options?: { format?: "short" | "long"; tiktok?: TiktokOptions; [k: string]: unknown } }
+/** A video post (the default): `media.video` is required. */
+export interface VideoPostRequest extends PostRequestBase { kind?: "video"; media: { video: string; cover?: string } }
+/** An image post: `kind: "image"` with ONE image in `media.images` is a single photo. With 2 to 20 images it becomes a carousel (the post comes back with `kind: "carousel"`); prefer `CarouselPostRequest` for that. Instagram only (YouTube and TikTok answer `kind_not_supported_by_network`). */
+export interface ImagePostRequest extends PostRequestBase { kind: "image"; media: { images: ImageRef[] } }
+/** A carousel post (Instagram): `kind: "carousel"` and 2 to 20 images in `media.images`, IN SLIDE ORDER (the same media id may repeat; each item has its own `alt`). Fewer than 2 answers `carousel_too_few_images`, more than 20 `carousel_too_many_images`. Through Buffer the carousel path is not tested live (the item carries the `buffer_carousel_unverified` warning). */
+export interface CarouselPostRequest extends PostRequestBase { kind: "carousel"; media: { images: ImageRef[] } }
+export type PostRequest = VideoPostRequest | ImagePostRequest | CarouselPostRequest;
+export interface Item { id: string; network: Network; channel?: string; state: ItemState; scheduledFor: string | null; custom: boolean; mode?: string; url?: string; studio?: string; warning?: string; warnings?: ItemWarning[]; adopted?: boolean; external?: { provider: string; id: string }; runAt?: string; privacy?: string; actions?: Record<string, boolean>; media?: { video?: string; cover?: string } }
+export interface Post { id: string; title: string; state: PostState; type: string; /** `video` (or absent on posts from before images) | `image` | `carousel`. */ kind?: "video" | "image" | "carousel"; origin: string; items: Item[]; tags: string[]; texts: Texts; /** `video` is null on an image post; `images` is the ordered list of an image or carousel post. */ media: { video: string | null; cover: string | null; images?: ImageRef[] }; thumb: string | null; createdAt: string; updatedAt: string }
 export interface Slot { weekday: number; day: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"; time: string; active: boolean }
 export interface Channel { network: Network; supported: boolean; connected: boolean; id?: string; default?: boolean; detail?: string; timezone?: string; slots?: number; name?: string; avatar?: string; meta?: { connected: boolean; username?: string | null; source?: "meta_login" /* absent = system token */; expiresAt?: string; daysLeft?: number; expired?: boolean; reason?: string } }
 export interface Page<K extends string, T> { total: number }
@@ -40,7 +53,7 @@ export interface CallOptions { idempotencyKey?: string | true }
 
 // ---------------------------------------------------------------------------------------------------------------- um objeto por recurso
 export interface MediaApi {
-  create(meta: { type: "video" | "cover"; name: string; mime: string; size: number; simple?: boolean; sha256?: string }, o?: CallOptions): Promise<{ id: string; minPartSize?: number; maxPartSize?: number; suggestedPartSize?: number }>;
+  create(meta: { type: MediaType; name: string; mime: string; size: number; simple?: boolean; sha256?: string }, o?: CallOptions): Promise<{ id: string; minPartSize?: number; maxPartSize?: number; suggestedPartSize?: number }>;
   uploadPart(id: string, n: number, bytes: Uint8Array): Promise<unknown>;
   uploadContent(id: string, bytes: Uint8Array): Promise<Media>;
   complete(id: string, o?: CallOptions): Promise<Media>;
@@ -48,7 +61,7 @@ export interface MediaApi {
   list(type?: string): Promise<{ media: Media[] }>;
   remove(id: string): Promise<unknown>;
   /** Uploads a whole file (one PUT or parts, depending on size). Returns the ready media. */
-  upload(source: Source, o: { type: "video" | "cover"; name: string; mime: string; part?: number; onProgress?: (done: number, total: number) => void }): Promise<Media>;
+  upload(source: Source, o: { type: MediaType; name: string; mime: string; part?: number; onProgress?: (done: number, total: number) => void }): Promise<Media>;
 }
 export interface PostsApi {
   /** `o.idempotencyKey`: a string (or `true` for a fresh UUID) makes the call safe to retry: the server replays the first response instead of creating a second post. */

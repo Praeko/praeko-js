@@ -2,7 +2,7 @@
 // Versions `init` pins in the new project: Remotion, React and Studio's own (injected at build time; in development they come from package.json).
 export const VERSIONS = { remotion: "4.0.539", react: "19.2.3", reactTypes: "19.2.7", typescript: "5.9.3" };
 /** New project: dependencies by published version (semver). With `dev` (path to the Studio repository) it uses `file:` (the way contributors work). */
-export const projectPackage = ({ name, dev = null, studioVersion = "0.2.3" }: { name: string; dev?: string | null; studioVersion?: string }): string => JSON.stringify({
+export const projectPackage = ({ name, dev = null, studioVersion = "0.2.4" }: { name: string; dev?: string | null; studioVersion?: string }): string => JSON.stringify({
   name, version: "0.0.1", private: true,
   scripts: { dev: "remotion studio src/index.ts" },
   dependencies: {
@@ -167,3 +167,52 @@ import { WORDS } from "./words";
 // episode.spec.json is generated from episode.yaml (\`praeko studio compile ${slug}\`). Edit the YAML, not this file.
 export const ${id}Composition = () => <LongDecl spec={spec as LongSpec} words={WORDS} theme={theme} components={components as any} />;
 `;
+
+// ---------- image pieces (a photo post: `praeko studio new <slug> --image`) ----------
+export const imageYaml = ({ id, title }: { id: string; title: string }): string => `# Image post: ${title}
+# One slide for now (a carousel arrives in a later phase). The slide reuses the items of a cover: text, big, box, line, bar, stack, row, card…
+# \`praeko studio slides <slug>\` renders out/<slug>-slide-01.jpg (1080x1350, 4:5, sRGB JPEG). The caption lives in publication.json (ig.caption).
+format: image
+id: ${id}
+size: 4x5
+slides:
+  - alt: "Describe the image for someone who cannot see it (required, up to 1000 characters)"
+    title: ["${title.toUpperCase().slice(0, 18).replace(/"/g, "'")}"]
+    items:
+      - { type: text, size: 52, color: muted, text: "Write the point of the post here" }
+`;
+export const carouselYaml = ({ id, title }: { id: string; title: string }): string => `# Carousel: ${title}
+# 2 to 20 slides, posted in the order of this list (slide 1 first). Instagram crops every slide to the proportion of the FIRST one: all slides here are 1080x1350 (4:5).
+# Each slide reuses the items of a cover: text, big, box, line, bar, stack, row, card… and has its own \`alt\` (required, up to 1000 characters) and optional \`title\`, \`color\`, \`glow\`.
+# \`praeko studio slides <slug>\` renders out/<slug>-slide-01.jpg, -02.jpg… (sRGB JPEG). The caption lives in publication.json (ig.caption).
+format: carousel
+id: ${id}
+size: 4x5
+slides:
+  - alt: "Cover slide: describe it for someone who cannot see it (required, up to 1000 characters)"
+    title: ["${title.toUpperCase().slice(0, 18).replace(/"/g, "'")}"]
+    items:
+      - { type: text, size: 52, color: muted, text: "Swipe to see the point" }
+  - alt: "Slide 2: describe it for someone who cannot see it"
+    items:
+      - { type: text, size: 64, text: "Write the point of slide 2 here" }
+`;
+export const imageScenesTsx = `// TSX pieces of an image slide the YAML cannot express: export React.FC and use \`component: Name\` on the slide in episode.yaml.
+export {};
+`;
+export const imageTsx = ({ id, slug }: { id: string; slug: string }): string => `import { ImageDecl } from "@praeko/studio-kit";
+import type { ImageSpec } from "@praeko/studio-kit";
+import { theme } from "../../src/brand";
+import * as components from "./scenes";
+import spec from "./episode.spec.json";
+
+// episode.spec.json is generated from episode.yaml (\`praeko studio compile ${slug}\`). Edit the YAML, not this file.
+export const ${id}Composition = () => <ImageDecl spec={spec as ImageSpec} theme={theme} components={components as any} />;
+`;
+export const imagePublication = ({ title, carousel = false }: { title: string; carousel?: boolean }): string => JSON.stringify({
+  name: title, date: "", title, format: carousel ? "carousel" : "image", kind: carousel ? "carousel" : "image", images: [], files: {},
+  beforePublishing: [carousel ? "Swipe through every slide on a phone screen, in order." : "Look at the image on a phone screen."],
+  ai: { synthetic: true },
+  ig: { caption: "", pinnedComment: "" },
+  hashtags: { instagram: [] }, facts: [],
+}, null, 2) + "\n";

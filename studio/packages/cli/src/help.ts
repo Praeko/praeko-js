@@ -15,7 +15,10 @@ export const help = (version: string): string => `praeko studio <command>   (ver
                                            local MCP server (@praeko/studio-mcp) for this project (Claude Code command and generic JSON)
   brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [same answer flags]
                                            reopens the interview in an existing project; rewrites brief.md (backup .bak) and keeps an edited playbook.md (also prints the MCP install lines)
-  new <slug> [--title "T"] [--long]        creates an episode (script, scene, cover, publication.json) and registers it in Root
+  new <slug> [--title "T"] [--long | --image | --carousel]
+                                           creates an episode (script, scene, cover, publication.json) and registers it in Root;
+                                           --image = a photo post (format: image, one slide, no voice or video; Instagram only for now)
+                                           --carousel = a carousel (format: carousel, 2 to 20 slides in the order of the slides: list, no voice or video; Instagram only for now)
   voice <slug> [--quality draft|final|local] [--voice alias] [--aligner scribe|voicestudio] [--no-failover]
                                            makes the voice and the word timings. draft = silent and estimated (free, no network);
                                            final = ElevenLabs (your key); local = VoiceStudio (must be running)
@@ -29,10 +32,12 @@ export const help = (version: string): string => `praeko studio <command>   (ver
                                            renders the video (out/<slug>.mp4; HyperFrames: out/<slug>.hf.mp4); --engine hyperframes needs no Remotion
   cover <slug> [--engine remotion|hyperframes]
                                            renders the cover (out/<slug>-cover.png; long video: -cover-1280x720.png and -cover-vertical-1080x1920.png)
+  slides <slug> [--timeout 180]            renders an image piece or a carousel: out/<slug>-slide-01.jpg, -02.jpg… (one per slide, 1080x1350, 4:5, sRGB JPEG; Remotion only),
+                                           then checks each one; --timeout = seconds allowed per slide (default 180)
   contact-sheet <slug|file.mp4> [--n 12]   frame mosaic to check by eye
   check <slug>                             script, voice, publication, AI disclosure and (with a video) duration, loudness and empty frames
   package <slug>                           writes texts.md (YouTube, Instagram, TikTok, UTM) from publication.json
-  schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--via praeko|buffer] [--send]
+  schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--via praeko|buffer] [--send]   (an image piece or carousel goes only to Instagram, --via praeko; a carousel uploads its slides in order)
                                            schedules through Praeko (default); without --send it only simulates. schedule --channels lists the channels;
                                            echo $KEY | praeko studio schedule --via praeko --key stores the Praeko key
   post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--send]   direct publishing to the networks (advanced)

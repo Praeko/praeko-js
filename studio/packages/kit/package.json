@@ -1,6 +1,6 @@
 {
   "name": "@praeko/studio-kit",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "description": "Praeko Studio scene parts (panel, box, line, bubble, code, window, phone, frame) and the declarative episode that reads the compiled episode.yaml. A library for projects created with `praeko studio init`.",
   "license": "MIT",

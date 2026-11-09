@@ -25,9 +25,13 @@ export interface Brand {
 }
 export interface Limits { youtubeTitle: number; youtubeDescription: number; instagram: number; tiktok: number; hashtagsInstagram: number }
 export interface Labels { chapters: string; article: string; fullVideo: string }
+/** One image of an image piece: the JPEG file (relative to out/ or absolute) and its alternative text. */
+export interface ImageEntry { file: string; alt?: string }
 export interface Chapter { t: number; title: string }
 export interface Publication {
   name?: string; date?: string; title?: string; alternatives?: string[]; format?: string; files?: { video?: string; cover?: string; verticalCover?: string };
+  /** `image` = a photo post (Instagram, one image); `carousel` = 2 to 20 images in order (Instagram); `video` (default) = everything else. Image and carousel pieces also carry `images` (written by `package`, in slide order). */
+  kind?: "video" | "image" | "carousel"; images?: ImageEntry[];
   beforePublishing?: string[]; ai?: { synthetic?: boolean }; yt?: { description?: string; pinnedComment?: string };
   ig?: { caption?: string; pinnedComment?: string }; tiktok?: { caption?: string }; hashtags?: Hashtags; facts?: string[]; chapters?: Chapter[];
   fullVideo?: string; article?: string; commentReply?: string; campaign?: string; publishOn?: string;

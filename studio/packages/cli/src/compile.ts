@@ -78,6 +78,17 @@ export function resolveTime(x: any, words: Words, where: string, errors: string[
   return +(t + (o.plus ?? 0)).toFixed(2);
 }
 
+/** `image` (one slide) or `carousel` (2 to 20 slides) when the episode folder is an image piece (`format` in episode.yaml), otherwise undefined. */
+export function imageFormat(folder: string): "image" | "carousel" | undefined {
+  const f = join(folder, "episode.yaml");
+  if (!existsSync(f)) return undefined;
+  try { const fm = YAML.parse(readFileSync(f, "utf8"))?.format; return fm === "image" || fm === "carousel" ? fm : undefined; } catch { return undefined; }
+}
+/** Is the episode folder an image piece (`format: image` or `format: carousel` in episode.yaml)? */
+export const isImagePiece = (folder: string): boolean => imageFormat(folder) !== undefined;
+/** `engine` written in the yaml of an image piece, if any. */
+export const imageEngine = (folder: string): string | undefined => { try { return YAML.parse(readFileSync(join(folder, "episode.yaml"), "utf8"))?.engine; } catch { return undefined; } };
+
 const readJson = <T>(f: string, d: T): T => (existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : d);
 
 /** Compiles an episode folder. Returns { spec, errors, warnings }; writes the JSON only when there are no errors. */
@@ -88,6 +99,7 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
   try { y = YAML.parse(readFileSync(file, "utf8")); } catch (e: any) { return { spec: null, errors: [`invalid episode.yaml: ${e.message}`], warnings }; }
   if (!y || typeof y !== "object") return { spec: null, errors: ["episode.yaml is empty"], warnings };
   const info: any = readJson(join(folder, "episode.json"), {});
+  if (y.format === "image" || y.format === "carousel") return compileImage({ y, info, folder, errors, warnings, write });
   const words: Words = readJson(join(folder, "words.json"), []);
   if (!words.length) warnings.push("words.json is empty or missing: `when` anchors were not checked (run `praeko studio voice`)");
   // phrase times: duration, scene start/end, outro.start and hits become seconds before validating
@@ -154,6 +166,43 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
     cover: cv ? { id: cv.id ?? info.cover, component: cv.component, title: cv.title, color: cv.color, glow: cv.glow, size: cv.size, items: cv.items?.map((it: any, k: number) => normalizeItem(it, `cover › item ${k + 1}`, errors)) } : undefined,
   };
   if (!errors.length && write) writeFileSync(join(folder, "episode.spec.json"), JSON.stringify(spec, (_k, v) => (v === undefined ? undefined : v), 2) + "\n");
+  return { spec: errors.length ? null : spec, errors, warnings };
+}
+
+// ---------- image and carousel (Instagram: one photo, or 2 to 20 slides, each a 1080x1350 image) ----------
+export const CAROUSEL_MIN = 2, CAROUSEL_MAX = 20, ALT_MAX = 1000;
+export const IMAGE_SIZE = { name: "4x5", width: 1080, height: 1350 } as const;
+const SLIDE_KEYS = ["alt", "title", "color", "glow", "size", "items", "component"];
+/** `format: image` (exactly one slide) or `format: carousel` (2 to 20 slides): each slide reuses the items of the cover. No voice, duration, scenes or outro. */
+function compileImage({ y, info, folder: _folder, errors, warnings, write }: { y: any; info: any; folder: string; errors: string[]; warnings: string[]; write: boolean }): CompileResult {
+  const carousel = y.format === "carousel";
+  for (const k of Object.keys(y)) if (!["format", "id", "size", "engine", "slides"].includes(k)) errors.push(`${carousel ? "carousel" : "image"} episode: unknown key "${k}" (use format, id, size, engine, slides; the caption lives in publication.json)`);
+  const id = y.id ?? info.id;
+  if (!id) errors.push('missing "id" (in the yaml or in episode.json)');
+  if (y.engine !== undefined && y.engine !== "remotion") errors.push(`engine "${y.engine}": image pieces render only with Remotion (HyperFrames has no image mode yet)`);
+  if (y.size !== undefined && y.size !== IMAGE_SIZE.name) errors.push(`size "${y.size}": only ${IMAGE_SIZE.name} (${IMAGE_SIZE.width}x${IMAGE_SIZE.height}) exists for now`);
+  const list: any[] = Array.isArray(y.slides) ? y.slides : [];
+  if (!Array.isArray(y.slides) || !list.length) errors.push(carousel ? `"slides" must be a list with ${CAROUSEL_MIN} to ${CAROUSEL_MAX} slides` : '"slides" must be a list with one slide');
+  else if (carousel && (list.length < CAROUSEL_MIN || list.length > CAROUSEL_MAX)) errors.push(`${list.length} slide${list.length === 1 ? "" : "s"}: a carousel takes ${CAROUSEL_MIN} to ${CAROUSEL_MAX}${list.length === 1 ? " (for a single image use `format: image`)" : ""}`);
+  else if (!carousel && list.length > 1) errors.push(`${list.length} slides: an image piece has exactly one slide (use \`format: carousel\` for ${CAROUSEL_MIN} to ${CAROUSEL_MAX})`);
+  const slides = list.slice(0, CAROUSEL_MAX + 1).map((c, i) => {
+    const where = `slide ${i + 1}`;
+    if (!c || typeof c !== "object") { errors.push(`${where}: invalid slide`); return c; }
+    for (const k of Object.keys(c)) if (!SLIDE_KEYS.includes(k)) errors.push(`${where}: unknown key "${k}"${/\s/.test(k) || c[k] === null ? COMMA_HINT : ""}`);
+    if (c.component && c.items) errors.push(`${where}: use "component" or "items", not both`);
+    if (!c.component && !c.items?.length) errors.push(`${where}: no items`);
+    if (c.title !== undefined && (!Array.isArray(c.title) || c.title.length < 1 || c.title.length > 3 || c.title.some((x: unknown) => typeof x !== "string"))) errors.push(`${where}: "title" is a list of 1 to 3 lines (the second one is highlighted)`);
+    if (c.alt !== undefined && typeof c.alt !== "string") errors.push(`${where}: "alt" must be text`);
+    else if (typeof c.alt === "string" && c.alt.length > ALT_MAX) errors.push(`${where}: alt text has ${c.alt.length} characters (limit ${ALT_MAX})`);
+    for (const x of [c.color]) if (badColor(x)) errors.push(`${where}: color "${x}" does not exist in the theme (use ${COLORS.join(", ")} or #hex)`);
+    const items = c.items?.map((it: any, k: number) => normalizeItem(it, `${where} › item ${k + 1}`, errors));
+    const med = (items ?? []).filter((it: any) => !it.pos).map((it: any) => measure(it, 940));
+    const height = med.reduce((a: number, m: any) => a + m.h, 0) + Math.max(0, med.length - 1) * AREA.gap;
+    if (height > 800) warnings.push(`${where}: items add up to ~${Math.round(height)} px of height and the slide has ~800 free (estimate): it may overflow`);
+    return { id: `${id}Slide${String(i + 1).padStart(2, "0")}`, alt: c.alt, component: c.component, title: c.title, color: c.color, glow: c.glow, size: c.size, items };
+  });
+  const spec = { id, format: carousel ? "carousel" : "image", size: IMAGE_SIZE.name, width: IMAGE_SIZE.width, height: IMAGE_SIZE.height, slides };
+  if (!errors.length && write) writeFileSync(join(_folder, "episode.spec.json"), JSON.stringify(spec, (_k, v) => (v === undefined ? undefined : v), 2) + "\n");
   return { spec: errors.length ? null : spec, errors, warnings };
 }
 

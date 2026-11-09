@@ -60,9 +60,9 @@ export async function keyScope(key: string, o: PraekoOptions = {}): Promise<{ sc
 
 export const ADMIN_WARNING = "The Praeko key found has the admin scope. Studio only needs to upload files: create a key with the write scope in the Praeko dashboard (API keys) and use it instead, so a leak or a mistake cannot manage keys.";
 
-export type Uploaded = { role: "video" | "cover"; mediaId: string; type: string; bytes: number; state: string };
+export type Uploaded = { slide?: number; role: "video" | "cover" | "image"; mediaId: string; type: string; bytes: number; state: string };
 /** Uploads one file with the SDK (`type` is chosen by the caller, never by the agent). Returns only what the agent may know. */
-export async function upload(client: Praeko, path: string, role: "video" | "cover"): Promise<Uploaded> {
+export async function upload(client: Praeko, path: string, role: "video" | "cover" | "image"): Promise<Uploaded> {
   const m: Media = await uploadFile(client, path, { type: role });
   return { role, mediaId: m.id, type: m.type, bytes: m.size, state: m.state };
 }

@@ -60,9 +60,9 @@ export const noSecret = (label: string, text: string): void => {
 };
 
 /** A fake Praeko service on localhost: media upload (simple), the API keys list (admin only), and a record of what it received. Never the real service. */
-export type FakePraeko = { url: string; requests: { method: string; path: string; auth: string; bytes: number }[]; scope: "admin" | "write"; failVideoUpload: boolean; close: () => Promise<void> };
+export type FakePraeko = { url: string; requests: { method: string; path: string; auth: string; bytes: number }[]; scope: "admin" | "write"; failVideoUpload: boolean; failMediaAt: number; close: () => Promise<void> };
 export async function fakePraeko(scope: "admin" | "write" = "write"): Promise<FakePraeko> {
-  const state = { requests: [] as FakePraeko["requests"], scope, failVideoUpload: false, seq: 0 };
+  const state = { requests: [] as FakePraeko["requests"], scope, failVideoUpload: false, failMediaAt: 0, seq: 0, posts: 0 };
   const media = new Map<string, any>();
   const server: Server = createServer(async (req: IncomingMessage, res) => {
     const chunks: Buffer[] = []; for await (const c of req) chunks.push(c as Buffer);
@@ -72,6 +72,7 @@ export async function fakePraeko(scope: "admin" | "write" = "write"): Promise<Fa
     if (auth !== `Bearer ${FAKE_PRAEKO}`) return send(401, { error: { code: "invalid_api_key", message: "invalid key" } });
     if (req.method === "GET" && path === "/v1/api-keys") return state.scope === "admin" ? send(200, { keys: [] }) : send(403, { error: { code: "forbidden", message: "scope" } });
     if (req.method === "POST" && path === "/v1/media") {
+      if (state.failMediaAt && state.seq + 1 === state.failMediaAt) return send(422, { error: { code: "invalid_image", message: "not a JPEG" } }); // the Nth media request fails (test knob)
       const meta = JSON.parse(body.toString()), id = `med_${String(++state.seq).padStart(4, "0")}`;
       media.set(id, { id, type: meta.type, name: meta.name, mime: meta.mime, size: meta.size, state: "uploading", createdAt: new Date().toISOString() });
       return send(200, media.get(id));
@@ -87,6 +88,6 @@ export async function fakePraeko(scope: "admin" | "write" = "write"): Promise<Fa
   });
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
   const port = (server.address() as { port: number }).port;
-  const handle = { url: `http://127.0.0.1:${port}`, requests: state.requests, get scope() { return state.scope; }, set scope(v) { state.scope = v; }, get failVideoUpload() { return state.failVideoUpload; }, set failVideoUpload(v) { state.failVideoUpload = v; }, close: () => new Promise<void>((ok) => { server.closeAllConnections(); server.close(() => ok()); }) };
+  const handle = { url: `http://127.0.0.1:${port}`, requests: state.requests, get scope() { return state.scope; }, set scope(v) { state.scope = v; }, get failVideoUpload() { return state.failVideoUpload; }, set failVideoUpload(v) { state.failVideoUpload = v; }, get failMediaAt() { return state.failMediaAt; }, set failMediaAt(v) { state.failMediaAt = v; }, close: () => new Promise<void>((ok) => { server.closeAllConnections(); server.close(() => ok()); }) };
   return handle as FakePraeko;
 }

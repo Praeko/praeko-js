@@ -89,6 +89,7 @@ export class JobManager {
     if (job.kind === "voice") { add(`episodes/${job.slug}/voice.mp3`); add(`episodes/${job.slug}/words.json`); }
     if (job.kind === "package") add(`episodes/${job.slug}/texts.md`);
     if (job.kind === "render") { add(`out/${job.slug}.mp4`); add(`out/${job.slug}.hf.mp4`); }
+    if (job.kind === "render" && job.argv[0] === "slides" && existsSync(join(root, "out"))) for (const f of readdirSync(join(root, "out")).sort()) if (f.startsWith(job.slug + "-slide-") && f.endsWith(".jpg")) rel.push(`out/${f}`);
     if (job.kind === "cover" && existsSync(join(root, "out"))) for (const f of readdirSync(join(root, "out")).sort()) if (f.startsWith(job.slug + "-cover") && f.endsWith(".png")) rel.push(`out/${f}`);
     return rel;
   }

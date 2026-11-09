@@ -4,11 +4,12 @@
 import { existsSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { getKey } from "@praeko/studio-voice";
-import { NETWORKS, coverFrame, praeko, textsByNetwork, parseWhen, validate } from "@praeko/studio-publish";
+import { NETWORKS, coverFrame, isImage, praeko, textsByNetwork, parseWhen, validate } from "@praeko/studio-publish";
 import type { Brand } from "@praeko/studio-publish";
 import { NAME, findInFolder, findVideo, flag, has, localTime, readPublication } from "./schedule.ts";
 import type { ScheduleEnv } from "./schedule.ts";
 import type { Episode, Project } from "./project.ts";
+import { checkJpeg } from "./image.ts";
 
 const NO_KEY = "no Praeko key: echo $KEY | praeko studio schedule --via praeko --key   (praeko_… (or arauto_…) key with write scope, created in the dashboard; or the variable PRAEKO_STUDIO_KEY_PRAEKO_MAIN)";
 const BUFFER_ONLY = "--reminder does not exist on Praeko: it really schedules the post (the \"only notifies\" mode is Buffer's). On TikTok the equivalent is draft mode (publishing.praeko.tiktok.mode = \"draft\", the default). For --reminder use --via buffer.";
@@ -84,6 +85,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   const publication = readPublication(ep);
   const v = validate({ brand: p.brand, publication });
   if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); console.log("Fix publication.json (praeko studio package) before scheduling."); return 1; }
+  if (isImage(publication)) return scheduleImage(a, { p, ep, slug, sched, scheduleFile, env, cfg, publication, warnings: v.warnings });
   const defaults = cfg.networks || (publication.format === "long" ? ["youtube", "instagram"] : ["youtube", "instagram", "tiktok"]);
   const networks: string[] = flag(a, "networks") ? flag(a, "networks")!.split(",").map((x) => NETWORKS[x.trim()] || (() => { throw new Error(`unknown network: ${x}`); })()) : defaults;
   const offset = p.brand.publishing?.timezoneOffset || "-03:00";
@@ -182,6 +184,67 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   for (const i of r.items || []) {
     if (i.state === "error") failed = true;
     console.log(`${i.state === "error" ? "✗" : "✓"} ${NAME[i.network] || i.network} ${label(i)}${i.scheduledFor ? ` for ${localTime(i.scheduledFor)}` : ""} (${i.id})${i.warning ? `  ⚠ ${i.warning}` : ""}`);
+  }
+  console.log(`\nPost ${r.id} on Praeko. Check it: praeko studio schedule ${slug} --status · undo what is still pending: praeko studio schedule ${slug} --cancel`);
+  return failed ? 1 : 0;
+}
+
+/** `schedule --via praeko` for an IMAGE piece or a CAROUSEL: one photo (`kind: "image"`) or 2 to 20 slides (`kind: "carousel"`) on Instagram (through Buffer or Meta), each file uploaded as `type: image` IN ORDER. */
+async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, env, cfg, publication, warnings }: { p: Project; ep: Episode; slug: string; sched: any; scheduleFile: string; env: ScheduleEnv; cfg: any; publication: any; warnings: string[] }): Promise<number> {
+  const networks: string[] = flag(a, "networks") ? flag(a, "networks")!.split(",").map((x) => NETWORKS[x.trim()] || (() => { throw new Error(`unknown network: ${x}`); })()) : ["instagram"];
+  const other = networks.filter((r) => r !== "instagram");
+  if (other.length) throw new Error(`${other.map((r) => NAME[r]).join(", ")}: image and carousel posts go only to Instagram for now (YouTube has no image posts; TikTok photo mode arrives in a later phase)`);
+  const q = flag(a, "ig") || flag(a, "when");
+  if (!q) throw new Error('missing the time for Instagram: use --when "06/11 17:30" (or --ig)');
+  const offset = p.brand.publishing?.timezoneOffset || "-03:00", at = parseWhen(q, { offset }), min = praeko.leadMin("instagram", cfg);
+  if (new Date(at) < new Date(Date.now() + min * 60e3)) throw new Error(`Instagram: ${localTime(at)} is less than ${min} minutes from now or already past`);
+  const images: { file: string; alt?: string }[] = publication.images || [];
+  const carousel = publication.kind === "carousel" || publication.format === "carousel";
+  if (!images.length) throw new Error(`no image in publication.json: run \`praeko studio slides ${slug}\` and \`praeko studio package ${slug}\``);
+  if (carousel ? images.length < 2 || images.length > 20 : images.length !== 1) throw new Error(carousel ? `${images.length} slide(s): a carousel takes 2 to 20` : `${images.length} images: an image post takes exactly one (use format: carousel for 2 to 20)`);
+  const files = images.map((im) => resolve(p.root, im.file)), jpegs = files.map((f) => checkJpeg(f));
+  const bad = jpegs.flatMap((j, i) => j.errors.map((e) => `${carousel ? `slide ${i + 1}: ` : ""}${e}`));
+  if (bad.length) { bad.forEach((e) => console.log("  ✗", e)); throw new Error(`fix the ${carousel ? "slides" : "image"} first (\`praeko studio slides ${slug}\`)`); }
+  const file = files[0]!, jpeg = jpegs[0]!, totalKB = jpegs.reduce((t, j) => t + j.bytes, 0) / 1024;
+  const send = has(a, "send");
+  if (sched && send && !has(a, "redo")) throw new Error("a schedule already exists (schedule.json). Check it with --status, cancel it with --cancel or use --redo");
+  const texts = textsByNetwork({ brand: p.brand, publication }) as Record<string, { text: string }>;
+  console.log(`${send ? "SCHEDULING ON PRAEKO" : "SIMULATION ON PRAEKO (nothing will be sent; use --send)"}: ${publication.title} (${carousel ? `carousel, ${images.length} slides` : "image post"})`);
+  if (carousel) files.forEach((f, i) => console.log(`slide ${i + 1}: ${relative(process.cwd(), f)} (${jpegs[i]!.width}x${jpegs[i]!.height}, ${(jpegs[i]!.bytes / 1024).toFixed(0)} KB)`));
+  else console.log(`image: ${relative(process.cwd(), file)} (${jpeg.width}x${jpeg.height}, ${(jpeg.bytes / 1024).toFixed(0)} KB)`);
+  console.log(`  ${"Instagram".padEnd(10)} ${localTime(at)}  via ${cfg.instagram.via}  caption ${texts.instagram!.text.length} chars`);
+  const notes = [...warnings];
+  if (images.some((im) => im.alt) && cfg.instagram.via !== "meta") notes.push('the alt text is ignored when Instagram goes through Buffer (Praeko warns alt_ignored); set publishing.praeko.instagram.via = "meta" to send it');
+  if (carousel && cfg.instagram.via !== "meta") notes.push("a carousel through Buffer was NOT tested live (Buffer has no official API example for it): check the first one in Buffer; Praeko warns buffer_carousel_unverified");
+  notes.forEach((x) => console.log("  ⚠", x));
+  (publication.beforePublishing || []).forEach((x: string) => console.log("  ☐", x));
+  if (!send) { console.log(`\nThe ${carousel ? `${images.length} slides go` : "image goes"} straight to ${cfg.url} (media type image${carousel ? ` ×${images.length}, ${totalKB.toFixed(0)} KB in total` : ""}, then a post with kind ${carousel ? "carousel" : "image"}).`); return 0; }
+  const key = keyOf(env); if (!key) throw new Error(NO_KEY);
+  const c = clientOf(p, env, key), uploaded: string[] = [];
+  let r: any, id = slug;
+  try {
+    const mediaIds: string[] = [];
+    for (const [i, path] of files.entries()) { // one by one, in the order of the slides: the ids go to the post in that same order
+      const f = praeko.fileSource(path);
+      try { console.log(`  uploading ${carousel ? `slide ${i + 1} of ${files.length}` : "the image"} (${(f.size / 1024).toFixed(0)} KB)…`); const m = await c.uploadMedia(f, { type: "image" }); mediaIds.push(m.id); uploaded.push(m.id); } finally { f.close(); }
+    }
+    for (let n = 1; ; ) {
+      try { r = await c.createPost(praeko.buildImagePost({ brand: p.brand, publication, id, images: mediaIds.map((m, i) => ({ media: m, alt: images[i]!.alt })), networks, when: { instagram: at }, offset })); break; }
+      catch (e: any) {
+        if (e.code !== "id_exists") throw e;
+        const alive = ((await c.status(id)).items || []).filter((i: any) => i.state !== "canceled");
+        if (alive.length) throw new Error(`post "${id}" already exists on Praeko (${alive.map((i: any) => label(i)).join(", ")}). See: praeko studio schedule ${slug} --status`);
+        if (++n > 9) throw e;
+        id = `${slug}-${n}`;
+      }
+    }
+  } catch (e) { for (const m of uploaded) { try { await c.removeMedia(m); } catch { /* in use or gone */ } } throw e; }
+  writeFileSync(scheduleFile, JSON.stringify({ provider: "praeko", slug, title: publication.title, postId: r.id, videoUrl: null, kind: carousel ? "carousel" : "image", createdAt: new Date().toISOString(), posts: (r.items || []).map((i: any) => ({ network: i.network, id: i.id, dueAt: i.scheduledFor || at, ...(i.channel ? { channelId: i.channel } : {}), postId: r.id })) }, null, 2) + "\n");
+  let failed = false;
+  for (const i of r.items || []) {
+    if (i.state === "error") failed = true;
+    console.log(`${i.state === "error" ? "✗" : "✓"} ${NAME[i.network] || i.network} ${label(i)}${i.scheduledFor ? ` for ${localTime(i.scheduledFor)}` : ""} (${i.id})${i.warning ? `  ⚠ ${i.warning}` : ""}`);
+    for (const w of i.warnings || []) console.log(`  ⚠ ${w.code}: ${w.message}`);
   }
   console.log(`\nPost ${r.id} on Praeko. Check it: praeko studio schedule ${slug} --status · undo what is still pending: praeko studio schedule ${slug} --cancel`);
   return failed ? 1 : 0;

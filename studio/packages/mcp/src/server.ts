@@ -48,6 +48,8 @@ export type ServerOptions = {
 };
 
 const mb = (n: number): string => `${(n / 1024 / 1024).toFixed(1)} MB`;
+/** Most bytes one studio_upload of image slides may send (20 slides of at most 8 MB each could be 160 MB: a Studio JPEG is a few hundred KB). */
+export const UPLOAD_MAX_TOTAL = 100 * 1024 * 1024;
 
 export function createStudioServer(options: ServerOptions): { server: McpServer; jobs: JobManager; root: string } {
   const root = openProject(options.project);
@@ -56,7 +58,7 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
   const confirmations = new Confirmations(options.confirm?.now, options.confirm?.ttlMs);
   const uploading = new Set<string>();
   const server = new McpServer({ name: "praeko-studio", version: VERSION }, {
-    instructions: "Local Praeko Studio. Build a video step by step: studio_new_episode, studio_write_script (script.txt, then episode.yaml), studio_voice (draft first), studio_compile, studio_check, studio_render, studio_cover, studio_package, then studio_upload to put the video and cover in the Praeko media library (it returns media ids). Two tools spend something (studio_voice with quality final, studio_upload) and are TWO-STEP: the first call returns a preview and a confirmation_code and changes nothing; show the preview to the person, wait for approval, then repeat the call with the same arguments plus confirm. This server never publishes: publishing is done by the separate remote `praeko` MCP (create_post with the media ids), always with the person's approval. " + DATA_NOTICE,
+    instructions: "Local Praeko Studio. Build a video step by step (an image post, format image, or a carousel of 2 to 20 slides, format carousel, skips script and voice: studio_new_episode with format image or carousel, edit episode.yaml, studio_render makes the JPEGs, studio_package, studio_upload returns the image media ids IN SLIDE ORDER): studio_new_episode, studio_write_script (script.txt, then episode.yaml), studio_voice (draft first), studio_compile, studio_check, studio_render, studio_cover, studio_package, then studio_upload to put the video and cover in the Praeko media library (it returns media ids). Two tools spend something (studio_voice with quality final, studio_upload) and are TWO-STEP: the first call returns a preview and a confirmation_code and changes nothing; show the preview to the person, wait for approval, then repeat the call with the same arguments plus confirm. This server never publishes: publishing is done by the separate remote `praeko` MCP (create_post with the media ids), always with the person's approval. " + DATA_NOTICE,
   });
 
   const guard = <A>(fn: (a: A) => Promise<Reply> | Reply) => async (a: A): Promise<Reply> => {
@@ -64,6 +66,13 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
   };
   const ready = (): void => assertStudioProject(root);
   const sync = (argv: string[]) => runCli(bin, argv, { cwd: root, timeoutMs: options.syncTimeoutMs ?? 120_000 });
+  /** `image` or `carousel` when the episode is an image piece (`format` in episode.yaml), with its slide count; undefined for a video. The YAML is read as data only. */
+  const imagePiece = (slug: string): { format: "image" | "carousel"; slides: number } | undefined => {
+    const f = resolveInside(root, "episodes", slug, "episode.yaml");
+    if (!existsSync(f)) return undefined;
+    try { const y = parseYaml(readFileSync(f, "utf8")) as any; return y?.format === "image" || y?.format === "carousel" ? { format: y.format, slides: Array.isArray(y.slides) ? y.slides.length : 0 } : undefined; } catch { return undefined; }
+  };
+  const isImage = (slug: string): boolean => imagePiece(slug) !== undefined;
   const read = (...parts: string[]): string | null => { const f = resolveInside(root, ...parts); return existsSync(f) ? readFileSync(f, "utf8") : null; };
   const closed = <S extends z.ZodRawShape>(shape: S) => z.strictObject(shape);
   const tool = <S extends z.ZodRawShape>(name: (typeof TOOL_NAMES)[number], description: string, shape: S, annotations: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean }, fn: (a: z.infer<z.ZodObject<S, z.core.$strict>>) => Promise<Reply> | Reply): void => {
@@ -108,10 +117,10 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
   });
 
   tool("studio_new_episode", "Creates an episode (episodes/<slug>/ with script.txt, episode.yaml, publication.json) and registers it in the project. Fails if it already exists.", {
-    slug: SlugField, title: z.string().min(1).max(120).regex(/^[^\u0000-\u001f\u007f]+$/, "no control characters").optional(), format: z.enum(["short", "long"]).default("short").describe("short = vertical 9:16, long = 16:9"),
+    slug: SlugField, title: z.string().min(1).max(120).regex(/^[^\u0000-\u001f\u007f]+$/, "no control characters").optional(), format: z.enum(["short", "long", "image", "carousel"]).default("short").describe("short = vertical 9:16, long = 16:9, image = a photo post (one 1080x1350 slide for Instagram; no script or voice), carousel = 2 to 20 slides of 1080x1350 for Instagram, posted in the order of `slides:` (no script or voice)"),
   }, {}, async (a) => {
     ready(); assertSlug(a.slug);
-    const r = await sync(["new", a.slug, ...(a.title ? ["--title", a.title] : []), ...(a.format === "long" ? ["--long"] : [])]);
+    const r = await sync(["new", a.slug, ...(a.title ? ["--title", a.title] : []), ...(a.format === "long" ? ["--long"] : a.format === "image" ? ["--image"] : a.format === "carousel" ? ["--carousel"] : [])]);
     return reply({ episode: a.slug, ...cliOutput(r) }, r.code !== 0);
   });
 
@@ -180,12 +189,23 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
     return out;
   });
 
-  tool("studio_render", "Renders the video of an episode as a background job (slow: minutes). `scale` below 1 renders smaller and faster, good for a preview.", {
-    slug: SlugField, scale: z.number().min(0.1).max(1).optional().describe("Output scale 0.1 to 1 (default 1)"), engine: Engine,
-  }, {}, (a) => start("render", a.slug, ["render", a.slug, ...(a.scale !== undefined ? ["--scale", String(a.scale)] : []), ...(a.engine ? ["--engine", a.engine] : [])], REMOTION_NOTICE));
+  tool("studio_render", "Renders the video of an episode as a background job (slow: minutes). `scale` below 1 renders smaller and faster, good for a preview. For an IMAGE piece (format image) or a CAROUSEL (format carousel) it renders the slides to out/<episode>-slide-01.jpg, -02.jpg… (one per slide, 1080x1350 sRGB JPEG, Remotion only) instead; up to 180 s per slide.", {
+    slug: SlugField, scale: z.number().min(0.1).max(1).optional().describe("Output scale 0.1 to 1 (default 1); not for image pieces"), engine: Engine,
+  }, {}, (a) => {
+    ready(); episodeFolder(root, a.slug);
+    if (isImage(a.slug)) {
+      if (a.scale !== undefined) throw new UserError("scale does not apply to an image piece (the slide is always 1080x1350)");
+      if (a.engine === "hyperframes") throw new UserError("image pieces render only with Remotion (HyperFrames has no image mode yet)");
+      return start("render", a.slug, ["slides", a.slug], REMOTION_NOTICE);
+    }
+    return start("render", a.slug, ["render", a.slug, ...(a.scale !== undefined ? ["--scale", String(a.scale)] : []), ...(a.engine ? ["--engine", a.engine] : [])], REMOTION_NOTICE);
+  });
 
-  tool("studio_cover", "Renders the cover image(s) of an episode as a background job.", { slug: SlugField, engine: Engine }, {}, (a) =>
-    start("cover", a.slug, ["cover", a.slug, ...(a.engine ? ["--engine", a.engine] : [])], REMOTION_NOTICE));
+  tool("studio_cover", "Renders the cover image(s) of an episode as a background job.", { slug: SlugField, engine: Engine }, {}, (a) => {
+    ready(); episodeFolder(root, a.slug);
+    if (isImage(a.slug)) throw new UserError("an image piece or carousel has no cover: use studio_render to make its JPEG(s)");
+    return start("cover", a.slug, ["cover", a.slug, ...(a.engine ? ["--engine", a.engine] : [])], REMOTION_NOTICE);
+  });
 
   tool("studio_package", "Builds the publishing texts (texts.md) from publication.json as a background job. Does not publish anything.", { slug: SlugField }, {}, (a) =>
     start("package", a.slug, ["package", a.slug], "texts.md is a draft for the person to approve; publishing is done by the remote praeko MCP"));
@@ -204,18 +224,26 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
     return reply({ ...jobView(job, { queuePosition: jobs.position(job.id) || undefined, cancelRequested: a.action === "cancel" || undefined }), ...log }, false);
   });
 
-  tool("studio_upload", "Uploads the rendered video (out/<episode>.mp4) and the cover (out/<episode>-cover.png, if it exists) to the person's Praeko media library and returns ONLY their media ids. It creates no post and publishes nothing: use the ids in create_post of the remote praeko MCP. TWO-STEP: the first call returns a preview (files, sizes, destination) and a confirmation_code; only the second call with `confirm` uploads. Uses the person's own Praeko key (never shown).", {
+  tool("studio_upload", "Uploads the rendered video (out/<episode>.mp4) and the cover (out/<episode>-cover.png, if it exists), or for an image piece the JPEG (out/<episode>-slide-01.jpg, uploaded as type image) and for a carousel ALL the slide JPEGs (out/<episode>-slide-01.jpg … NN, at most 20 files, 8 MB each and 100 MB in total, uploaded one by one in order as type image), to the person's Praeko media library and returns ONLY their media ids (for a carousel, in slide order: use them in that order). It creates no post and publishes nothing: use the ids in create_post of the remote praeko MCP. TWO-STEP: the first call returns a preview (files, sizes, destination) and a confirmation_code; only the second call with `confirm` uploads. Uses the person's own Praeko key (never shown).", {
     slug: SlugField, confirm: CONFIRM,
   }, {}, async (a) => {
     ready(); episodeFolder(root, a.slug);
-    const files = ([["video", `${a.slug}.mp4`], ["cover", `${a.slug}-cover.png`]] as const).flatMap(([role, name]) => {
+    const piece = imagePiece(a.slug), image = piece !== undefined, carousel = piece?.format === "carousel";
+    if (carousel && (piece!.slides < 2 || piece!.slides > 20)) throw new UserError(`episode.yaml has ${piece!.slides} slide(s): a carousel takes 2 to 20 (fix it, then studio_compile and studio_render)`);
+    const slideNames = Array.from({ length: carousel ? piece!.slides : 1 }, (_, i) => `${a.slug}-slide-${String(i + 1).padStart(2, "0")}.jpg`);
+    const wanted = image ? slideNames.map((n) => ["image", n] as const) : ([["video", `${a.slug}.mp4`], ["cover", `${a.slug}-cover.png`]] as const);
+    const files = wanted.flatMap(([role, name]) => {
       const f = resolveInside(root, "out", name); // refuses a symlink that leads out of the project
       if (!existsSync(f)) return [];
       const st = statSync(f);
       if (!st.isFile()) throw new UserError(`out/${name} is not a regular file`);
-      return [{ role, file: f, rel: `out/${name}`, bytes: st.size, mtimeMs: Math.round(st.mtimeMs), mime: role === "video" ? "video/mp4" : "image/png" }];
+      return [{ role, file: f, rel: `out/${name}`, bytes: st.size, mtimeMs: Math.round(st.mtimeMs), mime: role === "video" ? "video/mp4" : role === "image" ? "image/jpeg" : "image/png" }];
     });
-    if (!files.some((f) => f.role === "video")) throw new UserError(`out/${a.slug}.mp4 does not exist: render the episode first (studio_render) and wait for the job to finish`);
+    if (image && files.length < slideNames.length) throw new UserError(`${slideNames.filter((n) => !files.some((f) => f.rel === `out/${n}`)).map((n) => `out/${n}`).join(", ")} ${slideNames.length - files.length === 1 ? "does" : "do"} not exist: render the ${carousel ? "carousel" : "image piece"} first (studio_render) and wait for the job to finish`);
+    const big = files.findIndex((f) => image && f.bytes > 8 * 1024 * 1024);
+    if (big >= 0) throw new UserError(`${carousel ? `slide ${big + 1}` : "the image"} is over 8 MB (the Instagram limit): make it lighter before uploading`);
+    if (image && files.reduce((n, f) => n + f.bytes, 0) > UPLOAD_MAX_TOTAL) throw new UserError(`the slides add up to ${mb(files.reduce((n, f) => n + f.bytes, 0))}, over the ${mb(UPLOAD_MAX_TOTAL)} limit of one upload: make the JPEGs lighter`);
+    if (!image && !files.some((f) => f.role === "video")) throw new UserError(`out/${a.slug}.mp4 does not exist: render the episode first (studio_render) and wait for the job to finish`);
     if (files.some((f) => f.bytes === 0)) throw new UserError("a file to upload is empty: render again");
     const key = findKey(options.praeko);
     if (!key) throw new UserError(NO_KEY);
@@ -225,8 +253,8 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
     if (a.confirm === undefined) {
       return preview("studio_upload", {
         episode: a.slug,
-        files: files.map((f) => ({ role: f.role, path: f.rel, bytes: f.bytes, size: mb(f.bytes), mime: f.mime })), totalBytes: files.reduce((n, f) => n + f.bytes, 0),
-        ...(files.length === 1 ? { note: `no cover found (out/${a.slug}-cover.png): only the video would be uploaded; make it with studio_cover` } : {}),
+        files: files.map((f, i) => ({ ...(carousel ? { slide: i + 1 } : {}), role: f.role, path: f.rel, bytes: f.bytes, size: mb(f.bytes), mime: f.mime })), totalBytes: files.reduce((n, f) => n + f.bytes, 0),
+        ...(!image && files.length === 1 ? { note: `no cover found (out/${a.slug}-cover.png): only the video would be uploaded; make it with studio_cover` } : {}),
         destination: { service: url, endpoint: "/v1/media", library: "the person's own Praeko media library" }, keyFound: true,
         effect: "uploads the files to the media library (uses storage). It creates NO post, schedules nothing and publishes nothing.",
       }, confirmations.issue("studio_upload", args, bind));
@@ -239,10 +267,12 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
     const done: Uploaded[] = [];
     try {
       const client = makeClient(key, options.praeko);
-      for (const f of files) done.push(await upload(client, f.file, f.role));
+      for (const [i, f] of files.entries()) done.push({ ...(carousel ? { slide: i + 1 } : {}), ...(await upload(client, f.file, f.role)) }); // one by one, in the order of the slides
     } catch (e) {
-      return fail(`upload failed${done.length ? ` after ${done.map((d) => d.role).join(" and ")} went up (mediaId ${done.map((d) => d.mediaId).join(", ")}; it stays in the library)` : ""}: ${describeError(e, key)}`, { executed: done.length > 0, uploaded: done });
+      return fail(`upload failed${done.length ? ` after ${carousel ? `${done.length} of ${files.length} slides` : done.map((d) => d.role).join(" and ")} went up (mediaId ${done.map((d) => d.mediaId).join(", ")}; ${carousel ? "they stay" : "it stays"} in the library)` : ""}${carousel ? ` (failed on slide ${done.length + 1})` : ""}: ${describeError(e, key)}`, { executed: done.length > 0, uploaded: done });
     } finally { uploading.delete(a.slug); }
+    if (carousel) return reply({ preview: false, executed: true, tool: "studio_upload", episode: a.slug, uploaded: done, mediaIds: done.map((d) => d.mediaId), next: "Nothing was published. To publish, use these ids in create_post (or schedule_post) of the remote praeko MCP: kind \"carousel\" and media.images = [{ media: <mediaId of slide 1>, alt: <alt of slide 1> }, { media: <mediaId of slide 2>, alt: … }, …] IN THE ORDER of `uploaded` (and of `slides:` in episode.yaml; `mediaIds` is already in that order), with texts.instagram.text = the Instagram caption of texts.md. Only Instagram takes a carousel for now. That tool shows its own preview (slide order and warnings) and needs the person's approval." });
+    if (image) return reply({ preview: false, executed: true, tool: "studio_upload", episode: a.slug, uploaded: done, next: "Nothing was published. To publish, use this id in create_post (or schedule_post) of the remote praeko MCP: kind \"image\" and media.images = [{ media: <the image mediaId>, alt: <the alt text of the slide in episode.yaml> }], with texts.instagram.text = the Instagram caption of texts.md. Only Instagram takes an image post for now. That tool shows its own preview and needs the person's approval." });
     return reply({ preview: false, executed: true, tool: "studio_upload", episode: a.slug, uploaded: done, next: "Nothing was published. To publish, use these ids in create_post (or schedule_post) of the remote praeko MCP: media.video = the video mediaId, media.cover = the cover mediaId. That tool shows its own preview and needs the person's approval." });
   });
 

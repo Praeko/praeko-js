@@ -7,6 +7,8 @@ Praeko Studio makes short (9:16) and long (16:9) videos from a script: voice, wo
 ## Requirements
 Node 22 or newer, `ffmpeg` and `ffprobe` on the PATH, and a Chrome (Remotion downloads the Chrome Headless Shell on its own at the first render; it needs internet at that moment). macOS and Linux are supported; Windows is best effort and untested. `praeko studio doctor` checks everything.
 
+The agent needs a terminal. An agent without one (Claude Desktop, for example) can use the local MCP server, [`@praeko/studio-mcp`](https://praeko.app/docs/studio/mcp): it still needs Node, Chrome/Remotion and your own keys on your machine, and it never publishes (publishing is the remote `praeko` MCP).
+
 ## Install
 ```sh
 # npm

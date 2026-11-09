@@ -7,6 +7,7 @@ import { NETWORKS, buildPosts, coverFrame, createPost, deletePost, hosting, list
 import type { Brand, Publication } from "@praeko/studio-publish";
 import { episodeOf, findProject } from "./project.ts";
 import type { Episode, Project } from "./project.ts";
+import { isImagePiece } from "./compile.ts";
 
 const KEY_REF = "buffer/principal";
 export const flag = (a: string[], k: string): string | undefined => { const i = a.indexOf("--" + k); return i >= 0 && a[i + 1] && !a[i + 1]!.startsWith("--") ? a[i + 1] : undefined; };
@@ -103,6 +104,8 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
     via = schedProvider; // without an explicit --via, follow the provider that created the schedule
   } else if (sched && has(a, "send") && schedProvider !== askedVia) throw new Error(`this episode was already scheduled by ${schedProvider === "praeko" ? "Praeko" : "Buffer"}: cancel it there first (praeko studio schedule ${slug} --cancel --via ${schedProvider}) and only then schedule with ${askedVia}`);
   if (via === "praeko") return (await import("./schedule-praeko.ts")).schedulePraeko(a, { p, ep, slug, sched, scheduleFile, env });
+
+  if (isImagePiece(ep.folder)) throw new Error("image posts are scheduled through Praeko only: use --via praeko (Buffer's own API path here is for videos)");
 
   // ----- status / cancel / clear
   if (has(a, "status")) {

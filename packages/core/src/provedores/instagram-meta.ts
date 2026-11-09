@@ -315,6 +315,37 @@ export async function criarContainerReel({ ctx, videoUrl, capaUrl = null, legend
   const j = await chamar(ctx, `${t.userId}/media`, { media_type: "REELS", video_url: videoUrl, caption: legenda, share_to_feed: compartilharNoFeed ? "true" : "false", ...(capaUrl ? { cover_url: capaUrl } : miniaturaMs != null ? { thumb_offset: miniaturaMs } : {}) }, { metodo: "POST", t });
   return { id: String(j.id) };
 }
+/**
+ * Cria o contêiner de uma FOTO ÚNICA (POST /{ig}/media com `image_url`, sem `media_type`; `caption` na legenda; `alt_text` até 1.000 caracteres, só em imagem).
+ * Mesmo fluxo dos Reels: depois vêm `statusContainer` e `publicarContainer`. `imagemUrl`: JPEG público https (a Meta baixa por cURL). Devolve { id }.
+ */
+export async function criarContainerImagem({ ctx, imagemUrl, legenda, alt = null }: any) {
+  if (!/^https:\/\//.test(String(imagemUrl || ""))) throw new Error("image_url precisa ser uma URL pública https");
+  if (!legenda || !String(legenda).trim()) throw new Error("legenda vazia");
+  if (alt != null && String(alt).length > 1000) throw new Error("alt_text passa de 1000 caracteres");
+  const t = await lerToken(ctx);
+  const j = await chamar(ctx, `${t.userId}/media`, { image_url: imagemUrl, caption: legenda, ...(alt ? { alt_text: alt } : {}) }, { metodo: "POST", t });
+  return { id: String(j.id) };
+}
+/**
+ * Cria o contêiner FILHO de um carrossel (`is_carousel_item=true`, `image_url`, `alt_text` até 1.000 caracteres). A legenda NÃO vale em filho (vai no pai). Devolve { id }.
+ * Passo 1 de 3 do carrossel: filhos → `criarContainerCarrossel` (pai) → `publicarContainer` (UMA vez, no pai). Cada filho consome 1 contêiner da cota da conta (~400 por 24 h).
+ */
+export async function criarContainerFilho({ ctx, imagemUrl, alt = null }: any) {
+  if (!/^https:\/\//.test(String(imagemUrl || ""))) throw new Error("image_url precisa ser uma URL pública https");
+  if (alt != null && String(alt).length > 1000) throw new Error("alt_text passa de 1000 caracteres");
+  const t = await lerToken(ctx);
+  const j = await chamar(ctx, `${t.userId}/media`, { image_url: imagemUrl, is_carousel_item: "true", ...(alt ? { alt_text: alt } : {}) }, { metodo: "POST", t });
+  return { id: String(j.id) };
+}
+/** Cria o contêiner PAI (`media_type=CAROUSEL`, `children` = ids dos filhos EM ORDEM, de 2 a 20, separados por vírgula, e a legenda). Depois: `statusContainer` e `publicarContainer` no pai. */
+export async function criarContainerCarrossel({ ctx, filhos, legenda }: any) {
+  if (!Array.isArray(filhos) || filhos.length < 2 || filhos.length > 20) throw new Error("um carrossel leva de 2 a 20 filhos");
+  if (!legenda || !String(legenda).trim()) throw new Error("legenda vazia");
+  const t = await lerToken(ctx);
+  const j = await chamar(ctx, `${t.userId}/media`, { media_type: "CAROUSEL", children: filhos.join(","), caption: legenda }, { metodo: "POST", t });
+  return { id: String(j.id) };
+}
 /** Estado do contêiner: { codigo: IN_PROGRESS|FINISHED|ERROR|EXPIRED|PUBLISHED, detalhe }. */
 export async function statusContainer({ ctx, containerId }: any) {
   const j = await chamar(ctx, containerId, { fields: "status_code,status" });
