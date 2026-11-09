@@ -1,6 +1,6 @@
 {
   "name": "@praeko/cli",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "type": "module",
   "description": "Praeko CLI: publishes and schedules short videos on YouTube, Instagram and TikTok, and talks to the Praeko service API (praeko.app).",
   "license": "MIT",

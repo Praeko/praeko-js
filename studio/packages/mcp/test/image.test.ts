@@ -72,11 +72,11 @@ test("studio_upload on an image piece: not rendered yet and over 8 MB are clear 
     assert.equal(api.requests.length, 0);
   } finally { await a.close(); await b.close(); await api.close(); }
 });
-test("studio_new_episode with format image passes --image to the CLI and the tool list is still the same 14 with no publishing", async () => {
+test("studio_new_episode with format image passes --image to the CLI and the tool list is still the same 15 with no publishing", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   try {
     const list = (await c.client.listTools()).tools;
-    assert.equal(list.length, 14);
+    assert.equal(list.length, 15);
     assert.ok(!list.some((t) => /post|schedule|queue|publish|account/i.test(t.name)), "no tool publishes");
     const fmt = (list.find((t) => t.name === "studio_new_episode")!.inputSchema as any).properties.format.enum;
     assert.deepEqual(fmt, ["short", "long", "image", "carousel"]);

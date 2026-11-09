@@ -2,6 +2,14 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/). In the 0.x series a breaking change may ship in a minor version, always recorded here.
 
+## [Unreleased]
+
+### Added
+- `praeko studio review <slug> [--every <seconds>] [--max-frames N] [--engine remotion|hyperframes] [--json]`: builds a **review package for your agent** in `out/<slug>-review/` from a rendered video, or from the slides of an image post or carousel: `frames/` (JPEGs at most 540 px wide with the time in the name: the opening at 0 to 2 s, one per scene change, one every N seconds, the last frame), `manifest.json` (schema `praeko-studio-review/1`: scenes with their on-screen text, speech, loudness, silences, frames and deterministic findings, each with severity, time, code, message and evidence) and `REVIEW.md` (instructions for the reviewing agent; Portuguese with `--lang pt`). Studio calls no language model: it measures and extracts, your agent looks and judges. Exit code 0 when the package is made, even with findings.
+- Findings (rules over measured data): empty opening, late first scene, scenes that are too short or too long, too much text for a scene, stopped frames, long silence, loudness and true peak, voice still estimated, speech too fast or starting late, captions that flash, duration and shape of the file, missing cover, text outside the safe area, low contrast of the brand colors (WCAG), forbidden phrases (built-in default, `review.forbiddenPhrases` in `brand.json`, the prohibitions section of `playbook.md`), banned names, AI text tics; for slides: size, alt text (missing, short, generic, repeated, unrelated), dense text, carousel count and caption limits.
+- `praeko studio docs review`; the project skill gains the review step (after `package`, before asking for approval).
+- `brand.json` may carry `review.forbiddenPhrases` (a list of strings).
+
 ## [0.2.3] - 2026-11-08
 
 Version aligned with `@praeko/studio-mcp` 0.1.1; the project templates depend on `@praeko/studio-core` and `@praeko/studio-kit` 0.2.3. No other change.

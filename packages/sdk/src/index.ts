@@ -138,6 +138,7 @@ export class Praeko {
       publishNow: (id, { network, idempotencyKey } = {}) => a._req("POST", `/v1/posts/${ref(id)}/publish-now`, { query: { network }, ...idem({ idempotencyKey }) }),
       cancel: (id, o) => a._req("DELETE", `/v1/posts/${ref(id)}`, idem(o)),
       comment: (id, itemId) => a._req("POST", `/v1/posts/${ref(id)}/items/${ref(itemId)}/comment`),
+      resend: (id, itemId, o) => a._req("POST", `/v1/posts/${ref(id)}/items/${ref(itemId)}/resend`, idem(o)),
     } as PostsApi & LegacyPosts;
     this.channels = {
       list: ({ verify } = {}) => a._req("GET", "/v1/channels", { query: { verify: verify ? 1 : undefined } }),

@@ -42,8 +42,8 @@ export function measure(it: any, width = AREA.w): { w: number; h: number; wraps?
     default: return { w: 0, h: 0 };
   }
 }
-type Rect = { x: number; y: number; w: number; h: number };
-const rectOf = (it: any): Rect | null => { const p = it.pos; if (!p || p.left === undefined || p.top === undefined || p.w === undefined) return null; return { x: p.left, y: p.top, w: p.w, h: p.h ?? measure(it).h }; };
+export type Rect = { x: number; y: number; w: number; h: number };
+export const rectOf = (it: any): Rect | null => { const p = it.pos; if (!p || p.left === undefined || p.top === undefined || p.w === undefined) return null; return { x: p.left, y: p.top, w: p.w, h: p.h ?? measure(it).h }; };
 const crosses = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const badColor = (c: unknown): boolean => typeof c === "string" && !c.startsWith("#") && !COLORS.includes(c);
 
@@ -210,7 +210,7 @@ function compileImage({ y, info, folder: _folder, errors, warnings, write }: { y
 export const TYPES_LONG = ["code", "card", "text", "chip", "freetext", "video", "phone", "bar", "counter", "flow"];
 const KEYS_LONG = new Set(["type", "when", "pos", "color", "size", "text", "parts", "title", "lines", "items", "align", "mono", "spacing", "src", "from", "clipDuration", "reg", "tag", "motionDuration", "value", "label", "duration", "to", "prefix", "suffix", "decimals", "nodes", "height"]);
 /** Estimated rectangle (px) of a long-form item with an absolute position. */
-function longRect(it: any): Rect | null {
+export function longRect(it: any): Rect | null {
   const p = it.pos; if (!p || p.left === undefined || p.top === undefined) return null;
   const txt = it.parts ? it.parts.map((x: any) => x.text).join("") : String(it.text ?? "");
   const reg = it.reg ?? [0, 0, 1920, 1080];

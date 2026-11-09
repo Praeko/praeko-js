@@ -28,7 +28,11 @@ export interface ImagePostRequest extends PostRequestBase { kind: "image"; media
 /** A carousel post (Instagram): `kind: "carousel"` and 2 to 20 images in `media.images`, IN SLIDE ORDER (the same media id may repeat; each item has its own `alt`). Fewer than 2 answers `carousel_too_few_images`, more than 20 `carousel_too_many_images`. Through Buffer the carousel path is not tested live (the item carries the `buffer_carousel_unverified` warning). */
 export interface CarouselPostRequest extends PostRequestBase { kind: "carousel"; media: { images: ImageRef[] } }
 export type PostRequest = VideoPostRequest | ImagePostRequest | CarouselPostRequest;
-export interface Item { id: string; network: Network; channel?: string; state: ItemState; scheduledFor: string | null; custom: boolean; mode?: string; url?: string; studio?: string; warning?: string; warnings?: ItemWarning[]; adopted?: boolean; external?: { provider: string; id: string }; runAt?: string; privacy?: string; actions?: Record<string, boolean>; media?: { video?: string; cover?: string } }
+/** One send of a TikTok draft to the app inbox (`Item.deliveries`, oldest first; the first is the original send, the rest are resends). `status` is TikTok's own (`SEND_TO_USER_INBOX`, `PUBLISH_COMPLETE`…). */
+export interface ItemDelivery { number: number; publishId: string; status: string; sentAt: string | null }
+/** Resend state of a sent TikTok draft (`posts.resend`). `allowed: false` comes with a `reason`: `already_posted` (the video was posted in the app), `in_progress` or `limit_reached` (3 resends per item in 24 h; `availableAt` says when it frees up). `error` is the last resend that TikTok refused (`tiktok_pending_limit` = TikTok accepts at most 5 pending inbox sends per 24 h, or `tiktok_error`); the item itself stays as it was. */
+export interface ItemResend { allowed: boolean; remaining: number; inProgress: boolean; reason?: "already_posted" | "in_progress" | "limit_reached"; availableAt?: string; error?: { code: "tiktok_pending_limit" | "tiktok_error" | (string & {}); message: string } }
+export interface Item { id: string; network: Network; channel?: string; state: ItemState; scheduledFor: string | null; custom: boolean; mode?: string; url?: string; studio?: string; warning?: string; warnings?: ItemWarning[]; adopted?: boolean; external?: { provider: string; id: string }; runAt?: string; privacy?: string; actions?: Record<string, boolean>; media?: { video?: string; cover?: string }; /** TikTok draft already in the app inbox. */ inInbox?: boolean; /** TikTok drafts already sent: every send to the inbox, oldest first. */ deliveries?: ItemDelivery[]; resend?: ItemResend }
 export interface Post { id: string; title: string; state: PostState; type: string; /** `video` (or absent on posts from before images) | `image` | `carousel`. */ kind?: "video" | "image" | "carousel"; origin: string; items: Item[]; tags: string[]; texts: Texts; /** `video` is null on an image post; `images` is the ordered list of an image or carousel post. */ media: { video: string | null; cover: string | null; images?: ImageRef[] }; thumb: string | null; createdAt: string; updatedAt: string }
 export interface Slot { weekday: number; day: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"; time: string; active: boolean }
 export interface Channel { network: Network; supported: boolean; connected: boolean; id?: string; default?: boolean; detail?: string; timezone?: string; slots?: number; name?: string; avatar?: string; meta?: { connected: boolean; username?: string | null; source?: "meta_login" /* absent = system token */; expiresAt?: string; daysLeft?: number; expired?: boolean; reason?: string } }
@@ -75,6 +79,12 @@ export interface PostsApi {
   adopt(body: Record<string, unknown>, o?: CallOptions): Promise<Post>;
   scheduleYoutube(id: string, scheduledFor: string, o?: CallOptions): Promise<{ url: string; publishAt: string }>;
   comment(id: string, itemId: string): Promise<unknown>;
+  /**
+   * Sends a TikTok draft that already reached the app inbox to the inbox AGAIN (a new notification for the same video). Returns the post; the send runs in the background
+   * (`item.resend.inProgress`) and every send is listed in `item.deliveries`. Errors: `not_resendable` (422), `already_posted`, `resend_in_progress`, `channel_not_connected` (409),
+   * `resend_limit_reached` (429, 3 per item in 24 h). TikTok's own limit (5 pending sends per 24 h) shows up later as `item.resend.error.code = "tiktok_pending_limit"`.
+   */
+  resend(id: string, itemId: string, o?: CallOptions): Promise<Post>;
 }
 export interface ChannelsApi {
   remove(channel: string): Promise<{ network: Network; channel: string; removed: true }>;

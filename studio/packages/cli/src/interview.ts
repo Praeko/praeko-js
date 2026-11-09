@@ -243,6 +243,7 @@ export function renderPlaybook(x: Answers): string {
     `## ${t("Pace")}`, ...(rhythm.length ? rhythm.map((s) => `- ${s}`) : [todo]), "",
     `## ${t("Opening")}`, ...(opening.length ? opening.map((s) => `- ${s}`) : [todo]), "",
     `## ${t("Captions")}`, todo, "",
+    `## ${t("Never say")}`, t("One phrase per line, in quotes. `praeko studio review` flags these phrases in the script, captions, on-screen text and publication texts. TODO: add the promises this channel must never make."), "",
     `## ${t("Rules from the references")}`,
     t("References are inputs to study, never to copy: describe pace, opening and captions as RULES, never reproduce someone else's video."),
   ];

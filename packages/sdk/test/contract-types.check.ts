@@ -6,6 +6,9 @@ type Igual<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B 
 const ok = <T extends true>(_: T) => _;
 
 ok<Igual<PathParams<"/v1/posts/:id/items/:item/comment">, "id" | "item">>(true);
+ok<Igual<PathParams<"/v1/posts/:id/items/:item/resend">, "id" | "item">>(true);
+ok<Igual<RouteOf<"posts.itemResend">["scope"], "write">>(true);
+ok<Igual<ErrorCodeMap["resend_limit_reached"], "resend_limit_reached">>(true);
 ok<Igual<PathParams<"/v1/health">, never>>(true);
 ok<Igual<RouteOf<"webhooks.test">["path"], "/v1/webhooks/:id/test">>(true);
 ok<Igual<RouteOf<"usage.get">["scope"], "read">>(true);

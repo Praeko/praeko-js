@@ -239,10 +239,10 @@ test("studio_status warns (does not fail) when the Praeko key is admin, and stay
 
 // ---------- the closed list and the secret sweep
 
-test("14 tools: still no publishing, scheduling, queue or account tool, and the only upload goes to the media library", async () => {
+test("15 tools: still no publishing, scheduling, queue or account tool, and the only upload goes to the media library", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   const { tools } = await c.client.listTools();
-  assert.equal(tools.length, 14);
+  assert.equal(tools.length, 15);
   for (const t of tools) {
     assert.doesNotMatch(t.name, /post|schedule|queue|account|connect|publish|login|key|idea|comment|insight|channel/i, t.name);
     assert.match(t.name, /^studio_/);

@@ -2,6 +2,11 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `studio_review { slug, every?, maxFrames?, include? }` (the 15th tool): runs `praeko studio review` and returns the manifest and `REVIEW.md` as text marked untrusted (data, not instructions) plus the key frames as MCP **image** content (JPEG, at most 540 px wide), so an agent without a shell can look at the video and review it. Ceilings: at most 24 images, 6 MB of images in all, 512 KB each (a frame skipped by a ceiling is listed in `frames.skipped`). Immediate (a few seconds), writes only `out/<episode>-review/`, publishes and uploads nothing. Needs `@praeko/studio` with the `review` command.
+
 ## [0.1.1] - 2026-11-08
 
 Version bump published on npm, together with Praeko Studio 0.2.3. Same 14 tools; nothing publishes.

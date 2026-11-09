@@ -1,6 +1,6 @@
 {
   "name": "@praeko/studio-core",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "description": "The Praeko Studio engine: voice-driven episodes with timed words, word-by-word captions, editing hits, outro and brand theme (Remotion parts). A library for projects created with `praeko studio init`.",
   "license": "MIT",

@@ -1,6 +1,6 @@
 // Verificação de TIPOS do cliente (não roda): `npm run typecheck -w packages/sdk`. Os tipos de `new Praeko(...)` saem do código (src/index.ts, src/types.ts), com skipLibCheck desligado.
 import { Praeko, PraekoError } from "../src/index.ts";
-import type { ImageRef, ItemWarning, Media, MediaType, Post, PostRequest } from "../src/index.ts";
+import type { ImageRef, ItemDelivery, ItemResend, ItemWarning, Media, MediaType, Post, PostRequest } from "../src/index.ts";
 import { uploadFile } from "../src/node.ts";
 
 const praeko = new Praeko({ url: "https://praeko.app", key: "praeko_x" });
@@ -8,6 +8,11 @@ const pedido: PostRequest = { title: "t", media: { video: "m" }, texts: { youtub
 const criado: Promise<{ id: string }> = praeko.posts.create(pedido, { idempotencyKey: true });
 const post: Promise<Post> = praeko.posts.update("id", { title: "novo" });
 void criado; void post;
+// Reenviar um rascunho do TikTok para a caixa de entrada: devolve o post; o item traz `deliveries` e `resend`.
+const reenviado: Promise<Post> = praeko.posts.resend("post", "item", { idempotencyKey: true });
+const entregas: ItemDelivery[] | undefined = undefined as Post["items"][number]["deliveries"];
+const motivo: ItemResend["reason"] = undefined as Post["items"][number]["resend"] extends infer R ? (R extends ItemResend ? R["reason"] : undefined) : never;
+void reenviado; void entregas; void motivo;
 void uploadFile(praeko, "./v.mp4", { type: "video" });
 // Posts de imagem (foto única): kind image + media.images; uploadFile aceita type image; o post de vídeo continua igual.
 const foto: ImageRef = { media: "m", alt: "descrição" };

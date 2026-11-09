@@ -13,6 +13,8 @@ export interface Hosting { type?: string; bucket?: string; baseUrl?: string }
 export interface PraekoSettings { url?: string; channels?: Partial<Record<NetworkName, string>>; instagram?: NetworkOptions; tiktok?: NetworkOptions }
 export interface AiTicPattern { regex: string; message: string }
 export interface Brand {
+  /** `praeko studio review`: extra phrases the pieces must never contain (the prohibitions section of playbook.md is read too). */
+  review?: { forbiddenPhrases?: string[] };
   name?: string; handle?: string; signature?: string; links?: Record<string, string>; linkLabel?: string; bannedNames?: string[];
   pronunciation?: Record<string, string>; captionFixes?: Record<string, string>; voice?: unknown; publicDir?: string; engine?: string;
   publishing?: {

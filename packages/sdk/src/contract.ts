@@ -62,6 +62,7 @@ export const ROUTES = [
   { key: "posts.publishNow", method: "POST", path: "/v1/posts/:id/publish-now", legacy: "/v1/posts/:id/publicar-agora", scope: "write", summary: "Take pending items out of the queue and publish now (?network=)" },
   { key: "posts.youtubeSchedule", method: "POST", path: "/v1/posts/:id/youtube/schedule", legacy: "/v1/posts/:id/youtube/agendar", scope: "write", body: "json", summary: "Schedule publication of a video already uploaded to YouTube (private)" },
   { key: "posts.itemComment", method: "POST", path: "/v1/posts/:id/items/:item/comment", legacy: "/v1/posts/:id/itens/:destino/comentar", scope: "write", summary: "Release the stored pinned comment of an item" },
+  { key: "posts.itemResend", method: "POST", path: "/v1/posts/:id/items/:item/resend", legacy: "/v1/posts/:id/items/:item/resend", scope: "write", summary: "Send a TikTok draft that already reached the app inbox to the inbox again (a new notification for the same video). Returns the post; the send runs in the background (`resend.inProgress`) and every send is listed in the item's `deliveries`" },
   { key: "calendar.get", method: "GET", path: "/v1/calendar", legacy: "/v1/calendario", scope: "read", summary: "Items in a period plus free slots" },
   { key: "insights.get", method: "GET", path: "/v1/insights", legacy: "/v1/insights", scope: "read", summary: "Cards, top posts, per-channel results (one row per account when a network has several; `channel` filters one account), summary, 48 h reading" },
   { key: "insights.retention", method: "GET", path: "/v1/insights/retention", legacy: "/v1/insights/retention", scope: "read", summary: "Retention, impressions and CTR per post of the period (`from`, `to`, `channel`, `limit` 1-200). YouTube: audience retention (YouTube Analytics API), thumbnail impressions and CTR (YouTube Reporting API); Instagram: reach, watch time and skip rate (Meta API). `channels[].state` says whether each account can deliver them: `ready`, `pending` (first report still being generated), `reauthorize` (reconnect YouTube once and keep the Analytics permission ticked), `unavailable` or `error`; a missing number is `null`, never 0" },
@@ -202,6 +203,8 @@ const KEY_ROWS = [
   ["taxaPulo", "skipRate"], ["desde", "since"], ["pontos", "points"], ["coletadoEm", "collectedAt"],
   // avisos de um item (ex.: alt_ignored)
   ["avisos", "warnings"],
+  // reenvio de um rascunho do TikTok para a caixa de entrada (/v1/posts/:id/items/:item/resend)
+  ["reenvio", "resend"], ["permitido", "allowed"], ["restantes", "remaining"], ["emAndamento", "inProgress"], ["liberaEm", "availableAt"], ["numero", "number"], ["enviadoEm", "sentAt"],
 ] as const satisfies readonly KeyRow[];
 export const KEYS: ReadonlyArray<KeyRow> = KEY_ROWS.filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i);
 /** Campo legado (PT) → campo do contrato (EN) (a primeira linha de cada campo vale; veja o comentário de cada linha acima). */
@@ -369,6 +372,7 @@ export const ERROR_CODES = {
   rede_desconhecida: "unknown_network", rede_nao_suportada: "network_not_supported", estado_invalido: "invalid_state", id_existente: "id_exists", ja_adotado: "already_adopted",
   nada_a_publicar: "nothing_to_publish", nao_editavel: "not_editable", post_adotado: "post_adopted", post_preparado: "post_prepared", sem_credencial_oauth: "oauth_not_configured",
   tem_api: "followers_from_api", youtube_nao_conectado: "youtube_not_connected", instagram_meta_nao_conectado: "instagram_meta_not_connected",
+  not_resendable: "not_resendable", already_posted: "already_posted", resend_in_progress: "resend_in_progress", resend_limit_reached: "resend_limit_reached", tiktok_pending_limit: "tiktok_pending_limit", tiktok_error: "tiktok_error", // reenvio do TikTok: já nascem em inglês (sem par em português)
   falha_download: "download_failed", mime_nao_suportado: "unsupported_mime", // upload_media do MCP (docs/mcp.md)
   arquivo_grande: "file_too_large", parte_grande: "part_too_large", parte_pequena: "part_too_small", parte_vazia: "part_empty", partes_desiguais: "parts_unequal",
   partes_faltando: "parts_missing", sem_partes: "no_parts", tamanho_diferente: "size_mismatch", r2_recusou: "storage_rejected",

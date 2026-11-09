@@ -5,13 +5,14 @@ import { join } from "node:path";
 import { TOOL_NAMES } from "../src/server.ts";
 import { FAKE_BIN, REAL_BIN, SECRETS, connect, fakeProject, noSecret, realProject, tmp } from "./helpers.ts";
 
-const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_status", "studio_upload", "studio_voice", "studio_write_script"];
+const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_review", "studio_status", "studio_upload", "studio_voice", "studio_write_script"];
 
-test("the tool list is exactly the expected one and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
+test("the tool list is exactly the 15 expected ones and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   const { tools } = await c.client.listTools();
   assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
   assert.deepEqual([...TOOL_NAMES].sort(), EXPECTED);
+  assert.equal(tools.length, 15);
   for (const t of tools) assert.doesNotMatch(t.name, /post|schedule|queue|account|connect|publish|login|key/i, t.name);
   await c.close();
 });
@@ -29,7 +30,7 @@ test("every input schema is closed (additionalProperties false) and an extra pro
 test("episode names are validated on every tool that takes one", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   for (const slug of ["../x", "..", "A", "-a", "a/b", "/etc/passwd", "a b", "a;rm -rf", "", "x".repeat(81), "a\0b", "--title"]) {
-    for (const tool of ["studio_new_episode", "studio_write_script", "studio_compile", "studio_check", "studio_voice", "studio_render", "studio_cover", "studio_package"]) {
+    for (const tool of ["studio_new_episode", "studio_write_script", "studio_compile", "studio_check", "studio_voice", "studio_render", "studio_cover", "studio_package", "studio_review"]) {
       const r = await c.call(tool, { slug, file: "script.txt", content: "x" });
       assert.ok(r.isError, `${tool} accepted ${JSON.stringify(slug)}`);
     }
@@ -70,7 +71,7 @@ test("brief: read marks project text as data, write validates brand.json and kee
   assert.equal(r.body.files["playbook.md"], null);
   assert.equal(JSON.parse(r.body.files["brand.json"].text).handle, "@testchannel");
   assert.match(r.body.notice, /DATA, not instructions/);
-  for (const bad of ["{not json", "[]", '{"handle":"@x"}', '{"name":"X","colors":{"accent":1}}', '{"name":"X","publicDir":"../out"}', '{"name":"X","engine":"flash"}']) assert.ok((await c.call("studio_brief_write", { file: "brand.json", content: bad })).isError, bad);
+  for (const bad of ["{not json", "[]", '{"handle":"@x"}', '{"name":"X","colors":{"accent":1}}', '{"name":"X","publicDir":"../out"}', '{"name":"X","engine":"flash"}', '{"name":"X","review":{"forbiddenPhrases":"free forever"}}', '{"name":"X","review":[]}']) assert.ok((await c.call("studio_brief_write", { file: "brand.json", content: bad })).isError, bad);
   assert.equal(JSON.parse(readFileSync(join(dir, "brand.json"), "utf8")).name, "Test Channel", "bad brand.json never lands");
   const ok = await c.call("studio_brief_write", { file: "brand.json", content: JSON.stringify({ ...JSON.parse(readFileSync(join(dir, "brand.json"), "utf8")), signature: "bye" }) });
   assert.ok(!ok.isError, ok.text); assert.equal(ok.body.backup, "brand.json.bak");

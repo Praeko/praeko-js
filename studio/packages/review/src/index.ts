@@ -111,3 +111,12 @@ export function checkEpisode({ folder, brand, video }: { folder: string; brand: 
   } else add("ok", "video not rendered yet (the loudness and empty-frame checks wait for the render)");
   return r;
 }
+
+// ---- review package (`praeko studio review`) ----
+export * from "./types.ts";
+export * from "./frames.ts";
+export * from "./findings.ts";
+export * from "./rules.ts";
+export * from "./media.ts";
+export * from "./guide.ts";
+export * from "./pack.ts";

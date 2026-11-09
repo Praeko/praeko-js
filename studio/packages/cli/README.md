@@ -33,6 +33,7 @@ praeko-studio new my-first --title "My first video"
 praeko-studio voice my-first --quality draft                       # estimated, silent voice: free, no network
 praeko-studio check my-first
 praeko-studio render my-first && praeko-studio contact-sheet my-first && praeko-studio cover my-first && praeko-studio package my-first
+praeko-studio review my-first    # review package for your agent: frames, measured findings, REVIEW.md (no AI model is called)
 ```
 In a terminal, `init` first interviews you (name, audience, tone, colors, font, up to 3 references; Enter skips any question) and writes `brief.md` and a draft `playbook.md` that your agent reads before the first script. Everything can also come by flag (`--about`, `--audience`, `--tone`, `--accent`, `--background`, `--font`, `--reference`, `--reference-note`), and `--yes` (or no terminal) asks nothing. Studio does not watch the references: your agent analyzes them. `praeko-studio brief` reopens the interview later (keeps `brief.md.bak`, never overwrites an edited `playbook.md`).
 

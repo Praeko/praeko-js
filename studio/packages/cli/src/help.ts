@@ -5,7 +5,7 @@ export const help = (version: string): string => `praeko studio <command>   (ver
   licenses [--accept] [--lang en|pt]       license notice (Remotion is not MIT); --accept records that you read it
   skill install [--agent claude|codex|gemini|cursor|opencode|cline|windsurf|all] [--lang en|pt]
                                            writes Studio's instructions in your coding agent's format
-  docs [topic]                             documentation of the installed version (episode-yaml, long-yaml, voice, publish, hyperframes, licenses)
+  docs [topic]                             documentation of the installed version (episode-yaml, long-yaml, voice, publish, hyperframes, review, licenses)
   init <folder> [--yes] [--name N] [--handle @x] [--agent …] [--lang en|pt] [--brand <brand folder>] [--dev <studio>] [--no-install]
        [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"]
        [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio]
@@ -36,6 +36,10 @@ export const help = (version: string): string => `praeko studio <command>   (ver
                                            then checks each one; --timeout = seconds allowed per slide (default 180)
   contact-sheet <slug|file.mp4> [--n 12]   frame mosaic to check by eye
   check <slug>                             script, voice, publication, AI disclosure and (with a video) duration, loudness and empty frames
+  review <slug> [--every <seconds>] [--max-frames N] [--engine remotion|hyperframes] [--json]
+                                           review package for your agent in out/<slug>-review/: frames (opening, one per scene, one every N s, the last), manifest.json with
+                                           measured facts and findings, REVIEW.md with the instructions for the reviewing agent; a video, or the slides of an image piece or carousel.
+                                           No AI model is called: it measures and extracts, your agent looks and judges. Exit 0 when the package is made (even with findings)
   package <slug>                           writes texts.md (YouTube, Instagram, TikTok, UTM) from publication.json
   schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--via praeko|buffer] [--send]   (an image piece or carousel goes only to Instagram, --via praeko; a carousel uploads its slides in order)
                                            schedules through Praeko (default); without --send it only simulates. schedule --channels lists the channels;
