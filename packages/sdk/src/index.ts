@@ -9,6 +9,9 @@ import { addLegacy } from "./legacy.ts";
 import type { ApiKeysApi, Network, CallOptions, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, LegacyCanaisApi, LegacyChavesApi, LegacyComunidadeApi, LegacyConteudoApi, LegacyInsights, LegacyInstagram, LegacyMidiaApi, LegacyPosts, LegacyYoutube, MediaApi, NotificationsApi, PostsApi, PreferencesApi, Source, SourceReader, TiktokApi, UsageApi, WebhooksApi, YoutubeApi } from "./types.ts";
 
 export type * from "./types.ts";
+/** Login por código (RFC 8628): pedir o código, consultar e esperar a chave de escrita, sem chave (docs/device-login.md). */
+export { pollDeviceToken, startDeviceLogin, waitForDeviceLogin } from "./device.ts";
+export type { DeviceBaseOptions, DeviceCode, DevicePollError, DeviceToken, StartDeviceLoginOptions, WaitForDeviceLoginOptions } from "./device.ts";
 
 export class PraekoError extends Error {
   status: number; code: string; details?: unknown;

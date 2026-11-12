@@ -24,7 +24,7 @@ test("init: dependencies by published semver (no file:), @praeko/studio in devDe
   assert.equal(r.status, 0, r.stderr);
   const pj = JSON.parse(read(join(proj, "package.json")));
   assert.match(pj.dependencies["@praeko/studio-core"], /^\^\d+\.\d+\.\d+$/); assert.match(pj.dependencies["@praeko/studio-kit"], /^\^\d+\.\d+\.\d+$/);
-  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.2.6");
+  assert.equal(pj.dependencies["@praeko/studio-core"], "^0.3.0");
   assert.match(pj.devDependencies["@praeko/studio"], /^\^\d/);
   assert.doesNotMatch(JSON.stringify(pj), /file:/);
   assert.doesNotMatch(read(join(proj, "remotion.config.ts")), /alias|node_modules\/remotion/);
@@ -158,7 +158,7 @@ test("docs: lists the topics and prints one; an unknown topic fails; --version a
   const help = cli(["--help"]).stdout;
   assert.doesNotMatch(help, /bardo/i);
   const pkg = JSON.parse(read(join(PACKAGE, "package.json")));
-  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.2.6");
+  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.3.0");
 });
 test("publication audit: nothing of the owner (name, brand, voice ids, paths, game) in the packages that go public", () => {
   // the patterns are built in parts so this file does not accuse itself in the publication scan

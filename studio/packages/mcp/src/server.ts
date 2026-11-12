@@ -91,7 +91,7 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
     let doctor: unknown = null;
     try { doctor = JSON.parse(r.stdout.slice(r.stdout.indexOf("{"))); } catch { /* not JSON: shown as output below */ }
     // the Praeko key: present or not, and a warning when it is an admin key (checked with one read-only request; skipped when there is no key)
-    const key = findKey(options.praeko);
+    const key = findKey({ projectDir: root, ...options.praeko });
     let praekoKey: Record<string, unknown> = { present: false };
     if (key) {
       const s = await keyScope(key, options.praeko);
@@ -293,7 +293,7 @@ export function createStudioServer(options: ServerOptions): { server: McpServer;
     if (image && files.reduce((n, f) => n + f.bytes, 0) > UPLOAD_MAX_TOTAL) throw new UserError(`the slides add up to ${mb(files.reduce((n, f) => n + f.bytes, 0))}, over the ${mb(UPLOAD_MAX_TOTAL)} limit of one upload: make the JPEGs lighter`);
     if (!image && !files.some((f) => f.role === "video")) throw new UserError(`out/${a.slug}.mp4 does not exist: render the episode first (studio_render) and wait for the job to finish`);
     if (files.some((f) => f.bytes === 0)) throw new UserError("a file to upload is empty: render again");
-    const key = findKey(options.praeko);
+    const key = findKey({ projectDir: root, ...options.praeko });
     if (!key) throw new UserError(NO_KEY);
     const url = serviceUrl(options.praeko);
     const args = { slug: a.slug };

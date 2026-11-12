@@ -1,6 +1,6 @@
 {
   "name": "@praeko/studio-mcp",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "description": "Local MCP server for Praeko Studio: lets an agent without a terminal (Claude Desktop and others) write the brief and script, compile, make the draft voice, render, cover and package a video, and upload it to the Praeko media library. Stdio only; it never publishes and never shows a key.",
   "license": "MIT",
@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@praeko/studio": "^0.2.1",
+    "@praeko/studio": "^0.3.0",
     "zod": "4.6.7",
     "@elevenlabs/elevenlabs-js": "^2.75.0"
   },

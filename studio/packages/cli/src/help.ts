@@ -1,11 +1,29 @@
 // Text of `praeko studio --help`. In its own module so the public documentation test can check the commands against it (docs-publica-studio.test.mjs).
 export const help = (version: string): string => `praeko studio <command>   (version ${version})
 
+  setup [folder] [--plan] [--yes] [--agent claude,claude-desktop,codex,cursor,…|all] [--profile <name>] [--json] [--no-install] [--no-browser]
+                                           connects your AI agents to Praeko on this machine: checks it (Node, npm, ffmpeg, ffprobe, Chrome) and proposes
+                                           installs, detects agents, registers the remote MCP (praeko.app/mcp) in each one's format (sign-in or PRAEKO_KEY,
+                                           never a key in a file) and the local Studio MCP where there is no terminal (Claude Desktop), creates the project
+                                           (init --agent), writes .praeko/config.json (key profile, no secret) and appends to .gitignore. Shows the plan first
+                                           (--plan changes nothing; without a terminal it only plans unless --yes), backs up every file it touches and ends
+                                           with what only you do. With no Praeko key for the profile it ends by signing in with a code (see login)
+  login [--profile <name>] [--no-browser] [--json] [--yes]
+                                           gets the Praeko write key by sign-in with a code (like gh auth login): prints a short code and
+                                           https://praeko.app/device, opens the browser; you approve in the dashboard and the key goes straight to
+                                           the profile's store (macOS Keychain; elsewhere ~/.config/praeko/secrets.json, mode 600), never to the screen.
+                                           Works without a terminal (an agent only sees the code); --json prints one JSON line per state.
+                                           If the profile already has a key: in a terminal it asks before replacing it (default: keep);
+                                           with --yes, --json or no terminal it replaces it and says so ("replaced": true)
+  setup --key [--profile <name>] [--check-key]
+                                           plan B, in YOUR terminal only: asks for the Praeko write key with hidden input and stores it for the profile
+                                           (macOS Keychain; elsewhere ~/.config/praeko/secrets.json, mode 600). Never an argument, never in the project
+  setup uninstall [--plan] [--yes] [--json] removes only what setup added (its manifest), with a backup
   doctor [--json] [--offline]              checks Node, ffmpeg, Chrome, fonts, keys and voice accounts (balance; never the key), network and licenses
   licenses [--accept] [--lang en|pt]       license notice (Remotion is not MIT); --accept records that you read it
   skill install [--agent claude|codex|gemini|cursor|opencode|cline|windsurf|all] [--lang en|pt]
                                            writes Studio's instructions in your coding agent's format
-  docs [topic]                             documentation of the installed version (episode-yaml, long-yaml, voice, publish, hyperframes, review, licenses)
+  docs [topic]                             documentation of the installed version (first-video, episode-yaml, long-yaml, voice, publish, hyperframes, review, licenses)
   init <folder> [--yes] [--name N] [--handle @x] [--agent …] [--lang en|pt] [--brand <brand folder>] [--dev <studio>] [--no-install]
        [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"]
        [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio]

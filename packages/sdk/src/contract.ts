@@ -35,7 +35,7 @@ export const ROUTES = [
   { key: "connections.start", method: "GET", path: "/v1/connections/:network/start", legacy: "/v1/conexoes/:rede/iniciar", scope: "write", summary: "Start OAuth for youtube|tiktok|meta (Instagram login); for youtube it always asks for `youtube.upload`, `youtube.force-ssl` and `yt-analytics.readonly` (retention, impressions, CTR; the consent screen lets the user untick a scope, and the channel then stays `reauthorize` in the retention view); the old `analytics=1` is accepted and ignored; returns the authorization URL. A different account of the same network becomes another channel; the same account is reconnected. `meta` takes `replace=true` (replace the token of an existing connection), `add=true` (connect ANOTHER Instagram account as a new channel) and `instagram=<username>`, `instagram_id=<id|current>`, `probe=true` (report only, stores nothing)" },
   { key: "connections.disconnect", method: "DELETE", path: "/v1/connections/:network", legacy: "/v1/conexoes/:rede", scope: "write", summary: "Disconnect one account of youtube|tiktok|instagram (Meta token only; the Buffer channel is never touched); `channel` picks the account, without it the default channel; other accounts, the channel and its history stay. If it was the default, another connected account takes over" },
   { key: "connections.instagramToken", method: "PUT", path: "/v1/connections/instagram/token", legacy: "/v1/conexoes/instagram/token", scope: "admin", body: "json", summary: "Store the Meta API token for Instagram (encrypted)" },
-  { key: "channels.list", method: "GET", path: "/v1/channels", legacy: "/v1/canais", scope: "read", summary: "One item per connected channel (several accounts of a network = several items, `default` marks the one used without `channel`), plus a not-connected item for a network with none; status and slots count" },
+  { key: "channels.list", method: "GET", path: "/v1/channels", legacy: "/v1/canais", scope: "read", summary: "One item per connected channel (several accounts of a network = several items, `default` marks the one used without `channel`), plus a not-connected item for a network with none and a coming-soon item (`comingSoon: true`, today facebook) that cannot be used; status and slots count" },
   { key: "channels.default", method: "PUT", path: "/v1/channels/:channel/default", legacy: "/v1/canais/:canal/padrao", scope: "write", summary: "Make this account the default of its network (used when a network route has no `channel`); the other accounts of the same network lose the mark. 404 channel_not_found if it is not an active channel of this workspace" },
   { key: "channels.remove", method: "DELETE", path: "/v1/channels/:channel", legacy: "/v1/canais/:canal", scope: "write", summary: "Remove a DISCONNECTED account from the list (history stays; refused while connected, with pending items, or for the Buffer Instagram channel)" },
   { key: "channels.avatar", method: "GET", path: "/v1/channels/:network/avatar", legacy: "/v1/canais/:rede/avatar", scope: "read", summary: "Channel avatar image (`channel` picks the account)" },
@@ -166,7 +166,7 @@ const KEY_ROWS = [
   ["desabilitarComentarios", "disableComments"], ["desabilitarDueto", "disableDuet"], ["desabilitarStitch", "disableStitch"], ["desconectado", "disconnected"], ["descricao", "description"],
   ["destino_id", "itemId"], ["destinos", "items", "req"], ["detalhe", "detail"], ["detalhes", "details"], ["dia", "day"], ["dia_semana", "weekday"], ["direcao", "direction"],
   ["diretoDisponivel", "directAvailable"], ["doDono", "fromOwner"], ["duetoDesabilitado", "duetDisabled"], ["duracaoMaxSeg", "maxDurationSec"], ["editarHorario", "editSchedule"],
-  ["editarTexto", "editText"], ["encontrados", "found"], ["engajamento", "engagement"], ["engajamentoGeral", "overallEngagement"], ["enviar", "uploadHint"], ["erro", "error"], ["erros", "errors"],
+  ["editarTexto", "editText"], ["emBreve", "comingSoon", "res"], ["encontrados", "found"], ["engajamento", "engagement"], ["engajamentoGeral", "overallEngagement"], ["enviar", "uploadHint"], ["erro", "error"], ["erros", "errors"],
   ["escopo", "scope"], ["escrito", "written"], ["estado", "state"], ["etiqueta", "tag"], ["etiquetas", "tags"], ["executarEm", "runAt"], ["expiraEm", "expiresAt"], ["expiraEmDias", "expiresInDays", "req"], ["expirada", "expired"], ["diasRestantes", "daysLeft"], ["externo", "external"],
   ["fila", "queue"], ["filtros", "filters"], ["fonte", "source"], ["fontes", "sources"], ["formato", "format"], ["fuso", "timezone"], ["hora", "time"],
   ["ignorado", "skipped"], ["importados", "imported"], ["itens", "items", "res"], ["jaFeita", "alreadyDone"], ["legenda", "caption"], ["leitura48h", "reading48h"],
@@ -216,7 +216,7 @@ export type LegacyField = keyof FieldMap;
 export const SCOPED_KEYS = { reorganizados: [["de", "from"], ["para", "to"]], leitura48h: [["destinoId", "itemId"]] } as const satisfies Record<string, ReadonlyArray<readonly [string, string]>>;
 
 /** Chaves que são iguais nos dois idiomas (ou nomes de rede/métrica): passam sem tradução e não disparam o aviso de "chave em português". */
-const SAME_LIST = (["id", "ctr", "item", "url", "views", "tags", "meta", "host", "token", "userId", "ok", "total", "pct", "manual", "custom", "studio", "video", "mime", "etag", "avatar", "youtube", "instagram", "tiktok", "publishAt", "parentId", "permalink", "thumbnail", "posts", "topPosts", "videos", "redirect", "chunkMB", "via", "videoId", "postId", "threadId", "limit", "max", "publishId", "status", "p95Ms", "cursor", "webhooks", "theme", "language", "notifications", "email", "panel", "postSent", "postFailed", "scheduledFail", "weeklySummary", "newComment", "unread", "ids", "all", "link", "topViews", "kind", "images", "alt"] as const);
+const SAME_LIST = (["id", "ctr", "item", "url", "views", "tags", "meta", "host", "token", "userId", "ok", "total", "pct", "manual", "custom", "studio", "video", "mime", "etag", "avatar", "youtube", "instagram", "tiktok", "publishAt", "parentId", "permalink", "thumbnail", "posts", "topPosts", "videos", "redirect", "chunkMB", "via", "videoId", "postId", "threadId", "limit", "max", "publishId", "status", "p95Ms", "cursor", "webhooks", "theme", "language", "notifications", "email", "panel", "postSent", "postFailed", "scheduledFail", "weeklySummary", "newComment", "unread", "ids", "all", "link", "topViews", "kind", "images", "alt", "plan", "used", "feature"] as const);
 /** Campos iguais nos dois idiomas. */
 export type SameField = (typeof SAME_LIST)[number];
 export const SAME_KEYS: ReadonlySet<string> = new Set<string>(SAME_LIST);
@@ -383,7 +383,17 @@ export const ERROR_CODES = {
   ideia_inexistente: "idea_not_found", limite_ideias: "idea_limit_reached",
   idempotencia_reutilizada: "idempotency_key_reuse", idempotencia_em_andamento: "idempotency_in_progress", idempotencia_resposta_grande: "idempotency_response_too_large",
   imagem_invalida: "invalid_image", imagem_proporcao: "image_aspect_ratio", imagem_grande: "image_too_large", rede_nao_suporta_kind: "kind_not_supported_by_network", carrossel_muitas_imagens: "carousel_too_many_images", carrossel_poucas_imagens: "carousel_too_few_images",
+  // comentários no MCP (mcp-comentarios.js)
+  comentario_invalido: "invalid_comment_id", cursor_invalido: "invalid_cursor", argumentos_invalidos: "invalid_arguments",
+  comentario_inexistente: "comment_not_found", texto_invalido: "invalid_text", limite_respostas: "reply_rate_limited", ocultar_nao_suportado: "hide_not_supported",
+  membro_inexistente: "member_not_found", convite_inexistente: "invite_not_found", ja_e_membro: "already_member", convite_pendente: "invite_pending", dono_protegido: "owner_protected", aprovacao_necessaria: "approval_required",
+  pagamento_necessario: "payment_required", vagas_esgotadas: "founder_sold_out", sem_assinatura: "no_subscription", ja_no_plano: "already_on_plan", plano_invalido: "invalid_plan", limite_do_plano: "plan_limit", recurso_do_plano: "plan_feature", cobranca_indisponivel: "billing_unavailable", cobranca_inexistente: "billing_not_found", ja_assinante: "already_subscribed", assinatura_invalida: "invalid_signature", stripe_erro: "stripe_error", // cobrança (docs/billing.md)
   buffer_erro: "buffer_error", instagram_erro: "instagram_error", tiktok_indisponivel: "tiktok_unavailable", youtube_erro: "youtube_error",
+  // acesso antecipado ao Instagram e ao TikTok (docs/acesso-antecipado.md; rotas fora da tabela, só sessão do painel)
+  acesso_pedido_aberto: "early_access_open", acesso_desnecessario: "early_access_not_needed", acesso_inexistente: "early_access_not_found", acesso_limite: "early_access_rate_limited", so_sessao: "panel_session_required",
+  // login por código (RFC 8628; device.js): os quatro do polling têm os nomes da RFC
+  autorizacao_pendente: "authorization_pending", consulta_rapida: "slow_down", codigo_expirado: "expired_token", acesso_negado: "access_denied", concessao_invalida: "invalid_grant",
+  codigo_dispositivo_invalido: "invalid_user_code", codigo_dispositivo_usado: "user_code_used", codigo_dispositivo_bloqueado: "user_code_locked",
 } as const;
 /** Código de erro legado (PT) → código do contrato (EN). */
 export type ErrorCodeMap = typeof ERROR_CODES;
@@ -410,3 +420,27 @@ export function errorEnvelopeToPT<T>(body: T): T extends ErrorEnvelope ? LegacyE
   const e = (body as Partial<ErrorEnvelope> | null | undefined)?.error; if (!e) return body as never;
   return { erro: { codigo: codeToPT(e.code), mensagem: e.message, ...(e.details !== undefined ? { detalhes: toPT(e.details, "res") } : {}) } } as never;
 }
+
+// ---------------------------------------------------------------------------------------------------------------- login por código (RFC 8628)
+/**
+ * Login por código (`praeko studio login`/`setup`; docs/device-login.md): o CLI pede um código (POST /v1/device/code), a pessoa aprova em `/device` e o CLI
+ * consulta POST /v1/device/token até receber uma chave de escrita (uma vez só). Constantes e o formato do código, compartilhados pelo servidor, o SDK e o painel.
+ * O alfabeto do código só tem consoantes sem ambíguos (nada de 0/O, 1/I, nem vogais: não forma palavras); 20^8 ≈ 2,6·10^10 combinações.
+ */
+export const DEVICE = {
+  USER_CODE_ALPHABET: "BCDFGHJKLMNPQRSTVWXZ", USER_CODE_LENGTH: 8,
+  /** validade do código, em segundos */ EXPIRES_IN: 600,
+  /** intervalo mínimo entre duas consultas do CLI, em segundos (cada slow_down soma SLOW_DOWN_STEP) */ INTERVAL: 5, SLOW_DOWN_STEP: 5,
+  /** tamanho máximo do nome do computador e do sistema informados pelo CLI */ NAME_MAX: 40,
+  /** os erros do polling (POST /v1/device/token), no contrato */ POLL_ERRORS: ["authorization_pending", "slow_down", "expired_token", "access_denied", "invalid_grant"],
+} as const;
+/** "bcdf ghjk", "BCDF-GHJK", " bcdfghjk " → "BCDFGHJK"; qualquer outra coisa (tamanho errado, letra fora do alfabeto) → null. */
+export function normalizeUserCode(input: unknown): string | null {
+  if (typeof input !== "string" || input.length > 32) return null;
+  const c = input.toUpperCase().replace(/[\s\-\u2010-\u2015]/g, "");
+  if (c.length !== DEVICE.USER_CODE_LENGTH) return null;
+  for (const ch of c) if (!DEVICE.USER_CODE_ALPHABET.includes(ch)) return null;
+  return c;
+}
+/** "BCDFGHJK" → "BCDF-GHJK" (como o CLI mostra e a pessoa digita). */
+export const formatUserCode = (code: string): string => (code.length === DEVICE.USER_CODE_LENGTH ? `${code.slice(0, 4)}-${code.slice(4)}` : code);

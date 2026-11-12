@@ -3,7 +3,7 @@
 // Nothing here prints the key. `env` only exists for tests: { fetchFn, getKey, wait, clientOptions }.
 import { existsSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
-import { getKey } from "@praeko/studio-voice";
+import { getKey, resolvePraekoKey } from "@praeko/studio-voice";
 import { NETWORKS, coverFrame, isImage, praeko, textsByNetwork, parseWhen, validate } from "@praeko/studio-publish";
 import type { Brand } from "@praeko/studio-publish";
 import { NAME, findInFolder, findVideo, flag, has, localTime, readPublication } from "./schedule.ts";
@@ -15,14 +15,15 @@ const NO_KEY = "no Praeko key: echo $KEY | praeko studio schedule --via praeko -
 const BUFFER_ONLY = "--reminder does not exist on Praeko: it really schedules the post (the \"only notifies\" mode is Buffer's). On TikTok the equivalent is draft mode (publishing.praeko.tiktok.mode = \"draft\", the default). For --reminder use --via buffer.";
 
 const clientOf = (p: Project, env: ScheduleEnv, key: string) => praeko.client({ url: praeko.praekoConfig(p.brand as Brand).url, key, fetchFn: env.fetchFn || fetch, ...(env.wait ? { wait: env.wait } : {}), ...(env.clientOptions || {}) } as any);
-const keyOf = (env: ScheduleEnv): string | null => (env.getKey || getKey)(praeko.KEY_REF);
-const requireKey = (env: ScheduleEnv): string => keyOf(env) || (() => { throw new Error(NO_KEY); })();
+/** The Praeko key: PRAEKO_KEY > the project's profile (.praeko/config.json) > the global key. */
+const keyOf = (env: ScheduleEnv, root?: string): string | null => resolvePraekoKey({ projectDir: root, get: env.getKey || getKey, ...(env.getKey ? { env: {} } : {}) }).key; // an injected getKey (tests) already answers for the environment
+const requireKey = (env: ScheduleEnv, root?: string): string => keyOf(env, root) || (() => { throw new Error(NO_KEY); })();
 const postIds = (s: any): string[] => [...new Set((s.posts || []).map((x: any) => x.postId || s.postId).filter(Boolean))] as string[];
 const label = (i: any): string => praeko.STATE_LABEL[i.state] || i.state;
 
 /** `praeko studio schedule --channels --via praeko`: the channels connected on Praeko (read only). */
 export async function praekoChannels(_a: string[], { p, env = {} }: { p: Project; env?: ScheduleEnv }): Promise<number> {
-  const cs = await clientOf(p, env, requireKey(env)).channels();
+  const cs = await clientOf(p, env, requireKey(env, p.root)).channels();
   if (!cs.length) { console.log("no channel on Praeko"); return 1; }
   for (const c of cs) console.log(`${String(c.network).padEnd(10)} ${String(c.id || "-").padEnd(20)} ${c.name || "-"}${c.default ? "  (default)" : ""}${c.connected ? "" : "  (not connected)"}${c.detail ? `  [${c.detail}]` : ""}`);
   console.log('\nWithout a choice, Praeko uses each network\'s default channel. To pin an account: brand.json → publishing.praeko.channels = { "youtube": "<id>", "instagram": "<id>", "tiktok": "<id>" }');
@@ -37,7 +38,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   // ----- status
   if (has(a, "status")) {
     if (!sched) { console.log("nothing scheduled for this episode"); return 0; }
-    const c = clientOf(p, env, requireKey(env));
+    const c = clientOf(p, env, requireKey(env, p.root));
     for (const id of postIds(sched)) {
       const post = await c.status(id);
       console.log(`Praeko  post ${post.id}${post.title ? `  "${post.title}"` : ""}`);
@@ -57,7 +58,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
       const outside = entries.filter((x: any) => only.includes(x.network) && !target.includes(x.postId));
       if (outside.length) throw new Error(`Praeko cancels the whole post (all of its networks): ${[...new Set(outside.map((x: any) => NAME[x.network]))].join(", ")} is together with other networks. Cancel without --networks or in the Praeko dashboard.`);
     }
-    const c = clientOf(p, env, requireKey(env));
+    const c = clientOf(p, env, requireKey(env, p.root));
     for (const id of target) {
       const r = await c.cancel(id);
       console.log(`✓ cancelled on Praeko: ${id} (${(r.canceled || []).length} pending item(s))`);
@@ -71,7 +72,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   // ----- clear: on Praeko there is no hosting to clear; it only archives the schedule, and only if nothing is pending
   if (has(a, "clear")) {
     if (!sched) { console.log("nothing scheduled for this episode"); return 0; }
-    const c = clientOf(p, env, requireKey(env));
+    const c = clientOf(p, env, requireKey(env, p.root));
     for (const id of postIds(sched)) {
       const pending = ((await c.status(id)).items || []).filter((i: any) => praeko.PENDING.has(i.state));
       if (pending.length) throw new Error(`there are still pending item(s) in post ${id} (${pending.map((i: any) => `${NAME[i.network] || i.network}: ${label(i)}`).join(", ")}). --clear only archives after publishing; to give up use --cancel`);
@@ -114,7 +115,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   if (repeated.length && send) throw new Error(`${repeated.map((r) => NAME[r]).join(", ")} already scheduled: cancel with --cancel before redoing (otherwise it duplicates)`);
 
   // channels (read only; it is a query, it publishes nothing)
-  const key = keyOf(env), problems: string[] = [];
+  const key = keyOf(env, p.root), problems: string[] = [];
   if (!key) { if (send) throw new Error(NO_KEY); }
   else {
     try {
@@ -219,7 +220,7 @@ async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, en
   notes.forEach((x) => console.log("  ⚠", x));
   (publication.beforePublishing || []).forEach((x: string) => console.log("  ☐", x));
   if (!send) { console.log(`\nThe ${carousel ? `${images.length} slides go` : "image goes"} straight to ${cfg.url} (media type image${carousel ? ` ×${images.length}, ${totalKB.toFixed(0)} KB in total` : ""}, then a post with kind ${carousel ? "carousel" : "image"}).`); return 0; }
-  const key = keyOf(env); if (!key) throw new Error(NO_KEY);
+  const key = keyOf(env, p.root); if (!key) throw new Error(NO_KEY);
   const c = clientOf(p, env, key), uploaded: string[] = [];
   let r: any, id = slug;
   try {

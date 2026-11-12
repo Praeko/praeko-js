@@ -121,5 +121,39 @@ export function storeKey(ref: string, key: string): "keychain" | "file" {
   return "file";
 }
 
+// ---------- Praeko key per profile ----------
+// A project names its profile in `.praeko/config.json` ({ "profile": "<name>" }, no secret; it may go to Git). The key of a profile lives in the user's store
+// (macOS Keychain account `praeko/profile/<name>`, elsewhere the secrets file), never in the project. The old single key (account `praeko/chave`, ref `praeko/main`)
+// is the profile "default", so everything stored before keeps working. Resolution order: PRAEKO_KEY (environment) > the project's profile > the global ("default") key.
+export const PRAEKO_GLOBAL_REF = "praeko/main";
+export const DEFAULT_PROFILE = "default";
+export const PROJECT_CONFIG = join(".praeko", "config.json");
+/** Profile names: lowercase letters, digits and hyphens (they become a keychain account and a JSON key). */
+export const validProfile = (p: string): boolean => /^[a-z0-9][a-z0-9-]{0,62}$/.test(p);
+/** A folder name turned into a profile name ("My Channel" -> "my-channel"); "default" when nothing is left. */
+export const profileFromName = (name: string): string => name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 63).replace(/-+$/, "") || DEFAULT_PROFILE;
+/** The store ref of a profile's key. */
+export const praekoKeyRef = (profile: string): string => (profile === DEFAULT_PROFILE ? PRAEKO_GLOBAL_REF : `praeko/profile/${profile}`);
+/** The profile written in <project>/.praeko/config.json, or null (no file, unreadable, or an invalid name). */
+export function readProjectProfile(projectDir: string | null | undefined): string | null {
+  if (!projectDir) return null;
+  try { const p = JSON.parse(readFileSync(join(projectDir, PROJECT_CONFIG), "utf8"))?.profile; return typeof p === "string" && validProfile(p) ? p : null; } catch { return null; }
+}
+export type PraekoKeySource = "env" | "profile" | "global";
+/** The Praeko key and where it came from (the key itself is for the caller's use only; never print it). */
+export function resolvePraekoKey(o: { projectDir?: string | null; profile?: string | null; get?: (ref: string) => string | null; env?: NodeJS.ProcessEnv } = {}): { key: string | null; source: PraekoKeySource | null; profile: string } {
+  const env = o.env ?? process.env, get = o.get ?? getKey;
+  const profile = o.profile ?? readProjectProfile(o.projectDir) ?? DEFAULT_PROFILE;
+  for (const n of keyEnvNames(PRAEKO_GLOBAL_REF)) if (env[n]) return { key: env[n] as string, source: "env", profile };
+  if (profile !== DEFAULT_PROFILE) { const k = get(praekoKeyRef(profile)); if (k) return { key: k, source: "profile", profile }; }
+  const k = get(PRAEKO_GLOBAL_REF);
+  return k ? { key: k, source: "global", profile } : { key: null, source: null, profile };
+}
+/** Stores the Praeko key of a profile (the reusable writer: `setup --key` today, a sign-in by code later). Validates the name; the key is never logged. */
+export function storePraekoKey(profile: string, key: string, store: (ref: string, key: string) => "keychain" | "file" = storeKey): "keychain" | "file" {
+  if (!validProfile(profile)) throw new Error(`invalid profile name "${profile}" (lowercase letters, digits and hyphens)`);
+  return store(praekoKeyRef(profile), key);
+}
+
 /** Masks a key for logs. */
 export const maskKey = (k: string | null | undefined): string => (k ? `${k.slice(0, 3)}…${k.slice(-2)}` : "(no key)");

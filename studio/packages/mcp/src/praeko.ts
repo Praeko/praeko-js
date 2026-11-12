@@ -3,7 +3,7 @@
 //
 // The service URL is NOT read from brand.json: an agent can write that file (studio_brief_write), and a URL it chose would receive the key. Only the server's own
 // options and the PRAEKO_URL environment variable (set by whoever installs the server) can change it.
-import { getKey } from "@praeko/studio-voice";
+import { getKey, resolvePraekoKey } from "@praeko/studio-voice";
 import { Praeko, PraekoError } from "@praeko/sdk";
 import { uploadFile } from "@praeko/sdk/node";
 import type { Media } from "@praeko/sdk";
@@ -16,6 +16,8 @@ export const KEY_REF = "praeko/main";
 export type PraekoOptions = {
   /** Test hooks. Defaults: the Studio's key lookup, global fetch, PRAEKO_URL or https://praeko.app. */
   getKey?: (ref: string) => string | null; fetchFn?: typeof fetch; url?: string; wait?: (ms: number) => Promise<void>;
+  /** The project folder: its `.praeko/config.json` names the key profile (no secret in it). */
+  projectDir?: string;
 };
 
 /** https only (the key travels in a header); http only for localhost. */
@@ -26,10 +28,10 @@ export function normalizeUrl(url: string): string {
 }
 export const serviceUrl = (o: PraekoOptions = {}): string => normalizeUrl(o.url ?? process.env.PRAEKO_URL ?? DEFAULT_URL);
 
-export const NO_KEY = "no Praeko key found. The person must save one (a key with the write scope, created in the Praeko dashboard): set PRAEKO_KEY in the server's environment, or run `praeko studio schedule --via praeko --key` in a terminal. Never ask for the key in the chat.";
+export const NO_KEY = "no Praeko key found. The person must save one (a key with the write scope, created in the Praeko dashboard): run `praeko studio login` (sign-in by code: the person approves it in the browser and the key is stored for them), set PRAEKO_KEY in the server's environment, or run `praeko studio setup --key` in their own terminal. Never ask for the key in the chat.";
 
-/** The key, or null. */
-export const findKey = (o: PraekoOptions = {}): string | null => (o.getKey ?? getKey)(KEY_REF) || null;
+/** The key, or null: PRAEKO_KEY > the project's profile (.praeko/config.json) > the global key. An injected getKey (tests) answers for the environment too. */
+export const findKey = (o: PraekoOptions = {}): string | null => resolvePraekoKey({ projectDir: o.projectDir, get: o.getKey ?? getKey, ...(o.getKey ? { env: {} } : {}) }).key || null;
 
 export function makeClient(key: string, o: PraekoOptions = {}): Praeko {
   return new Praeko({ url: serviceUrl(o), key, ...(o.fetchFn ? { fetch: o.fetchFn } : {}), retries: 3, ...(o.wait ? { wait: o.wait } : {}) } as any);

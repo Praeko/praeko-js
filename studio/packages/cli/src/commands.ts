@@ -85,7 +85,7 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   write(join(dir, "src", "index.ts"), T.indexTs);
   write(join(dir, "src", "brand.ts"), T.brandTs);
   write(join(dir, "src", "Root.tsx"), T.rootTsx);
-  write(join(dir, ".gitignore"), "node_modules/\nout/\n.hf/\n.praeko-studio/\n.studio-backup/\n.env\n.env.*\n.DS_Store\n");
+  write(join(dir, ".gitignore"), T.PROJECT_GITIGNORE);
   write(join(dir, "README.md"), `# ${name}\n\nPraeko Studio video project. First video: \`npx praeko-studio new my-first\` (or \`praeko studio new my-first\`). Check the environment with \`praeko studio doctor\`.\n`);
   cpSync(join(PACKAGE_ROOT, "templates", "sfx"), join(dir, "public", "sfx"), { recursive: true });
   mkdirSync(join(dir, "public", "cover"), { recursive: true });

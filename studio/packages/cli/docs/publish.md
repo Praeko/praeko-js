@@ -4,7 +4,8 @@ Studio **publishes nothing on its own**. `praeko studio package <slug>` writes `
 
 ## From the CLI (`--via praeko`)
 ```sh
-echo $KEY | praeko studio schedule --via praeko --key          # praeko_… key (write scope); the same one as the `praeko` CLI
+praeko studio login                                            # sign-in by code: you approve it at praeko.app/device; the key is stored for the project's profile
+echo $KEY | praeko studio schedule --via praeko --key          # or paste a praeko_… key (write scope); the same one as the `praeko` CLI
 praeko studio schedule --channels --via praeko                 # lists the connected channels
 praeko studio schedule <slug> --when "06/11 17:30" --via praeko           # SIMULATES (only reads the channels)
 praeko studio schedule <slug> --when "06/11 17:30" --via praeko --send    # uploads the video and really schedules

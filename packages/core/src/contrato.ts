@@ -23,6 +23,36 @@ export interface Publicador {
 export const REDES: Record<string, Rede> = { yt: "youtube", youtube: "youtube", ig: "instagram", instagram: "instagram", tt: "tiktok", tiktok: "tiktok" };
 
 export const REDES_VALIDAS: readonly Rede[] = ["youtube", "instagram", "tiktok"];
+/** Redes "em breve": aparecem na lista de canais (`suportado: false`, `emBreve: true`) e na UI, mas NÃO publicam, não conectam e não entram em `REDES_VALIDAS`
+ *  nem nos enums de publicação. Facebook = Páginas do Facebook (docs/facebook-pagina.md); nada aqui pede permissão à Meta. */
+export type RedeEmBreve = "facebook";
+export const REDES_EM_BREVE: readonly RedeEmBreve[] = ["facebook"];
+export const emBreve = (rede: unknown): rede is RedeEmBreve => (REDES_EM_BREVE as readonly unknown[]).includes(rede);
+/** Mensagem única de recusa de uma rede em breve (servidor, MCP e validação local usam a mesma). */
+export const MSG_EM_BREVE = (rede: string) => `${rede}: coming soon. Praeko does not publish to Facebook Pages yet; use youtube, instagram or tiktok`;
+// ---------- Acesso antecipado (Instagram e TikTok; docs/acesso-antecipado.md) ----------
+/** Redes que exigem acesso antecipado enquanto os apps da Meta e do TikTok não estão no modo público: só conecta quem a plataforma cadastrou como testador. */
+export type RedeAcessoAntecipado = "instagram" | "tiktok";
+export const REDES_ACESSO_ANTECIPADO: readonly RedeAcessoAntecipado[] = ["instagram", "tiktok"];
+/** Estado interno (banco, português) → estado do contrato (inglês). Abertos: pedido, testador_cadastrado e liberado (1 por usuário e rede). */
+export const ESTADOS_ACESSO = { pedido: "requested", testador_cadastrado: "tester_added", liberado: "released", conectado: "connected", recusado: "declined" } as const;
+export type EstadoAcesso = keyof typeof ESTADOS_ACESSO;
+export const ESTADOS_ACESSO_ABERTOS: readonly EstadoAcesso[] = ["pedido", "testador_cadastrado", "liberado"];
+export const HANDLE_MIN = 2, HANDLE_MAX = 30;
+/**
+ * O @ que a pessoa digitou → o nome de usuário guardado (sem "@", minúsculo), ou null se não serve. Aceita "@perfil", "perfil", "@@perfil" e o link do perfil
+ * (instagram.com/perfil, tiktok.com/@perfil). Vale o que as duas redes aceitam: letras, números, ponto e sublinhado, de 2 a 30 caracteres, sem ponto na ponta.
+ */
+export function normalizarHandle(bruto: unknown): string | null {
+  if (typeof bruto !== "string") return null;
+  let h = bruto.trim();
+  if (h.length > 200) return null;
+  const link = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:instagram\.com|tiktok\.com)\/(@?[^/?#\s]+)/i.exec(h);
+  if (link) h = link[1] ?? "";
+  h = h.replace(/^@+/, "").toLowerCase();
+  return h.length >= HANDLE_MIN && h.length <= HANDLE_MAX && /^[a-z0-9._]+$/.test(h) && !/^\.|\.$/.test(h) ? h : null;
+}
+
 export const KINDS = ["video", "image", "carousel"] as const;
 export const CARROSSEL_MIN = 2, CARROSSEL_MAX = 20; // itens de um carrossel do Instagram (Meta: até 20; Buffer: até 20 pela central de ajuda)
 export const ALT_MAX = 1000; // `alt` (texto alternativo): o limite do alt_text da Meta
@@ -51,6 +81,7 @@ export function validarPedido(p: any): string[] {
   if (!p.titulo && !p.textos?.youtube?.titulo) e.push("falta o título");
   if (!Array.isArray(p.destinos) || !p.destinos.length) e.push("destinos vazio");
   for (const d of p.destinos || []) {
+    if (emBreve(d.rede)) { e.push(MSG_EM_BREVE(d.rede)); continue; }
     if (!REDES_VALIDAS.includes(d.rede)) { e.push(`rede desconhecida: ${d.rede}`); continue; }
     if (!p.textos?.[d.rede]?.texto) e.push(`falta textos.${d.rede}.texto`);
     if (d.quando != null && Number.isNaN(Date.parse(d.quando))) e.push(`${d.rede}: quando inválido (${d.quando})`);

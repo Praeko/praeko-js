@@ -22,7 +22,7 @@ const studio = (args: string[], cwd = base, env = ENV) => spawnSync(process.exec
 const PT_WORDS = /\b(não|você|vocês|também|então|arquivos?|comandos?|projeto|roteiro|cenas?|legenda|fechamento|duração|publicação|título|descrição|gerar|vídeos?|pasta|escreva|precisa|nenhum|nenhuma|depois|antes|quando|sobre|pelo|pela|uma|dos|das)\b/gi;
 
 test("the command list in --help is the English one", () => {
-  const h = help("0.2.6");
+  const h = help("0.3.0");
   for (const cmd of ["new <slug>", "voice <slug>", "voice balance", "compile <slug>", "cut <long>", "preview", "render <slug>", "cover <slug>", "contact-sheet", "check <slug>", "package <slug>", "schedule <slug>", "post <slug>", "queue [list|run|cancel", "account <youtube|instagram|tiktok> [connect|status]", "migrate [--dry-run]", "doctor", "licenses", "skill install", "docs [topic]", "init <folder>"]) assert.ok(h.includes(cmd), cmd);
   for (const flag of ["--title", "--long", "--quality draft|final|local", "--aligner", "--no-failover", "--from <ref> --to <ref>", "--hook", "--engine", "--scale", "--when", "--networks", "--send", "--channels", "--key", "--accept", "--no-install"]) assert.ok(h.includes(flag), flag);
   for (const old of ["novo <slug>", "compilar", "folha", "checar", "agendar", "--titulo", "--qualidade", "--enviar", "--quando"]) assert.ok(!h.includes(old), old);
@@ -30,7 +30,7 @@ test("the command list in --help is the English one", () => {
 });
 test("no Portuguese words in the help text, the English skill text, the notice and the skill description", () => {
   const dirty = (name: string, text: string) => { const m = text.match(PT_WORDS); assert.equal(m, null, `${name}: ${m?.join(", ")}`); };
-  dirty("help", help("0.2.6")); dirty("skill en", BODY.en); dirty("skill description en", DESCRIPTION.en); dirty("notice en", NOTICE.en);
+  dirty("help", help("0.3.0")); dirty("skill en", BODY.en); dirty("skill description en", DESCRIPTION.en); dirty("notice en", NOTICE.en);
 });
 test("source scan: no Portuguese words in the CLI sources outside the allow-list (pt dictionary, pt skill/notice texts, migrate)", () => {
   const ALLOW = new Set(["i18n-pt.ts", "skill-texts.ts", "licenses.ts", "skill.ts"]); // the pt translations live here

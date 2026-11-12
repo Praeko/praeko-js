@@ -2,6 +2,10 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
+## [0.3.0] - 2026-11-12
+
+Published together with `@praeko/studio` 0.3.0 (new projects pin the three packages to the same version); no change to the library API.
+
 ## [0.2.3], [0.2.2], [0.2.1] - 2026-11-08
 
 Versions published together with `@praeko/studio`; no change to the library API.

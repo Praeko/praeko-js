@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
-import { balances, getKey, loadConfig, resolveVoice, sameBalanceGroups } from "@praeko/studio-voice";
+import { balances, getKey, loadConfig, resolvePraekoKey, resolveVoice, sameBalanceGroups } from "@praeko/studio-voice";
 import type { AccountBalance } from "@praeko/studio-voice";
 import { praeko } from "@praeko/studio-publish";
 import { findProjectRoot, isLegacyLayout } from "./project.ts";
@@ -130,10 +130,10 @@ export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn =
   if (brand) {
     for (const [k, css] of Object.entries<string>(brand.fonts || {})) { const f = primaryFamily(css); if (f && !hasFont(f)) add(`font-${k}`, "warning", `font "${f}" (brand.fonts.${k}) is not installed: the text will fall back to another font and wrap differently`, "install the font or change `fonts` in brand.json to one that exists on both systems (open fonts: Inter, Montserrat, JetBrains Mono)"); else if (f) add(`font-${k}`, "ok", `font "${f}" installed`); }
   } else add("fonts", "info", "fonts are checked inside a project (brand.json)");
-  for (const [ref, name, hint] of [["elevenlabs/principal", "ElevenLabs (final voice)", "only needed for --quality final; the silent draft is free"], ["praeko/main", "Praeko key (publishing)", "create it in the dashboard (write scope, not admin); only needed to publish and upload"]] as const) {
-    const has = !!getKey(ref); add(`key-${ref.split("/")[0]}`, has ? "ok" : "info", `${name}: ${has ? "present" : "absent"}`, has ? undefined : hint);
-  }
-  const pk = getKey("praeko/main");
+  { const has = !!getKey("elevenlabs/principal"); add("key-elevenlabs", has ? "ok" : "info", `ElevenLabs (final voice): ${has ? "present" : "absent"}`, has ? undefined : "only needed for --quality final; the silent draft is free"); }
+  // Praeko: PRAEKO_KEY > the project's profile (.praeko/config.json) > the global key. Only the profile NAME and the source are shown, never the key.
+  const rk = resolvePraekoKey({ projectDir: root && !isLegacyLayout(root) ? root : null }), pk = rk.key;
+  add("key-praeko", pk ? "ok" : "info", `Praeko key (publishing): ${pk ? `present (${rk.source === "env" ? "PRAEKO_KEY" : rk.source === "profile" ? `profile "${rk.profile}"` : "global key"})` : `absent${rk.profile !== "default" ? ` (profile "${rk.profile}")` : ""}`}`, pk ? undefined : "sign in by code: praeko studio login (you approve the code in the browser; the key is stored for you), or paste one in your own terminal: praeko studio setup --key; only needed to publish and upload");
   if (pk && !offline) items.push(...(await praekoScopeItems({ key: pk, brand, fetchFn })));
   items.push(...(await voiceItems({ offline, create: voiceCreate })));
   if (offline) add("network", "info", "network not checked (--offline)");
