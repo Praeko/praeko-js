@@ -440,7 +440,8 @@ test("every command the CLI tells you to run is the scoped package at this versi
   // a PATH with only the folder of node: no `praeko` (from @praeko/cli) and no `praeko-studio` anywhere
   const nodeDir = join(process.execPath, "..");
   const env = { HOME: home, PATH: nodeDir, PRAEKO_NO_KEYCHAIN: "1", PRAEKO_SECRETS: join(home, "s.json"), PRAEKO_STUDIO_CONFIG: join(home, "cfg"), PRAEKO_KEY: "", PRAEKO_STUDIO_NO_NOTICE: "1" };
-  assert.equal(spawnSync("/bin/sh", ["-c", "command -v praeko"], { env, encoding: "utf8" }).status, 1, "the test PATH has no praeko");
+  const found = spawnSync("/bin/sh", ["-c", "command -v praeko"], { env, encoding: "utf8" }); // not found: status 1 in bash, 127 in dash (Ubuntu's /bin/sh)
+  assert.ok(found.status !== 0 && found.stdout.trim() === "", "the test PATH has no praeko");
   const proibido = /npx praeko(?:-studio|@| )/, bare = /(?<![\w@/-])praeko studio (?!<command> also works)/;
   const scoped = (txt: string) => [...txt.matchAll(/npx @praeko\/studio@([^\s`'"),;]+)/g)].map((m) => m[1]);
   const confere = (name: string, txt: string) => {
