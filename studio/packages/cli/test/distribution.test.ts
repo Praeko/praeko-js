@@ -158,7 +158,7 @@ test("docs: lists the topics and prints one; an unknown topic fails; --version a
   const help = cli(["--help"]).stdout;
   assert.doesNotMatch(help, /bardo/i);
   const pkg = JSON.parse(read(join(PACKAGE, "package.json")));
-  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.3.0");
+  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.3.1");
 });
 test("publication audit: nothing of the owner (name, brand, voice ids, paths, game) in the packages that go public", () => {
   // the patterns are built in parts so this file does not accuse itself in the publication scan

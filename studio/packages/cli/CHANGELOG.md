@@ -2,6 +2,12 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/). In the 0.x series a breaking change may ship in a minor version, always recorded here.
 
+## [0.3.1] - 2026-11-13
+
+### Fixed
+- `praeko studio login` (and `setup` when it signs in) ended right after printing the code, with "Detected unsettled top-level await", when it opened the browser: the only thing keeping the process alive was an unref'd timer. The wait now keeps the process running until the approval. Regression test through the bin with a slow `open`/`xdg-open`.
+- New projects pin `@praeko/studio-core` and `@praeko/studio-kit` to their own version line (`^0.3.0`), not to the CLI version.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added

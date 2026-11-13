@@ -23,7 +23,7 @@ import type { PraekoKeySource } from "@praeko/studio-voice";
 import { PROJECT_GITIGNORE } from "./templates.ts";
 import { diagnose, ffmpegHint, nodeHint, praekoScopeItems } from "./doctor.ts";
 import type { DoctorItem } from "./doctor.ts";
-import { findProjectRoot, isLegacyLayout } from "./project.ts";
+import { findProjectRoot, insideAny, isLegacyLayout, projectFoldersFor } from "./project.ts";
 import { BLOCK_END, BLOCK_START, TARGETS, installSkill } from "./skill.ts";
 import type { Agent as SkillAgent } from "./skill.ts";
 import { lang } from "./i18n.ts";
@@ -559,8 +559,8 @@ export async function keyFlow(c: Ctx, o: { checkKey: boolean; profile: string })
     if (!k) { warn("no key typed: nothing was stored"); return 1; }
     if (!validKeyFormat(k)) { warn("that does not look like a Praeko key (they start with praeko_, from the dashboard: Developers > API keys). Nothing was stored."); return 1; }
     if (fromEnv) say("using the key in the PRAEKO_KEY variable (not shown)");
-    const store = c.usesKeychain ? null : resolve(c.secretsPath), roots = [c.cwd, findProjectRoot(c.cwd)].filter(Boolean) as string[];
-    if (store && roots.some((r) => store === r || store.startsWith(resolve(r) + sep))) { warn(`the secrets file (${store}) is inside this project folder: a key never goes into a project. Unset PRAEKO_SECRETS or run from another folder. Nothing was stored.`); return 1; }
+    const store = c.usesKeychain ? null : resolve(c.secretsPath);
+    if (store && insideAny(store, projectFoldersFor(c.cwd))) { warn(`the secrets file (${store}) is inside this project folder: a key never goes into a project. Unset PRAEKO_SECRETS or run from another folder. Nothing was stored.`); return 1; }
     let check = o.checkKey;
     if (!check && c.isTTY && !fromEnv) check = yes(await (c.ask ?? defaultAsk)("Check the key now with one read-only request to praeko.app (it sends only the key, to Praeko)? [Y/n]"), true);
     if (check) {
@@ -658,11 +658,11 @@ export async function setupCommand(a: string[], e: SetupEnv = {}): Promise<numbe
       if (!json) c.out("\nSign in to Praeko (profile \"" + profile + "\"):");
       // in --json the sign-in lines (and its one-line JSON states) go to stderr: stdout stays ONE JSON document
       after.login = await runLogin({ ...(c.login ?? {}), env: c.env, platform: c.platform, cwd: c.cwd, fetchFn: c.fetchFn, storeKey: c.storeKey, getKey: c.getKey, secretsPath: c.secretsPath, usesKeychain: c.usesKeychain, out: c.out, err: c.err },
-        { profile, json, noBrowser: a.includes("--no-browser"), server, jsonOut: c.err, say: json ? c.err : c.out });
+        { profile, json, noBrowser: a.includes("--no-browser"), server, jsonOut: c.err, say: json ? c.err : c.out, projectDir: plan.project.dir });
       if (after.login.status === "expired" && c.isTTY && !json) {
         for (let i = 0; i < 2 && after.login.status === "expired"; i++) {
           if (!yes(await (c.ask ?? defaultAsk)("Get a new code and try again? [Y/n]"), true)) break;
-          after.login = await runLogin({ ...(c.login ?? {}), env: c.env, platform: c.platform, cwd: c.cwd, fetchFn: c.fetchFn, storeKey: c.storeKey, getKey: c.getKey, secretsPath: c.secretsPath, usesKeychain: c.usesKeychain, out: c.out, err: c.err }, { profile, noBrowser: a.includes("--no-browser"), server, say: c.out });
+          after.login = await runLogin({ ...(c.login ?? {}), env: c.env, platform: c.platform, cwd: c.cwd, fetchFn: c.fetchFn, storeKey: c.storeKey, getKey: c.getKey, secretsPath: c.secretsPath, usesKeychain: c.usesKeychain, out: c.out, err: c.err }, { profile, noBrowser: a.includes("--no-browser"), server, say: c.out, projectDir: plan.project.dir });
         }
       }
     } else {

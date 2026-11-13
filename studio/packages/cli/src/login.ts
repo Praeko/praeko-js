@@ -6,11 +6,11 @@
 // only sees the code and the address, the person approves in the browser. `setup` calls `runLogin` when no key resolves for the project's profile.
 import { spawn } from "node:child_process";
 import { hostname as osHostname } from "node:os";
-import { resolve, sep } from "node:path";
+import { resolve } from "node:path";
 import { startDeviceLogin, waitForDeviceLogin } from "@praeko/sdk";
 import type { DeviceCode, DeviceToken } from "@praeko/sdk";
 import { DEFAULT_PROFILE, keychainActive, praekoKeyRef, readProjectProfile, resolvePraekoKey, secretsFile, storeKey as realStoreKey, getKey as realGetKey, storePraekoKey, validProfile } from "@praeko/studio-voice";
-import { findProjectRoot } from "./project.ts";
+import { findProjectRoot, insideAny, projectFoldersFor } from "./project.ts";
 import { VERSION } from "./version.ts";
 
 export const DEFAULT_SERVER = "https://praeko.app";
@@ -69,7 +69,9 @@ function defaultOpenBrowser(platform: NodeJS.Platform): (url: string) => Promise
       p.on("error", () => end(false));
       p.on("exit", (code) => end(code === 0));
       p.unref();
-      setTimeout(() => end(true), 3000).unref(); // still running (some xdg-open handlers wait): assume it opened
+      // Still running (some xdg-open handlers wait): assume it opened. NOT unref'd: this timer (and the child's exit) is all that keeps the process alive
+      // while we wait for the browser command; with it unref'd, `npx ... login` ended with "unsettled top-level await" before the polling even started.
+      setTimeout(() => end(true), 3000);
     } catch { end(false); }
   });
 }
@@ -95,7 +97,7 @@ function context(e: LoginEnv): Ctx {
  * The sign-in itself, shared by `login` and `setup`. `json`: one JSON line per state on `jsonOut` (first `waiting_for_approval`, then the end); human lines on `say`.
  * Never prints, returns or logs the key.
  */
-export async function runLogin(e: LoginEnv, o: { profile: string; json?: boolean; noBrowser?: boolean; server?: string; jsonOut?: (s: string) => void; say?: (s: string) => void; replacing?: boolean }): Promise<LoginOutcome> {
+export async function runLogin(e: LoginEnv, o: { profile: string; json?: boolean; noBrowser?: boolean; server?: string; jsonOut?: (s: string) => void; say?: (s: string) => void; replacing?: boolean; projectDir?: string }): Promise<LoginOutcome> {
   const c = context(e), profile = o.profile;
   const say = o.say ?? (o.json ? c.err : c.out), jsonOut = o.jsonOut ?? c.out;
   let key = "";
@@ -107,8 +109,8 @@ export async function runLogin(e: LoginEnv, o: { profile: string; json?: boolean
   };
   if (!validProfile(profile)) return finish({ status: "error", profile, message: `invalid profile name "${profile}" (lowercase letters, digits and hyphens)` });
   // the store must not be inside the project: refuse BEFORE a key is created on Praeko
-  const store = c.usesKeychain ? null : resolve(c.secretsPath), roots = [c.cwd, findProjectRoot(c.cwd)].filter(Boolean) as string[];
-  if (store && roots.some((r) => store === resolve(r) || store.startsWith(resolve(r) + sep))) {
+  const store = c.usesKeychain ? null : resolve(c.secretsPath);
+  if (store && insideAny(store, projectFoldersFor(c.cwd, o.projectDir))) {
     const m = `the secrets file (${store}) is inside this project folder: a key never goes into a project. Unset PRAEKO_SECRETS or run from another folder. Nothing was requested.`;
     say(`✗ ${m}`); return finish({ status: "error", profile, message: m });
   }

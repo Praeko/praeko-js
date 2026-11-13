@@ -245,9 +245,14 @@ test("the key in a TTY: hidden reader, format check, stored for the profile, nev
   assert.equal(await S.setupCommand(["--key"], { ...m.env, cwd: proj, readSecret: async () => KEY }), 0, m.text());
   assert.deepEqual(m.stored, { "praeko/profile/chan": KEY }, "the project's profile");
   assert.ok(!m.text().includes(KEY)); assert.match(m.text(), /profile "chan"/);
-  const m2 = machine({ tty: true, secrets: join(base, "inside") });
-  assert.equal(await S.setupCommand(["--key"], { ...m2.env, cwd: base, readSecret: async () => KEY }), 1);
+  const m2 = machine({ tty: true, secrets: join(proj, "inside") });
+  assert.equal(await S.setupCommand(["--key"], { ...m2.env, cwd: proj, readSecret: async () => KEY }), 1);
   assert.match(m2.text(), /inside this project folder/); assert.deepEqual(m2.stored, {});
+  // a plain folder (the home directory, say) is not a project: the secrets file under it is fine (e2e of 12/11/2026: setup run from ~ refused the sign-in)
+  const casa = join(base, "casa-sem-projeto"); mkdirSync(casa, { recursive: true });
+  const m3 = machine({ tty: true, secrets: join(casa, ".config", "praeko", "secrets.json") });
+  assert.equal(await S.setupCommand(["--key"], { ...m3.env, cwd: casa, readSecret: async () => KEY }), 0, m3.text());
+  assert.doesNotMatch(m3.text(), /inside this project folder/);
 });
 
 test("the key from PRAEKO_KEY (no prompt, no TTY needed) is stored and never shown; --check-key: a rejected key is not stored and goes only to praeko.app", async () => {

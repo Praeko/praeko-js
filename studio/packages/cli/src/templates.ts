@@ -4,12 +4,14 @@
 export const PROJECT_GITIGNORE = "node_modules/\nout/\n.hf/\n.praeko-studio/\n.praeko/cache/\n.studio-backup/\n.env\n.env.*\n.DS_Store\n";
 export const VERSIONS = { remotion: "4.0.539", react: "19.2.3", reactTypes: "19.2.7", typescript: "5.9.3" };
 /** New project: dependencies by published version (semver). With `dev` (path to the Studio repository) it uses `file:` (the way contributors work). */
-export const projectPackage = ({ name, dev = null, studioVersion = "0.3.0" }: { name: string; dev?: string | null; studioVersion?: string }): string => JSON.stringify({
+/** `libVersion`: the published version line of @praeko/studio-core and @praeko/studio-kit (they are NOT bumped with every CLI patch: 0.3.1 of the CLI uses ^0.3.0 of the libraries). */
+export const LIB_VERSION = "0.3.0";
+export const projectPackage = ({ name, dev = null, studioVersion = "0.3.1", libVersion = LIB_VERSION }: { name: string; dev?: string | null; studioVersion?: string; libVersion?: string }): string => JSON.stringify({
   name, version: "0.0.1", private: true,
   scripts: { dev: "remotion studio src/index.ts" },
   dependencies: {
-    "@praeko/studio-core": dev ? `file:${dev}/packages/core` : `^${studioVersion}`,
-    "@praeko/studio-kit": dev ? `file:${dev}/packages/kit` : `^${studioVersion}`,
+    "@praeko/studio-core": dev ? `file:${dev}/packages/core` : `^${libVersion}`,
+    "@praeko/studio-kit": dev ? `file:${dev}/packages/kit` : `^${libVersion}`,
     "@remotion/cli": VERSIONS.remotion, react: VERSIONS.react, "react-dom": VERSIONS.react, remotion: VERSIONS.remotion,
   },
   devDependencies: { ...(dev ? {} : { "@praeko/studio": `^${studioVersion}` }), "@types/react": VERSIONS.reactTypes, typescript: VERSIONS.typescript },

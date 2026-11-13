@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LoginEnv } from "../src/login.ts";
@@ -144,6 +144,10 @@ test("the profile: the project's .praeko/config.json, --profile wins; invalid na
   const c = box({ secrets: join(proj, "secrets.json") }); const before = c.device.codeBodies.length;
   assert.equal(await L.loginCommand([], { ...c.env, cwd: proj }), 1);
   assert.match(c.text(), /inside this project folder/); assert.equal(c.device.codeBodies.length, before); assert.deepEqual(c.stored, {});
+  // run from a plain folder (the home directory) whose ~/.config holds the secrets file: that is not a project, the sign-in goes on (e2e of 12/11/2026)
+  const d = box({ script: ["pending"] }); d.env.secretsPath = join(d.cwd, ".config", "praeko", "secrets.json");
+  assert.equal(await L.loginCommand([], d.env), 0, d.text());
+  assert.doesNotMatch(d.text(), /inside this project folder/); assert.equal(Object.keys(d.stored).length, 1);
 });
 
 test("the browser: --no-browser never opens it; a failing open only prints the address", async () => {
@@ -197,6 +201,25 @@ test("the CLI through the bin, no TTY, --json, against a local server: the agent
   assert.equal(JSON.parse(readFileSync(secrets, "utf8"))["praeko/profile/bin"], DEVICE_KEY);
   const { statSync } = await import("node:fs");
   assert.equal(statSync(secrets).mode & 0o777, 0o600);
+});
+
+test("the CLI through the bin WITH the browser opening (a slow `open`/`xdg-open`): the process must stay alive until the approval (regression: unsettled top-level await in npx)", async () => {
+  const home = mkdtempSync(join(tmpdir(), "studio-login-open-")), work = join(home, "work"), bindir = join(home, "bin"); mkdirSync(work); mkdirSync(bindir);
+  for (const n of ["open", "xdg-open"]) { writeFileSync(join(bindir, n), "#!/bin/sh\nsleep 1\nexit 0\n"); chmodSync(join(bindir, n), 0o755); }
+  const device = fakeDevice({ interval: 1 }); const srv = await device.serve();
+  const BIN = new URL("../bin/praeko-studio.ts", import.meta.url).pathname, secrets = join(home, "s.json");
+  const env = { ...process.env, HOME: home, PATH: bindir + ":" + process.env.PATH, PRAEKO_NO_KEYCHAIN: "1", PRAEKO_SECRETS: secrets, PRAEKO_STUDIO_CONFIG: join(home, "cfg"), PRAEKO_KEY: "", PRAEKO_URL: srv.url };
+  const r = await new Promise<{ code: number | null; stdout: string; stderr: string }>((ok) => {
+    const p = spawn(process.execPath, [BIN, "login", "--json", "--profile", "open"], { cwd: work, env, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "", stderr = ""; p.stdout.on("data", (d) => (stdout += d)); p.stderr.on("data", (d) => (stderr += d));
+    p.on("close", (code) => ok({ code, stdout, stderr }));
+  });
+  await srv.close();
+  assert.ok(!/unsettled top-level await/i.test(r.stderr), r.stderr);
+  assert.equal(r.code, 0, r.stderr);
+  const lines = r.stdout.trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(lines.map((l) => l.status), ["waiting_for_approval", "authorized"]);
+  assert.equal(JSON.parse(readFileSync(secrets, "utf8"))["praeko/profile/open"], DEVICE_KEY);
 });
 
 test("the profile already has a key: in a terminal it asks first (default: keep, nothing requested); with --yes, --json or no terminal it replaces it and says so", async () => {

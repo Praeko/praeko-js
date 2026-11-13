@@ -1,6 +1,6 @@
 // Project discovery: walks up folders until it finds `brand.json` next to `src/index.ts`.
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import type { Brand } from "@praeko/studio-publish";
 
 export type Project = { root: string; brand: Brand };
@@ -35,3 +35,15 @@ export function episodeOf(project: Project, slug: string | undefined): Episode {
   const info = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { id: pascal(slug), cover: `Cover${pascal(slug)}` };
   return { slug, folder, ...info, mp4: join(project.root, "out", `${slug}.mp4`), png: join(project.root, "out", `${slug}-cover.png`) };
 }
+
+/**
+ * The project folders a secrets file must never live in: the Studio project above `cwd` (findProjectRoot), `cwd` itself only when it carries the project
+ * config (.praeko/config.json), and the folders the caller names (setup's target folder). A plain folder such as the home directory is NOT a project:
+ * treating any `cwd` as one refused `login` and `setup <folder>` run from ~ whenever the key goes to ~/.config/praeko/secrets.json (no Keychain).
+ */
+export function projectFoldersFor(cwd: string, ...more: (string | null | undefined)[]): string[] {
+  const c = resolve(cwd), out = [findProjectRoot(c), existsSync(join(c, ".praeko", "config.json")) ? c : null, ...more.map((d) => (d ? resolve(d) : null))];
+  return [...new Set(out.filter(Boolean) as string[])];
+}
+/** True when `file` is one of `folders` or lies inside one of them. */
+export const insideAny = (file: string, folders: string[]): boolean => folders.some((r) => file === r || file.startsWith(resolve(r) + sep));
