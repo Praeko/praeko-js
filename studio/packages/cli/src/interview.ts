@@ -6,6 +6,7 @@ import { delimiter, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { AGENTS } from "./skill.ts";
 import { CUES_OPENING, CUES_RHYTHM, PT_INTERVIEW, PT_TEXT } from "./i18n-pt.ts";
+import { STUDIO_NPX } from "./version.ts";
 
 export type Ref = { ref: string; note: string };
 export type Answers = {
@@ -158,7 +159,7 @@ export async function interview(ask: Ask, given: Answers, ctx: Ctx): Promise<Ans
     if (refs.length) r.references = refs;
   }
   if (want("voice")) {
-    say(t("Voice: only the name/alias and the provider. Never type a key here (keys go in with `praeko studio voice config key`)."));
+    say(t(`Voice: only the name/alias and the provider. Never type a key here (keys go in with \`${STUDIO_NPX} voice config key\`).`));
     if (r.voiceAlias === undefined) r.voiceAlias = await ask(t("Voice name or alias (Enter = none yet)"), d.voiceAlias);
     if (r.voiceProvider === undefined && (r.voiceAlias || d.voiceProvider)) {
       for (let i = 0; i < 3; i++) { const v = (await ask(t(`Voice provider (${VOICE_PROVIDERS.join("|")})`), d.voiceProvider ?? "elevenlabs")).toLowerCase(); if ((VOICE_PROVIDERS as readonly string[]).includes(v)) { r.voiceProvider = v; break; } say(t(`  use ${VOICE_PROVIDERS.join(", ")}`)); }
@@ -206,7 +207,7 @@ export function renderBrief(x: Answers): string {
   return [
     `# ${t("Brief")}: ${x.name || t("my channel")}`,
     "",
-    t("Answers from the brand interview (`praeko studio init` or `praeko studio brief`). Your agent reads this before writing any script. Rewritten by `praeko studio brief` (the previous one is kept as `brief.md.bak`)."),
+    t(`Answers from the brand interview (\`${STUDIO_NPX} init\` or \`${STUDIO_NPX} brief\`). Your agent reads this before writing any script. Rewritten by \`${STUDIO_NPX} brief\` (the previous one is kept as \`brief.md.bak\`).`),
     "",
     `## ${t("Channel")}`,
     line(t("Name"), x.name), line("Handle", x.handle), line(t("Language"), x.lang),
@@ -222,7 +223,7 @@ export function renderBrief(x: Answers): string {
     "",
     `## ${t("Voice")}`,
     line(t("Name or alias"), x.voiceAlias), line(t("Provider"), x.voiceProvider),
-    t("(No keys here: they are stored with `praeko studio voice config key`.)"),
+    t(`(No keys here: they are stored with \`${STUDIO_NPX} voice config key\`.)`),
     "",
     `<!-- praeko-brief:${json} -->`,
     "",
@@ -236,14 +237,14 @@ export function renderPlaybook(x: Answers): string {
   const rhythm = pick(CUES_RHYTHM), opening = pick(CUES_OPENING);
   const out: string[] = [
     `# Playbook: ${x.name || t("my channel")}`, "",
-    t("Draft of the editorial rules, built only from `brief.md`. Edit freely: `praeko studio brief` never overwrites an edited playbook (it writes `playbook.md.new` instead)."), "",
+    t(`Draft of the editorial rules, built only from \`brief.md\`. Edit freely: \`${STUDIO_NPX} brief\` never overwrites an edited playbook (it writes \`playbook.md.new\` instead).`), "",
     `## ${t("What the channel is")}`, x.about || todo, "",
     `## ${t("Audience")}`, x.audience ? `${t("Write for")}: ${x.audience}` : todo, "",
     `## ${t("Tone of voice")}`, x.tone ? `${t("Tone")}: ${x.tone}` : todo, "",
     `## ${t("Pace")}`, ...(rhythm.length ? rhythm.map((s) => `- ${s}`) : [todo]), "",
     `## ${t("Opening")}`, ...(opening.length ? opening.map((s) => `- ${s}`) : [todo]), "",
     `## ${t("Captions")}`, todo, "",
-    `## ${t("Never say")}`, t("One phrase per line, in quotes. `praeko studio review` flags these phrases in the script, captions, on-screen text and publication texts. TODO: add the promises this channel must never make."), "",
+    `## ${t("Never say")}`, t(`One phrase per line, in quotes. \`${STUDIO_NPX} review\` flags these phrases in the script, captions, on-screen text and publication texts. TODO: add the promises this channel must never make.`), "",
     `## ${t("Rules from the references")}`,
     t("References are inputs to study, never to copy: describe pace, opening and captions as RULES, never reproduce someone else's video."),
   ];

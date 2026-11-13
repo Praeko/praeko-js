@@ -28,13 +28,13 @@ test("setup: a project with a short episode (draft voice, compiled) and a synthe
 });
 test("without a rendered video: a clear error that says to run render first, exit 1, nothing written", media, () => {
   const r = studio(["review", "demo"], proj);
-  assert.equal(r.status, 1); assert.match(r.stderr, /no rendered video for "demo" \(out\/demo\.mp4\): run `praeko studio render demo` first/);
+  assert.equal(r.status, 1); assert.match(r.stderr, /no rendered video for "demo" \(out\/demo\.mp4\): run `npx @praeko\/studio@[\d.]+ render demo` first/);
   assert.ok(!existsSync(out("demo-review")));
   const pt = studio(["review", "demo", "--lang", "pt"], proj);
-  assert.equal(pt.status, 1); assert.match(pt.stderr, /não há vídeo renderizado de "demo" \(out\/demo\.mp4\): rode `praeko studio render demo` antes/);
+  assert.equal(pt.status, 1); assert.match(pt.stderr, /não há vídeo renderizado de "demo" \(out\/demo\.mp4\): rode `npx @praeko\/studio@[\d.]+ render demo` antes/);
 });
 test("usage errors: no slug, bad --every, bad --max-frames, an unknown episode", media, () => {
-  assert.equal(studio(["review"], proj).status, 1); assert.match(studio(["review"], proj).stderr, /usage: praeko studio review <slug>/);
+  assert.equal(studio(["review"], proj).status, 1); assert.match(studio(["review"], proj).stderr, /usage: npx @praeko\/studio@[\d.]+ review <slug>/);
   assert.match(studio(["review", "demo", "--every", "0"], proj).stderr, /--every takes a number of seconds above 0/);
   assert.match(studio(["review", "demo", "--max-frames", "1"], proj).stderr, /--max-frames takes a whole number from 2 to 60/);
   assert.match(studio(["review", "demo", "--max-frames", "99"], proj).stderr, /--max-frames/);
@@ -102,7 +102,7 @@ test("brand cautions: playbook.md prohibitions, brand.json phrases and banned na
 test("a carousel: no slides rendered is an error that points to `slides`; with slides, one frame per slide and the alt checks", media, () => {
   assert.equal(studio(["new", "tips", "--carousel", "--title", "Three tips"], proj).status, 0);
   const none = studio(["review", "tips"], proj);
-  assert.equal(none.status, 1); assert.match(none.stderr, /no rendered slides for "tips" \(out\/tips-slide-01\.jpg…\): run `praeko studio slides tips` first/);
+  assert.equal(none.status, 1); assert.match(none.stderr, /no rendered slides for "tips" \(out\/tips-slide-01\.jpg…\): run `npx @praeko\/studio@[\d.]+ slides tips` first/);
   ff("-f", "lavfi", "-i", "testsrc2=s=1080x1350", "-frames:v", "1", out("tips-slide-01.jpg"));
   const r = studio(["review", "tips", "--json"], proj);
   assert.equal(r.status, 0, r.stderr);

@@ -10,8 +10,9 @@ import { NAME, findInFolder, findVideo, flag, has, localTime, readPublication } 
 import type { ScheduleEnv } from "./schedule.ts";
 import type { Episode, Project } from "./project.ts";
 import { checkJpeg } from "./image.ts";
+import { STUDIO_NPX } from "./version.ts";
 
-const NO_KEY = "no Praeko key: echo $KEY | praeko studio schedule --via praeko --key   (praeko_… (or arauto_…) key with write scope, created in the dashboard; or the variable PRAEKO_STUDIO_KEY_PRAEKO_MAIN)";
+const NO_KEY = `no Praeko key: echo $KEY | ${STUDIO_NPX} schedule --via praeko --key   (praeko_… (or arauto_…) key with write scope, created in the dashboard; or the variable PRAEKO_STUDIO_KEY_PRAEKO_MAIN)`;
 const BUFFER_ONLY = "--reminder does not exist on Praeko: it really schedules the post (the \"only notifies\" mode is Buffer's). On TikTok the equivalent is draft mode (publishing.praeko.tiktok.mode = \"draft\", the default). For --reminder use --via buffer.";
 
 const clientOf = (p: Project, env: ScheduleEnv, key: string) => praeko.client({ url: praeko.praekoConfig(p.brand as Brand).url, key, fetchFn: env.fetchFn || fetch, ...(env.wait ? { wait: env.wait } : {}), ...(env.clientOptions || {}) } as any);
@@ -85,7 +86,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   // ----- plan
   const publication = readPublication(ep);
   const v = validate({ brand: p.brand, publication });
-  if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); console.log("Fix publication.json (praeko studio package) before scheduling."); return 1; }
+  if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); console.log(`Fix publication.json (${STUDIO_NPX} package) before scheduling.`); return 1; }
   if (isImage(publication)) return scheduleImage(a, { p, ep, slug, sched, scheduleFile, env, cfg, publication, warnings: v.warnings });
   const defaults = cfg.networks || (publication.format === "long" ? ["youtube", "instagram"] : ["youtube", "instagram", "tiktok"]);
   const networks: string[] = flag(a, "networks") ? flag(a, "networks")!.split(",").map((x) => NETWORKS[x.trim()] || (() => { throw new Error(`unknown network: ${x}`); })()) : defaults;
@@ -122,7 +123,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
       const cs = await clientOf(p, env, key).channels();
       for (const r of networks) {
         const mine = cs.filter((c: any) => c.network === r), chosen = cfg.channels?.[r] ? mine.find((c: any) => c.id === cfg.channels[r]) : (mine.find((c: any) => c.default) || mine[0]);
-        if (!chosen || !chosen.connected) problems.push(`${NAME[r]}: ${cfg.channels?.[r] && !chosen ? `channel ${cfg.channels[r]} not found on Praeko (praeko studio schedule --channels --via praeko)` : "is not connected on Praeko (Channels in the dashboard)"}`);
+        if (!chosen || !chosen.connected) problems.push(`${NAME[r]}: ${cfg.channels?.[r] && !chosen ? `channel ${cfg.channels[r]} not found on Praeko (${STUDIO_NPX} schedule --channels --via praeko)` : "is not connected on Praeko (Channels in the dashboard)"}`);
         else if (r === "instagram" && cfg.instagram.via === "meta" && !chosen.meta?.connected) problems.push('Instagram: via "meta", but the Meta API is not connected on Praeko (use publishing.praeko.instagram.via = "buffer")');
       }
     } catch (e: any) { if (send) throw e; console.log(`⚠ I could not read the Praeko channels (${e.message})`); }
@@ -169,7 +170,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
       catch (e: any) {
         if (e.code !== "id_exists") throw e;
         const alive = ((await c.status(id)).items || []).filter((i: any) => networks.includes(i.network) && i.state !== "canceled");
-        if (alive.length) throw new Error(`post "${id}" already exists on Praeko with ${alive.map((i: any) => `${NAME[i.network]} (${label(i)})`).join(", ")}. See: praeko studio schedule ${slug} --status`);
+        if (alive.length) throw new Error(`post "${id}" already exists on Praeko with ${alive.map((i: any) => `${NAME[i.network]} (${label(i)})`).join(", ")}. See: ${STUDIO_NPX} schedule ${slug} --status`);
         if (++n > 9) throw e;
         id = `${slug}-${n}`;
       }
@@ -186,7 +187,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
     if (i.state === "error") failed = true;
     console.log(`${i.state === "error" ? "✗" : "✓"} ${NAME[i.network] || i.network} ${label(i)}${i.scheduledFor ? ` for ${localTime(i.scheduledFor)}` : ""} (${i.id})${i.warning ? `  ⚠ ${i.warning}` : ""}`);
   }
-  console.log(`\nPost ${r.id} on Praeko. Check it: praeko studio schedule ${slug} --status · undo what is still pending: praeko studio schedule ${slug} --cancel`);
+  console.log(`\nPost ${r.id} on Praeko. Check it: ${STUDIO_NPX} schedule ${slug} --status · undo what is still pending: ${STUDIO_NPX} schedule ${slug} --cancel`);
   return failed ? 1 : 0;
 }
 
@@ -201,11 +202,11 @@ async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, en
   if (new Date(at) < new Date(Date.now() + min * 60e3)) throw new Error(`Instagram: ${localTime(at)} is less than ${min} minutes from now or already past`);
   const images: { file: string; alt?: string }[] = publication.images || [];
   const carousel = publication.kind === "carousel" || publication.format === "carousel";
-  if (!images.length) throw new Error(`no image in publication.json: run \`praeko studio slides ${slug}\` and \`praeko studio package ${slug}\``);
+  if (!images.length) throw new Error(`no image in publication.json: run \`${STUDIO_NPX} slides ${slug}\` and \`${STUDIO_NPX} package ${slug}\``);
   if (carousel ? images.length < 2 || images.length > 20 : images.length !== 1) throw new Error(carousel ? `${images.length} slide(s): a carousel takes 2 to 20` : `${images.length} images: an image post takes exactly one (use format: carousel for 2 to 20)`);
   const files = images.map((im) => resolve(p.root, im.file)), jpegs = files.map((f) => checkJpeg(f));
   const bad = jpegs.flatMap((j, i) => j.errors.map((e) => `${carousel ? `slide ${i + 1}: ` : ""}${e}`));
-  if (bad.length) { bad.forEach((e) => console.log("  ✗", e)); throw new Error(`fix the ${carousel ? "slides" : "image"} first (\`praeko studio slides ${slug}\`)`); }
+  if (bad.length) { bad.forEach((e) => console.log("  ✗", e)); throw new Error(`fix the ${carousel ? "slides" : "image"} first (\`${STUDIO_NPX} slides ${slug}\`)`); }
   const file = files[0]!, jpeg = jpegs[0]!, totalKB = jpegs.reduce((t, j) => t + j.bytes, 0) / 1024;
   const send = has(a, "send");
   if (sched && send && !has(a, "redo")) throw new Error("a schedule already exists (schedule.json). Check it with --status, cancel it with --cancel or use --redo");
@@ -234,7 +235,7 @@ async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, en
       catch (e: any) {
         if (e.code !== "id_exists") throw e;
         const alive = ((await c.status(id)).items || []).filter((i: any) => i.state !== "canceled");
-        if (alive.length) throw new Error(`post "${id}" already exists on Praeko (${alive.map((i: any) => label(i)).join(", ")}). See: praeko studio schedule ${slug} --status`);
+        if (alive.length) throw new Error(`post "${id}" already exists on Praeko (${alive.map((i: any) => label(i)).join(", ")}). See: ${STUDIO_NPX} schedule ${slug} --status`);
         if (++n > 9) throw e;
         id = `${slug}-${n}`;
       }
@@ -247,6 +248,6 @@ async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, en
     console.log(`${i.state === "error" ? "✗" : "✓"} ${NAME[i.network] || i.network} ${label(i)}${i.scheduledFor ? ` for ${localTime(i.scheduledFor)}` : ""} (${i.id})${i.warning ? `  ⚠ ${i.warning}` : ""}`);
     for (const w of i.warnings || []) console.log(`  ⚠ ${w.code}: ${w.message}`);
   }
-  console.log(`\nPost ${r.id} on Praeko. Check it: praeko studio schedule ${slug} --status · undo what is still pending: praeko studio schedule ${slug} --cancel`);
+  console.log(`\nPost ${r.id} on Praeko. Check it: ${STUDIO_NPX} schedule ${slug} --status · undo what is still pending: ${STUDIO_NPX} schedule ${slug} --cancel`);
   return failed ? 1 : 0;
 }

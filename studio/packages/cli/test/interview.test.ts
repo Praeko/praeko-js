@@ -1,5 +1,6 @@
 // Brand interview: answer parsing, hex validation, brief/playbook, the interactive flow (fake stdin), --yes unchanged, ../brand tokens and `brief` keeping manual edits.
 import test from "node:test";
+import { STUDIO_NPX } from "../src/version.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
@@ -131,7 +132,7 @@ test("--yes and no TTY: no questions and the files are exactly the old ones", as
   for (const k of Object.keys(t1)) assert.equal(t1[k], t2[k], k);
   assert.ok(!existsSync(join(d1, "brief.md")) && !existsSync(join(d1, "playbook.md")));
   assert.equal(readFileSync(join(d1, "brand.json"), "utf8"), initialBrand({ name: "Channel X", handle: "@channelx" }));
-  assert.equal(readFileSync(join(d1, "README.md"), "utf8"), "# Channel X\n\nPraeko Studio video project. First video: `npx praeko-studio new my-first` (or `praeko studio new my-first`). Check the environment with `praeko studio doctor`.\n");
+  assert.equal(readFileSync(join(d1, "README.md"), "utf8"), `# Channel X\n\nPraeko Studio video project. First video: \`${STUDIO_NPX} new my-first\` (or \`praeko studio new my-first\` with @praeko/cli installed). Check the environment with \`${STUDIO_NPX} doctor\`.\n`);
   assert.deepEqual(readdirSync(d1).sort(), [".claude", ".gitignore", "AGENTS.md", "CLAUDE.md", "README.md", "brand.json", "episodes", "package.json", "public", "remotion.config.ts", "src", "tsconfig.json"]);
 });
 test("--yes with answer flags fills brand.json, brief.md and the playbook, with no questions", () => {
@@ -185,14 +186,14 @@ test("brief rewrites brief.md with a .bak and does not lose manual edits of play
     await silently(() => brief([], { interactive: true, ask: s.ask, ...quiet }));
     assert.equal(readBriefAnswers(dir)!.tone, "direct"); assert.equal(readBriefAnswers(dir)!.audience, "seniors");
     assert.ok(!s.asked.some((q) => q.includes("Who is it for")), "only the chosen answer was asked");
-    await assert.rejects(() => brief([], { interactive: false }), /usage: praeko studio brief/);
+    await assert.rejects(() => brief([], { interactive: false }), /usage: npx @praeko\/studio@[\d.]+ brief/);
     await assert.rejects(() => brief(["--only", "agents", "--about", "x"], { interactive: false }), /--only agents/);
   } finally { process.chdir(cwd); }
 });
 test("hasBrief, help and the skill texts mention the interview", () => {
   assert.equal(hasBrief({ name: "x", accent: "#fff" }), false); assert.equal(hasBrief({ tone: "t" }), true);
   assert.match(help("x"), /^  brief \[--only/m); assert.match(help("x"), /--reference <url\|text>/);
-  for (const l of ["en", "pt"] as const) { const t = BODY[l]; for (const k of ["brief.md", "playbook.md", "praeko studio brief", "brand/build/tokens.json", "TODO"]) assert.ok(t.includes(k), `${l}: ${k}`); }
+  for (const l of ["en", "pt"] as const) { const t = BODY[l]; for (const k of ["brief.md", "playbook.md", `${STUDIO_NPX} brief`, "brand/build/tokens.json", "TODO"]) assert.ok(t.includes(k), `${l}: ${k}`); }
   assert.match(BODY.en, /one at a time/); assert.match(BODY.pt, /uma de cada vez/);
 });
 test("--yes imports colors and font from ../brand tokens, --brand points elsewhere, flags win, and it says what it imported", () => {
@@ -221,7 +222,7 @@ test("init and brief end with the two install lines of the local MCP server (the
   const d = join(base, "mcp-lines"), r = studio(["init", d, "--yes", "--no-install", "--name", "Lines"]);
   assert.equal(r.status, 0, r.stderr);
   const tail = r.stdout.split("\n").slice(-5).join("\n");
-  assert.match(r.stdout, /\nnext step: cd .* && npx praeko-studio new my-first --title "My first video"\n\nlocal MCP server \(for an agent without a terminal, such as Claude Desktop\), same project:\n  claude mcp add praeko-studio -- npx -y @praeko\/studio-mcp --project \S+\n  generic JSON: \{"command":"npx","args":\["-y","@praeko\/studio-mcp","--project","[^"]+"\]\}\n$/, tail);
+  assert.match(r.stdout, /\nnext step: cd .* && npx @praeko\/studio@[\d.]+ new my-first --title "My first video"\n\nlocal MCP server \(for an agent without a terminal, such as Claude Desktop\), same project:\n  claude mcp add praeko-studio -- npx -y @praeko\/studio-mcp --project \S+\n  generic JSON: \{"command":"npx","args":\["-y","@praeko\/studio-mcp","--project","[^"]+"\]\}\n$/, tail);
   const json = JSON.parse(/generic JSON: (.*)/.exec(r.stdout)![1]!);
   assert.ok(json.args[3].startsWith("/") || /^[A-Za-z]:/.test(json.args[3]), "the folder is absolute");
   assert.ok(json.args[3].endsWith("mcp-lines"));

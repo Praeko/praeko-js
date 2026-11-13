@@ -2,6 +2,17 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/). In the 0.x series a breaking change may ship in a minor version, always recorded here.
 
+## [0.3.2] - 2026-11-13
+
+### Added
+- `setup --no-login` (also with `--yes`): setup neither offers nor runs the sign-in by code. The first video does not need it (you drag the MP4 into the Praeko dashboard); the summary says the sign-in is optional and how to do it later (`npx @praeko/studio@0.3.2 login` in the project folder). `--json` carries `"noLogin": true`. Without the flag nothing changes.
+
+### Changed
+- Every message that tells you what to run now names a command that works without the `praeko` CLI (@praeko/cli) installed, always the scoped package at this exact version: `npx @praeko/studio@<version> <command>`, inside or outside the project folder (setup's "Next", its usage and backups line, the doctor's hints, `login --help`, `docs` and its topics, and the generated agent instructions). `praeko studio <command>` still works where @praeko/cli is installed; `help` says both.
+
+### Security
+- No message, agent instruction or doc tells you to run the unscoped `npx praeko-studio …` or `npx praeko …`: those names are not ours on npm, and `npx` (even with `--no`/`--no-install`) would look them up and could fetch someone else's package. The `docs` topics write the command as `npx @praeko/studio@<version>`, and `docs` prints it with the running version.
+
 ## [0.3.1] - 2026-11-13
 
 ### Fixed

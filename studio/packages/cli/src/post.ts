@@ -11,9 +11,10 @@ import type { Ctx, NetworkName } from "@praeko/studio-publish";
 import { episodeOf, findProject } from "./project.ts";
 import type { Project } from "./project.ts";
 import { NAME, findInFolder, findVideo, flag, has, localTime, readPublication } from "./schedule.ts";
+import { STUDIO_NPX } from "./version.ts";
 
 const STUDIO_BIN = process.argv[1]!; // the Studio executable itself (bin/praeko-studio.ts or dist/praeko-studio.mjs)
-const macOnly = (): void => { if (process.platform !== "darwin") throw new Error("`queue install/remove` uses macOS launchd. On Linux/Windows schedule `praeko studio queue run` in cron/Task Scheduler, or prefer `praeko studio schedule --via praeko` (Praeko schedules on the server)."); };
+const macOnly = (): void => { if (process.platform !== "darwin") throw new Error(`\`queue install/remove\` uses macOS launchd. On Linux/Windows schedule \`${STUDIO_NPX} queue run\` in cron/Task Scheduler, or prefer \`${STUDIO_NPX} schedule --via praeko\` (Praeko schedules on the server).`); };
 
 /** Context handed to the providers. */
 export function context(p: Project, { log = console.log }: { log?: (...a: any[]) => void } = {}): Ctx {
@@ -32,9 +33,9 @@ const networksOf = (a: string[], fallback: string[]): string[] => (flag(a, "netw
 export async function post(a: string[]): Promise<number> {
   const WITH_VALUE = new Set(["when", "networks", "yt", "ig", "tt", "video", "cover"]);
   const slug = (() => { for (let i = 0; i < a.length; i++) { if (a[i]!.startsWith("--")) { if (WITH_VALUE.has(a[i]!.slice(2))) i++; continue; } return a[i]; } })();
-  if (!slug) throw new Error('usage: praeko studio post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--yt|--ig|--tt "time"] [--send]');
+  if (!slug) throw new Error(`usage: ${STUDIO_NPX} post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--yt|--ig|--tt "time"] [--send]`);
   const p = findProject(), ep = episodeOf(p, slug), publication = readPublication(ep);
-  if (isImage(publication)) throw new Error("image posts do not go through the direct providers: use `praeko studio schedule <slug> --via praeko --when \"…\" --send` (Instagram, through Buffer or Meta)");
+  if (isImage(publication)) throw new Error(`image posts do not go through the direct providers: use \`${STUDIO_NPX} schedule <slug> --via praeko --when "…" --send\` (Instagram, through Buffer or Meta)`);
   const v = validate({ brand: p.brand, publication });
   if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); return 1; }
   const networks = networksOf(a, publication.format === "long" ? ["youtube", "instagram"] : ["youtube", "instagram", "tiktok"]);
@@ -66,7 +67,7 @@ export async function post(a: string[]): Promise<number> {
   if (!send) return 0;
   const created = items.map((it) => enqueue(p.root, it));
   await run({ root: p.root, providers: all, ctx, onlyIds: created.map((n) => n.id) });
-  console.log(`\nQueue: praeko studio queue list. What is not immediate goes out at the set time if the runner is active (praeko studio queue install).`);
+  console.log(`\nQueue: ${STUDIO_NPX} queue list. What is not immediate goes out at the set time if the runner is active (${STUDIO_NPX} queue install).`);
   return readQueue(p.root).items.some((x) => created.some((n) => n.id === x.id && x.state === "error")) ? 1 : 0;
 }
 
@@ -102,12 +103,12 @@ export async function queue(a: string[]): Promise<number> {
     try { execFileSync("launchctl", ["bootout", `gui/${process.getuid!()}`, plist], { stdio: "ignore" }); } catch { /* already stopped */ }
     console.log("✓ runner removed"); return 0;
   }
-  throw new Error("usage: praeko studio queue [list|run [--dry-run]|cancel <id>|install [--minutes N]|remove]");
+  throw new Error(`usage: ${STUDIO_NPX} queue [list|run [--dry-run]|cancel <id>|install [--minutes N]|remove]`);
 }
 
 export async function account(a: string[]): Promise<number> {
   const network = NETWORKS[a[0]!], action = a[1] || "status";
-  if (!network) throw new Error("usage: praeko studio account <youtube|instagram|tiktok> [connect|status]");
+  if (!network) throw new Error(`usage: ${STUDIO_NPX} account <youtube|instagram|tiktok> [connect|status]`);
   const p = findProject(), ctx = context(p);
   const prov = await providers.load(network);
   if (action === "connect") return (await prov.connect({ ctx, args: a.slice(2) })) ?? 0;

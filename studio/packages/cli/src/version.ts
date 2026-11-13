@@ -8,3 +8,6 @@ export const HERE = dirname(fileURLToPath(import.meta.url));
 /** Package root (the folder with package.json): `src/..` in development and `dist/..` once published. */
 export const PACKAGE_ROOT = join(HERE, "..");
 export const VERSION: string = typeof __STUDIO_VERSION__ !== "undefined" ? __STUDIO_VERSION__ : JSON.parse(readFileSync(join(PACKAGE_ROOT, "package.json"), "utf8")).version;
+/** The command that runs Studio without the `praeko` CLI (@praeko/cli) installed, inside or outside a project folder: always the scoped package at THIS exact
+ *  version (`npx @praeko/studio@<version>`). Never the unscoped `praeko-studio`/`praeko` names: they are not ours on npm, and npx would fetch whatever owns them. */
+export const STUDIO_NPX = `npx @praeko/studio@${VERSION}`;

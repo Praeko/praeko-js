@@ -15,6 +15,7 @@ import { legacyVoiceAlias, translateBlocks, translateBrand, translateCut, transl
 import { followUps, rewriteTsx, rewriteWordsTs } from "./tsx.ts";
 import type { FollowUp } from "./tsx.ts";
 import { rewriteYaml } from "./yaml-preserve.ts";
+import { STUDIO_NPX } from "../version.ts";
 
 type Write = { kind: "write"; to: string; content: string | Buffer; from?: string; keys: boolean };
 type Move = { kind: "move"; from: string; to: string };
@@ -197,7 +198,7 @@ export function planMigration(root: string): Plan {
     const i = Math.max(t.indexOf(OLD_BLOCK_START), t.indexOf(BLOCK_START.slice(0, 26))), j = t.includes(OLD_BLOCK_END) ? t.indexOf(OLD_BLOCK_END) + OLD_BLOCK_END.length : (t.indexOf(BLOCK_END) >= 0 ? t.indexOf(BLOCK_END) + BLOCK_END.length : -1);
     if (i >= 0 && j > i) {
       const lang = isPt(t.slice(i, j)) ? "pt" : "en";
-      const body = f === "CLAUDE.md" ? (lang === "en" ? "Video project (Praeko Studio). Full instructions: the `praeko-studio` skill in `.claude/skills/`, or `praeko studio docs`." : "Projeto de vídeo (Praeko Studio). Instruções completas: skill `praeko-studio` em `.claude/skills/`, ou `praeko studio docs`.") : BODY[lang];
+      const body = f === "CLAUDE.md" ? (lang === "en" ? `Video project (Praeko Studio). Full instructions: the \`praeko-studio\` skill in \`.claude/skills/\`, or \`${STUDIO_NPX} docs\`.` : `Projeto de vídeo (Praeko Studio). Instruções completas: skill \`praeko-studio\` em \`.claude/skills/\`, ou \`${STUDIO_NPX} docs\`.`) : BODY[lang];
       t = t.slice(0, i) + `${BLOCK_START}\n${body}\n${BLOCK_END}\n`.trimEnd() + t.slice(j);
       // the hand-written rest (outside the managed block) gets the command/file tokens rewritten
       const a = t.indexOf(BLOCK_START), b = t.indexOf(BLOCK_END) + BLOCK_END.length;
@@ -288,7 +289,7 @@ export function reportText(plan: Plan, r?: Result): string {
   if (plan.followUps.length > 200) L.push(`- … and ${plan.followUps.length - 200} more`);
   L.push("", "## Text edits (command words and file names only)");
   plan.textEdits.length ? plan.textEdits.forEach((f) => L.push(`- ${f}`)) : L.push("- none");
-  L.push("", "Stored keys do not move: YouTube/TikTok tokens saved by the old Studio under the old keychain/secrets entries may need `praeko studio account <network> connect` again.");
+  L.push("", `Stored keys do not move: YouTube/TikTok tokens saved by the old Studio under the old keychain/secrets entries may need \`${STUDIO_NPX} account <network> connect\` again.`);
   return L.join("\n") + "\n";
 }
 

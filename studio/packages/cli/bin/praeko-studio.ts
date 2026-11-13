@@ -19,10 +19,10 @@ import { installTranslation, setLang, translate } from "../src/i18n.ts";
 function docs(a: string[]): number {
   const dir = join(PACKAGE_ROOT, "docs"), lic = join(PACKAGE_ROOT, "LICENSES.md");
   const topics = [...(existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3)) : []), ...(existsSync(lic) ? ["licenses"] : [])].sort();
-  if (!a[0]) { console.log("topics: " + topics.join(", ") + "\n\npraeko studio docs <topic>"); return 0; }
+  if (!a[0]) { console.log("topics: " + topics.join(", ") + `\n\nnpx @praeko/studio@${VERSION} docs <topic>`); return 0; }
   const t = a[0].replace(/\.md$/, "");
   if (!topics.includes(t)) throw new Error(`topic "${a[0]}" does not exist (there are: ${topics.join(", ")})`);
-  console.log(readFileSync(t === "licenses" ? lic : join(dir, t + ".md"), "utf8"));
+  console.log(readFileSync(t === "licenses" ? lic : join(dir, t + ".md"), "utf8").replaceAll("@praeko/studio@<version>", `@praeko/studio@${VERSION}`)); // the docs write the command as npx @praeko/studio@<version>: shown with this exact version
   return 0;
 }
 

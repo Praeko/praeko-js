@@ -36,7 +36,7 @@ test("without a rendered video: a clear error naming render, nothing returned", 
   const dir = realProject(), c = await connect({ project: dir, studioBin: REAL_BIN });
   await c.call("studio_new_episode", { slug: "demo" });
   const r = await review(c, { slug: "demo" });
-  assert.equal(r.raw.isError, true); assert.match(r.text, /run `praeko studio render demo` first/); assert.equal(r.images.length, 0);
+  assert.equal(r.raw.isError, true); assert.match(r.text, /run `npx @praeko\/studio@[\d.]+ render demo` first/); assert.equal(r.images.length, 0);
   await c.close();
 });
 test("returns the manifest and REVIEW.md as DATA-marked text and the frames as image content", media, async () => {

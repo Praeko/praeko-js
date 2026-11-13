@@ -8,6 +8,7 @@ import type { Brand, Publication } from "@praeko/studio-publish";
 import { episodeOf, findProject } from "./project.ts";
 import type { Episode, Project } from "./project.ts";
 import { isImagePiece } from "./compile.ts";
+import { STUDIO_NPX } from "./version.ts";
 
 const KEY_REF = "buffer/principal";
 export const flag = (a: string[], k: string): string | undefined => { const i = a.indexOf("--" + k); return i >= 0 && a[i + 1] && !a[i + 1]!.startsWith("--") ? a[i + 1] : undefined; };
@@ -67,7 +68,7 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
     const { via } = resolveVia(a, brand), isPraeko = via === "praeko";
     let k = flag(a, "key");
     if (!k) { const ch: Buffer[] = []; for await (const c of process.stdin) ch.push(c as Buffer); k = Buffer.concat(ch).toString().trim(); }
-    if (!k) throw new Error(isPraeko ? "usage: echo $KEY | praeko studio schedule --via praeko --key   (the praeko_… key comes from the Praeko dashboard, in API keys, with write scope)" : "usage: echo $KEY | praeko studio schedule --key   (the key comes from publish.buffer.com/settings/api)");
+    if (!k) throw new Error(isPraeko ? `usage: echo $KEY | ${STUDIO_NPX} schedule --via praeko --key   (the praeko_… key comes from the Praeko dashboard, in API keys, with write scope)` : `usage: echo $KEY | ${STUDIO_NPX} schedule --key   (the key comes from publish.buffer.com/settings/api)`);
     if (isPraeko && !/^(praeko|arauto)_/.test(k)) throw new Error("that does not look like a Praeko key (they start with praeko_; the old arauto_ ones also work). Nothing was stored.");
     if (isPraeko) { store(praekoProvider.KEY_REF, k); console.log(`Praeko key stored (system keychain on macOS; secrets file elsewhere; account ${praekoProvider.KEY_REF})`); return 0; }
     store(KEY_REF, k);
@@ -90,7 +91,7 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
 
   const WITH_VALUE = new Set(["when", "networks", "yt", "ig", "tt", "video", "url", "key", "cover", "via"]);
   const slug = (() => { for (let i = 0; i < a.length; i++) { if (a[i]!.startsWith("--")) { if (WITH_VALUE.has(a[i]!.slice(2))) i++; continue; } return a[i]; } })();
-  if (!slug) throw new Error('usage: praeko studio schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--send]\n       praeko studio schedule --channels | --key | <slug> --status | --cancel | --clear   (--via praeko|buffer)');
+  if (!slug) throw new Error(`usage: ${STUDIO_NPX} schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--send]\n       ${STUDIO_NPX} schedule --channels | --key | <slug> --status | --cancel | --clear   (--via praeko|buffer)`);
   const ep = episodeOf(p, slug), scheduleFile = join(ep.folder, "schedule.json");
   const sched: any = existsSync(scheduleFile) ? JSON.parse(readFileSync(scheduleFile, "utf8")) : null;
   const h = () => hosting.hostingConfig(p.brand);
@@ -102,7 +103,7 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
   if (sched && operation) {
     if (explicit && askedVia !== schedProvider) throw new Error(`this episode was scheduled by ${schedProvider === "praeko" ? "Praeko" : "Buffer"}: ${operation === "status" ? "check it" : "do that"} with --via ${schedProvider} (a provider does not touch the other's schedule)`);
     via = schedProvider; // without an explicit --via, follow the provider that created the schedule
-  } else if (sched && has(a, "send") && schedProvider !== askedVia) throw new Error(`this episode was already scheduled by ${schedProvider === "praeko" ? "Praeko" : "Buffer"}: cancel it there first (praeko studio schedule ${slug} --cancel --via ${schedProvider}) and only then schedule with ${askedVia}`);
+  } else if (sched && has(a, "send") && schedProvider !== askedVia) throw new Error(`this episode was already scheduled by ${schedProvider === "praeko" ? "Praeko" : "Buffer"}: cancel it there first (${STUDIO_NPX} schedule ${slug} --cancel --via ${schedProvider}) and only then schedule with ${askedVia}`);
   if (via === "praeko") return (await import("./schedule-praeko.ts")).schedulePraeko(a, { p, ep, slug, sched, scheduleFile, env });
 
   if (isImagePiece(ep.folder)) throw new Error("image posts are scheduled through Praeko only: use --via praeko (Buffer's own API path here is for videos)");
@@ -129,7 +130,7 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
   // ----- plan
   const publication = readPublication(ep);
   const v = validate({ brand: p.brand, publication });
-  if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); console.log("Fix publication.json (praeko studio package) before scheduling."); return 1; }
+  if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); console.log(`Fix publication.json (${STUDIO_NPX} package) before scheduling.`); return 1; }
   const defaults = (p.brand.publishing?.buffer as any)?.networks || (publication.format === "long" ? ["youtube", "instagram"] : ["youtube", "instagram", "tiktok"]);
   const networks: string[] = flag(a, "networks") ? flag(a, "networks")!.split(",").map((x) => NETWORKS[x.trim()] || (() => { throw new Error(`unknown network: ${x}`); })()) : defaults;
   const offset = p.brand.publishing?.timezoneOffset || "-03:00";
@@ -157,7 +158,7 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
   // channels (API read only with a key; it is a query, it publishes nothing)
   let channels: Record<string, string> = {}, missing: string[] = [];
   if (key) { try { ({ channels, missing } = pickChannels({ brand: p.brand, channels: await listChannels({ key } as any), networks })); } catch (e: any) { if (send) throw e; console.log(`⚠ I could not read the Buffer channels (${e.message})`); } }
-  else if (send) throw new Error("no Buffer key: `echo $KEY | praeko studio schedule --key` (publish.buffer.com/settings/api)");
+  else if (send) throw new Error(`no Buffer key: \`echo $KEY | ${STUDIO_NPX} schedule --key\` (publish.buffer.com/settings/api)`);
   if (send && missing.length) throw new Error(missing.join("\n"));
   for (const r of networks) channels[r] ||= `<channel ${r}>`;
 
@@ -190,6 +191,6 @@ export async function schedule(a: string[], env: ScheduleEnv = {}): Promise<numb
       console.log(`✓ ${NAME[x.network]} scheduled for ${localTime(x.input.dueAt)} (${r.id})`);
     } catch (e: any) { save(); console.log(`✗ ${NAME[x.network]}: ${e.message}`); console.log(`Already created: ${done.map((f) => NAME[f.network]).join(", ") || "nothing"}. See --status; --cancel undoes it.`); return 1; }
   }
-  console.log(`\nThe video stays at ${videoUrl} until it is published. After publishing: praeko studio schedule ${slug} --clear`);
+  console.log(`\nThe video stays at ${videoUrl} until it is published. After publishing: ${STUDIO_NPX} schedule ${slug} --clear`);
   return 0;
 }

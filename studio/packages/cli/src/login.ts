@@ -17,7 +17,7 @@ export const DEFAULT_SERVER = "https://praeko.app";
 /** The command the person (or their agent) runs to sign in again, pinned to this version. */
 export const LOGIN_COMMAND = `npx @praeko/studio@${VERSION} login`;
 export const loginCommandFor = (profile: string): string => (profile === DEFAULT_PROFILE ? LOGIN_COMMAND : `${LOGIN_COMMAND} --profile ${profile}`);
-export const LOGIN_USAGE = "usage: praeko studio login [--profile <name>] [--no-browser] [--json] [--yes] [--server <url>]\n       (when the profile already has a key: in a terminal it asks before replacing it; with --yes, --json or no terminal it replaces it and says so)\n       (shows a code; you approve it at praeko.app/device; the key goes to your Keychain or secrets file, never to the screen)";
+export const LOGIN_USAGE = "usage: " + LOGIN_COMMAND + " [--profile <name>] [--no-browser] [--json] [--yes] [--server <url>]\n       (when the profile already has a key: in a terminal it asks before replacing it; with --yes, --json or no terminal it replaces it and says so)\n       (shows a code; you approve it at praeko.app/device; the key goes to your Keychain or secrets file, never to the screen)";
 
 export type LoginEnv = {
   /** A terminal of the person's own (asks before replacing a profile's key). Default: stdin and stdout are TTYs. */

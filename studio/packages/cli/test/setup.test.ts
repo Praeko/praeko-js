@@ -338,7 +338,7 @@ const filesWith = (dir: string, needle: string): string[] => Object.entries(snap
 test("setup and the sign-in by code: --plan only announces it (no request); --yes without a key signs in, stores for the profile, never shows the key anywhere", async () => {
   const m = machine({ claude: true });
   assert.equal(await S.setupCommand(["--plan", "--agent", "claude"], m.env), 0);
-  assert.match(m.text(), /\+ sign in to Praeko by code for profile "praeko-studio" \(praeko studio login\)/);
+  assert.match(m.text(), /\+ sign in to Praeko by code for profile "praeko-studio" \(npx @praeko\/studio@[\d.]+ login --profile praeko-studio\)/);
   assert.match(m.text(), /What only you do:[\s\S]*Approve Praeko Studio in the browser \(code shown in the terminal\)/);
   assert.equal(m.device.codeBodies.length, 0, "the plan asks Praeko for nothing");
   m.out.length = 0; m.err.length = 0;
@@ -403,4 +403,67 @@ test("setup: a denied or expired sign-in leaves the files applied, exits 1 and l
   // uninstall never removes the key
   assert.equal(await S.setupCommand(["uninstall", "--yes"], e.env), 0);
   assert.equal(e.stored["praeko/profile/praeko-studio"], DEVICE_KEY); assert.match(e.text(), /The Praeko key stays where it is/);
+});
+
+// ---------- 0.3.2: --no-login and commands that work without @praeko/cli ----------
+test("setup --no-login: --plan and --yes neither offer nor run the sign-in; the summary says it is optional and how to do it later", async () => {
+  const m = machine({ claude: true, tty: true });
+  m.env.ask = async () => { throw new Error("no question about the sign-in with --no-login"); };
+  assert.equal(await S.setupCommand(["--plan", "--no-login", "--agent", "claude"], m.env), 0, m.text());
+  assert.match(m.text(), /= sign-in by code skipped \(--no-login\): it is optional/);
+  assert.doesNotMatch(m.text(), /\+ sign in to Praeko by code/);
+  assert.match(m.text(), /What only you do:[\s\S]*Optional, not needed for your first video: authorize Praeko Studio[\s\S]*npx @praeko\/studio@[\d.]+ login in the project folder/);
+  assert.doesNotMatch(m.text().split("What only you do:")[1]!, /Approve Praeko Studio in the browser/);
+  m.out.length = 0; m.err.length = 0;
+  assert.equal(await S.setupCommand(["--yes", "--no-login", "--agent", "claude"], m.env), 0, m.text());
+  assert.equal(m.device.codeBodies.length, 0, "no request to Praeko");
+  assert.deepEqual(m.stored, {}); assert.deepEqual(m.opened, []);
+  assert.match(m.text(), /Optional, not needed for your first video/);
+  assert.match(m.text(), /Next: in the project folder \([^)]*praeko-studio\), ask your agent to follow `npx @praeko\/studio@[\d.]+ docs first-video`/);
+  // --json: one document, noLogin true, no login outcome
+  const j0 = machine();
+  assert.equal(await S.setupCommand(["--json", "--yes", "--no-login", "--agent", "codex"], j0.env), 0);
+  const j = JSON.parse(j0.out.at(-1)!);
+  assert.equal(j.noLogin, true); assert.equal(j.login, undefined);
+  assert.equal(j.steps.find((s: any) => s.kind === "login").reason, "--no-login");
+  assert.equal(j0.device.codeBodies.length, 0);
+  // without the flag nothing changes: the sign-in is still offered
+  const w = machine();
+  assert.equal(await S.setupCommand(["--plan", "--agent", "codex"], w.env), 0);
+  assert.match(w.text(), /\+ sign in to Praeko by code/);
+});
+
+test("every command the CLI tells you to run is the scoped package at this version: never the unscoped npx praeko-studio / npx praeko, never a bare praeko studio", async () => {
+  const { VERSION } = await import("../src/version.ts");
+  const BIN = new URL("../bin/praeko-studio.ts", import.meta.url).pathname;
+  const home = mkdtempSync(join(tmpdir(), "studio-npx-")), work = join(home, "work"); mkdirSync(work);
+  // a PATH with only the folder of node: no `praeko` (from @praeko/cli) and no `praeko-studio` anywhere
+  const nodeDir = join(process.execPath, "..");
+  const env = { HOME: home, PATH: nodeDir, PRAEKO_NO_KEYCHAIN: "1", PRAEKO_SECRETS: join(home, "s.json"), PRAEKO_STUDIO_CONFIG: join(home, "cfg"), PRAEKO_KEY: "", PRAEKO_STUDIO_NO_NOTICE: "1" };
+  assert.equal(spawnSync("/bin/sh", ["-c", "command -v praeko"], { env, encoding: "utf8" }).status, 1, "the test PATH has no praeko");
+  const proibido = /npx praeko(?:-studio|@| )/, bare = /(?<![\w@/-])praeko studio (?!<command> also works)/;
+  const scoped = (txt: string) => [...txt.matchAll(/npx @praeko\/studio@([^\s`'"),;]+)/g)].map((m) => m[1]);
+  const confere = (name: string, txt: string) => {
+    for (const l of txt.split("\n")) { assert.ok(!proibido.test(l), `${name}: ${l}`); assert.ok(!bare.test(l) || /@praeko\/cli/.test(l), `${name}: ${l}`); }
+    for (const v of scoped(txt)) assert.equal(v, VERSION, `${name}: npx @praeko/studio@${v}`);
+    assert.ok(!txt.includes("@praeko/studio@<version>") || name.startsWith("skill"), `${name}: marker left`);
+  };
+  const runs: [string, string[]][] = [["help", []], ["unknown", ["nothing-here"]], ["setup --help", ["setup", "--help"]], ["login --help", ["login", "--help"]], ["setup --plan", ["setup", "--plan", "--agent", "codex"]], ["setup --plan --no-login", ["setup", "--plan", "--no-login", "--agent", "codex"]],
+    ["doctor --offline", ["doctor", "--offline"]], ["docs", ["docs"]], ["new outside a project", ["new", "x"]], ["skill install usage", ["skill"]]];
+  for (const t of ["first-video", "episode-yaml", "long-yaml", "publish", "review", "voice", "hyperframes"]) runs.push([`docs ${t}`, ["docs", t]]);
+  for (const lang of ["en", "pt"]) for (const [name, args] of runs) {
+    const r = spawnSync(process.execPath, [BIN, ...args, "--lang", lang], { cwd: work, env, encoding: "utf8", input: "" });
+    confere(`${name} (${lang})`, r.stdout + "\n" + r.stderr);
+  }
+  const r = spawnSync(process.execPath, [BIN, "docs", "first-video"], { cwd: work, env, encoding: "utf8" });
+  assert.ok(r.stdout.includes(`npx @praeko/studio@${VERSION} doctor`)); assert.match(r.stdout, /no Praeko key and no sign-in/);
+  // the agent instructions the CLI writes into a project (every agent, en and pt)
+  for (const lang of ["en", "pt"]) {
+    const dir = join(home, "skill-" + lang); mkdirSync(dir);
+    const s = spawnSync(process.execPath, [BIN, "skill", "install", "--agent", "all", "--lang", lang, "--dir", dir], { cwd: work, env, encoding: "utf8" });
+    assert.equal(s.status, 0, s.stderr);
+    const files = (readdirSync(dir, { recursive: true }) as string[]).filter((f) => statSync(join(dir, f)).isFile());
+    assert.ok(files.length >= 7, files.join(", "));
+    for (const f of files) { const txt = readFileSync(join(dir, f), "utf8"); confere(`skill ${lang} ${f}`, txt); assert.ok(scoped(txt).length > 0 || !/npx/.test(txt), `${f}: no scoped command`); }
+  }
 });

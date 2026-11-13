@@ -2,6 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import type { Words } from "./compile.ts";
+import { STUDIO_NPX } from "./version.ts";
 
 const norm = (s: unknown): string => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
 export type Block = { n?: number; title?: string; a: number; b: number };
@@ -25,7 +26,7 @@ export function resolvePoint(ref: string | number, end: "from" | "to", { words, 
   const b = s.match(/^block:(\d+)$/);
   if (b) {
     const x = blocks?.[+b[1]! - 1];
-    if (!x) throw new Error(`block ${b[1]} does not exist (blocks.json has ${blocks?.length ?? 0}; run \`praeko studio voice\` on the long video)`);
+    if (!x) throw new Error(`block ${b[1]} does not exist (blocks.json has ${blocks?.length ?? 0}; run \`${STUDIO_NPX} voice\` on the long video)`);
     return end === "from" ? x.a : x.b;
   }
   const i = findPhraseIndex(words, s);

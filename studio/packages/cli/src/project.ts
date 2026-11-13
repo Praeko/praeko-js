@@ -2,11 +2,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import type { Brand } from "@praeko/studio-publish";
+import { STUDIO_NPX } from "./version.ts";
 
 export type Project = { root: string; brand: Brand };
 export type Episode = { slug: string; folder: string; id: string; cover: string; title?: string; mp4: string; png: string };
 
-export const LEGACY_MESSAGE = "this project uses the old Portuguese layout: run `praeko studio migrate` (add --dry-run to preview)";
+export const LEGACY_MESSAGE = `this project uses the old Portuguese layout: run \`${STUDIO_NPX} migrate\` (add --dry-run to preview)`;
 
 /** Nearest folder (from `from` upwards) that has src/index.ts and a brand file (brand.json, or the old marca.json that only `migrate` understands). */
 export function findProjectRoot(from: string = process.cwd()): string | null {
@@ -23,14 +24,14 @@ export const isLegacyLayout = (root: string): boolean => (existsSync(join(root, 
 
 export function findProject(from: string = process.cwd()): Project {
   const root = findProjectRoot(from);
-  if (!root) throw new Error("no Praeko Studio project found (a folder with brand.json and src/index.ts). Run `praeko studio init <folder>` or enter the project folder.");
+  if (!root) throw new Error(`no Praeko Studio project found (a folder with brand.json and src/index.ts). Run \`${STUDIO_NPX} init <folder>\` or enter the project folder.`);
   if (isLegacyLayout(root)) throw new Error(LEGACY_MESSAGE);
   return { root, brand: JSON.parse(readFileSync(join(root, "brand.json"), "utf8")) };
 }
 export const pascal = (slug: string): string => slug.split(/[^a-zA-Z0-9]+/).filter(Boolean).map((s) => s[0]!.toUpperCase() + s.slice(1)).join("");
 export function episodeOf(project: Project, slug: string | undefined): Episode {
   const folder = join(project.root, "episodes", String(slug));
-  if (!slug || !existsSync(folder)) throw new Error(`episode "${slug}" does not exist (${folder}). Create it with: praeko studio new ${slug ?? "<slug>"}`);
+  if (!slug || !existsSync(folder)) throw new Error(`episode "${slug}" does not exist (${folder}). Create it with: ${STUDIO_NPX} new ${slug ?? "<slug>"}`);
   const file = join(folder, "episode.json");
   const info = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { id: pascal(slug), cover: `Cover${pascal(slug)}` };
   return { slug, folder, ...info, mp4: join(project.root, "out", `${slug}.mp4`), png: join(project.root, "out", `${slug}-cover.png`) };

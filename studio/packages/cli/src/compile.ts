@@ -2,6 +2,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
+import { STUDIO_NPX } from "./version.ts";
 
 export type Words = { t: string; a: number; b: number }[];
 export type CompileResult = { spec: any; errors: string[]; warnings: string[] };
@@ -68,11 +69,11 @@ export function resolveTime(x: any, words: Words, where: string, errors: string[
   if (typeof x === "object" && x.block !== undefined) return x;
   const o = typeof x === "string" ? { when: x } : x;
   if (typeof o.voice === "number") {
-    if (!words.length) { errors.push(`${where}: \`{ voice: ${o.voice} }\` needs words.json (run \`praeko studio voice\`)`); return 0; }
+    if (!words.length) { errors.push(`${where}: \`{ voice: ${o.voice} }\` needs words.json (run \`${STUDIO_NPX} voice\`)`); return 0; }
     return +(words[words.length - 1]!.b + o.voice).toFixed(2);
   }
   if (typeof o.when !== "string") { errors.push(`${where}: invalid time (use a number, "phrase", { when, nth, after, plus } or { voice: N })`); return 0; }
-  if (!words.length) { errors.push(`${where}: "${o.when}" needs words.json (run \`praeko studio voice\`)`); return 0; }
+  if (!words.length) { errors.push(`${where}: "${o.when}" needs words.json (run \`${STUDIO_NPX} voice\`)`); return 0; }
   const t = findPhrase(words, o.when, o.nth ?? 0, o.after ?? 0);
   if (t < 0) { errors.push(`${where}: phrase "${o.when}" does not appear in the voice (words.json)`); return 0; }
   return +(t + (o.plus ?? 0)).toFixed(2);
@@ -101,7 +102,7 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
   const info: any = readJson(join(folder, "episode.json"), {});
   if (y.format === "image" || y.format === "carousel") return compileImage({ y, info, folder, errors, warnings, write });
   const words: Words = readJson(join(folder, "words.json"), []);
-  if (!words.length) warnings.push("words.json is empty or missing: `when` anchors were not checked (run `praeko studio voice`)");
+  if (!words.length) warnings.push(`words.json is empty or missing: \`when\` anchors were not checked (run \`${STUDIO_NPX} voice\`)`);
   // phrase times: duration, scene start/end, outro.start and hits become seconds before validating
   if (y.duration !== undefined) y.duration = resolveTime(y.duration, words, "duration", errors);
   if (y.outro && typeof y.outro === "object" && y.outro.start !== undefined) y.outro.start = resolveTime(y.outro.start, words, "outro.start", errors);
@@ -254,7 +255,7 @@ function compileLong({ y, info, words, folder, errors, warnings, write }: { y: a
   (y.scenes as any[]).forEach((c) => {
     if (c.start && typeof c.start === "object" && c.start.block !== undefined) {
       const b = blocks[c.start.block - 1];
-      if (!b) errors.push(`scene "${c.title}": block ${c.start.block} does not exist in blocks.json (run \`praeko studio voice\` with the script in \`## title\` blocks)`);
+      if (!b) errors.push(`scene "${c.title}": block ${c.start.block} does not exist in blocks.json (run \`${STUDIO_NPX} voice\` with the script in \`## title\` blocks)`);
       else c.start = +(b.a + (c.start.plus ?? 0)).toFixed(2);
     }
   });

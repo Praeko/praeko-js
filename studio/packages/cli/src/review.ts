@@ -12,6 +12,7 @@ import { IMAGE_LIMITS, slideFile } from "./image.ts";
 import { lang, translate } from "./i18n.ts";
 import { episodeOf, findProject } from "./project.ts";
 import type { Episode, Project } from "./project.ts";
+import { STUDIO_NPX } from "./version.ts";
 
 const flag = (a: string[], k: string): string | undefined => { const i = a.indexOf("--" + k); return i >= 0 ? a[i + 1] : undefined; };
 const has = (a: string[], k: string): boolean => a.includes("--" + k);
@@ -92,7 +93,7 @@ const dict = (): { lang: "en" | "pt"; tr: (s: string) => string } => ({ lang: la
 function reviewVideo(p: Project, ep: Episode, a: string[]): Manifest {
   const publication = readJson<any>(join(ep.folder, "publication.json"), {}), format = formatOf(ep, publication);
   const video = (engineOf(p, ep, flag(a, "engine")) === "hyperframes") ? hyperframesMp4(p, ep) : ep.mp4;
-  if (!existsSync(video)) throw new Error(`no rendered video for "${ep.slug}" (${relative(p.root, video)}): run \`praeko studio render ${ep.slug}\` first`);
+  if (!existsSync(video)) throw new Error(`no rendered video for "${ep.slug}" (${relative(p.root, video)}): run \`${STUDIO_NPX} render ${ep.slug}\` first`);
   const specFile = join(ep.folder, "episode.spec.json");
   let spec: any = readJson<any>(specFile, null);
   if (!spec && existsSync(join(ep.folder, "episode.yaml"))) spec = compileEpisode(ep.folder, { write: false }).spec;
@@ -114,10 +115,10 @@ function reviewVideo(p: Project, ep: Episode, a: string[]): Manifest {
 
 function reviewSlides(p: Project, ep: Episode): Manifest {
   const compiled = readJson<any>(join(ep.folder, "episode.spec.json"), null) ?? compileEpisode(ep.folder, { write: false }).spec;
-  if (!compiled?.slides) throw new Error(`"${ep.slug}" has no compiled slides: run \`praeko studio compile ${ep.slug}\``);
+  if (!compiled?.slides) throw new Error(`"${ep.slug}" has no compiled slides: run \`${STUDIO_NPX} compile ${ep.slug}\``);
   const kind: "image" | "carousel" = compiled.format === "carousel" ? "carousel" : "image", publication = readJson<any>(join(ep.folder, "publication.json"), {});
   const slides = (compiled.slides as any[]).map((s, i) => ({ n: i + 1, file: slideFile(p.root, ep.slug, i + 1), alt: typeof s.alt === "string" ? s.alt : "", text: [...(Array.isArray(s.title) ? (s.title as string[]).map(String) : []), ...(s.items ?? []).flatMap(itemTexts)], hasTitle: Array.isArray(s.title) && s.title.length > 0 }));
-  if (!slides.some((s) => existsSync(s.file))) throw new Error(`no rendered slides for "${ep.slug}" (out/${ep.slug}-slide-01.jpg…): run \`praeko studio slides ${ep.slug}\` first`);
+  if (!slides.some((s) => existsSync(s.file))) throw new Error(`no rendered slides for "${ep.slug}" (out/${ep.slug}-slide-01.jpg…): run \`${STUDIO_NPX} slides ${ep.slug}\` first`);
   const texts: TextSource[] = [];
   for (const s of slides) { if (s.text.length) texts.push({ source: `slide ${s.n} text`, text: s.text.join("\n"), slide: s.n }); if (s.alt) texts.push({ source: `slide ${s.n} alt text`, text: s.alt, slide: s.n }); }
   texts.push(...publicationTexts(publication));
@@ -132,7 +133,7 @@ function reviewSlides(p: Project, ep: Episode): Manifest {
 
 export function reviewCommand(a: string[]): number {
   const slug = a[0];
-  if (!slug || slug.startsWith("--")) throw new Error("usage: praeko studio review <slug> [--every <seconds>] [--max-frames N] [--engine remotion|hyperframes] [--json]");
+  if (!slug || slug.startsWith("--")) throw new Error(`usage: ${STUDIO_NPX} review <slug> [--every <seconds>] [--max-frames N] [--engine remotion|hyperframes] [--json]`);
   const every = flag(a, "every"), max = flag(a, "max-frames");
   if (every !== undefined && !(Number(every) > 0)) throw new Error("--every takes a number of seconds above 0");
   if (max !== undefined && !(Number.isInteger(Number(max)) && Number(max) >= 2 && Number(max) <= 60)) throw new Error("--max-frames takes a whole number from 2 to 60");

@@ -1,13 +1,15 @@
 // Text of `praeko studio --help`. In its own module so the public documentation test can check the commands against it (docs-publica-studio.test.mjs).
-export const help = (version: string): string => `praeko studio <command>   (version ${version})
+export const help = (version: string): string => `npx @praeko/studio@${version} <command>   (version ${version}; the same inside or outside a project folder.
+                               With the praeko CLI (@praeko/cli) installed, praeko studio <command> also works)
 
-  setup [folder] [--plan] [--yes] [--agent claude,claude-desktop,codex,cursor,…|all] [--profile <name>] [--json] [--no-install] [--no-browser]
+  setup [folder] [--plan] [--yes] [--agent claude,claude-desktop,codex,cursor,…|all] [--profile <name>] [--json] [--no-install] [--no-browser] [--no-login]
                                            connects your AI agents to Praeko on this machine: checks it (Node, npm, ffmpeg, ffprobe, Chrome) and proposes
                                            installs, detects agents, registers the remote MCP (praeko.app/mcp) in each one's format (sign-in or PRAEKO_KEY,
                                            never a key in a file) and the local Studio MCP where there is no terminal (Claude Desktop), creates the project
                                            (init --agent), writes .praeko/config.json (key profile, no secret) and appends to .gitignore. Shows the plan first
                                            (--plan changes nothing; without a terminal it only plans unless --yes), backs up every file it touches and ends
-                                           with what only you do. With no Praeko key for the profile it ends by signing in with a code (see login)
+                                           with what only you do. With no Praeko key for the profile it ends by signing in with a code (see login);
+                                           --no-login skips that sign-in (optional: run login later from the project folder)
   login [--profile <name>] [--no-browser] [--json] [--yes]
                                            gets the Praeko write key by sign-in with a code (like gh auth login): prints a short code and
                                            https://praeko.app/device, opens the browser; you approve in the dashboard and the key goes straight to
@@ -61,7 +63,7 @@ export const help = (version: string): string => `praeko studio <command>   (ver
   package <slug>                           writes texts.md (YouTube, Instagram, TikTok, UTM) from publication.json
   schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--via praeko|buffer] [--send]   (an image piece or carousel goes only to Instagram, --via praeko; a carousel uploads its slides in order)
                                            schedules through Praeko (default); without --send it only simulates. schedule --channels lists the channels;
-                                           echo $KEY | praeko studio schedule --via praeko --key stores the Praeko key
+                                           echo $KEY | npx @praeko/studio@${version} schedule --via praeko --key stores the Praeko key
   post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--send]   direct publishing to the networks (advanced)
   queue [list|run|cancel <id>|install|remove]                         the own queue (install/remove: macOS only)
   account <youtube|instagram|tiktok> [connect|status]                 authorizes Studio on a network (advanced)

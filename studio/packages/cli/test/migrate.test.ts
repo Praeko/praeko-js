@@ -83,7 +83,7 @@ test("legacy detection: every other command stops with the migrate instruction (
   for (const args of [["compile", "curto"], ["check", "curto"], ["new", "x"], ["voice", "curto"], ["schedule", "curto", "--when", "30/12 10:00"], ["queue"]]) {
     const r = studio(args, root);
     assert.equal(r.status, 1, args.join(" "));
-    assert.match(r.stderr, /this project uses the old Portuguese layout: run `praeko studio migrate` \(add --dry-run to preview\)/);
+    assert.match(r.stderr, /this project uses the old Portuguese layout: run `npx @praeko\/studio@[\d.]+ migrate` \(add --dry-run to preview\)/);
   }
   assert.equal(studio(["docs"], root).status, 0); assert.equal(studio(["help"], root).status, 0);
   assert.equal(studio(["doctor", "--offline"], root).status === 1 || studio(["doctor", "--offline"], root).status === 0, true);
@@ -149,7 +149,7 @@ test("migrate: renames files and folders, rewrites keys and imports, keeps comme
   const claude = read(root, "CLAUDE.md");
   assert.match(claude, /praeko studio new x --title T/); assert.match(claude, /praeko studio voice x --quality draft/); assert.match(claude, /brand\.json/); assert.match(claude, /episodes\//);
   assert.match(claude, /praeko-studio:start/); assert.match(claude, /Projeto de vídeo \(Praeko Studio\)/, "the language already present (pt) is kept"); assert.doesNotMatch(claude, /praeko-studio:inicio|praeko-studio:fim/);
-  assert.match(read(root, ".claude/skills/praeko-studio/SKILL.md"), /praeko studio new/);
+  assert.match(read(root, ".claude/skills/praeko-studio/SKILL.md"), /npx @praeko\/studio@[\d.]+ new/);
   assert.match(read(root, ".gitignore"), /\.studio-backup\//);
   // backup and report
   const backups = readdirSync(join(root, ".studio-backup")); assert.equal(backups.length, 1);

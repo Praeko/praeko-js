@@ -1,6 +1,6 @@
 # Voice in Praeko Studio
 
-`praeko studio voice <slug> --quality draft|final|local` writes `voice.mp3` and the per-word timings (`words.json`/`words.ts`).
+`npx @praeko/studio@<version> voice <slug> --quality draft|final|local` writes `voice.mp3` and the per-word timings (`words.json`/`words.ts`).
 
 | Quality | What it does | Cost |
 |---|---|---|
@@ -10,8 +10,8 @@
 
 ## Set up your voice
 Layers of `voices.json` (the top one wins): **project** (next to `brand.json`) > **user** (`~/.config/praeko/studio/voices.json`, or `PRAEKO_STUDIO_CONFIG`) > package default (no ids).
-1. Store the key: `echo $KEY | praeko studio voice config key elevenlabs/principal` (system keychain on macOS; file `~/.config/praeko/secrets.json` with 600 permission on Linux; on Windows prefer the `ELEVENLABS_API_KEY` variable).
-2. Register the voice: `praeko studio voice account add principal --voice my-voice --voice-id <voice id>` (writes the id into the project's `voices.json`) or set `ELEVENLABS_VOICE_ID`.
+1. Store the key: `echo $KEY | npx @praeko/studio@<version> voice config key elevenlabs/principal` (system keychain on macOS; file `~/.config/praeko/secrets.json` with 600 permission on Linux; on Windows prefer the `ELEVENLABS_API_KEY` variable).
+2. Register the voice: `npx @praeko/studio@<version> voice account add principal --voice my-voice --voice-id <voice id>` (writes the id into the project's `voices.json`) or set `ELEVENLABS_VOICE_ID`.
 3. In `brand.json`, `"voice": "my-voice"` applies to `voice` without `--quality`; with `--quality final` the voice in `quality.final` applies. The `init` default is `draft-silent`, so it never spends by accident.
 More than one account (failover by balance): `account add <other>`; the router skips an account with no balance or with an invalid key.
 

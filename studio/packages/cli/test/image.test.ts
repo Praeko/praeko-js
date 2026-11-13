@@ -185,7 +185,7 @@ test("slides (carousel): one `remotion still` per slide in the order of slides:,
   assert.deepEqual(calls.map((c) => c[3]!.split("/").pop()), [1, 2, 3, 4, 5].map((n) => `dicas-slide-0${n}.jpg`));
   for (const c of calls) assert.deepEqual(c.slice(4), ["--image-format=jpeg", "--jpeg-quality=92"]);
   for (let n = 1; n <= 5; n++) assert.deepEqual(jpegSize(readFileSync(join(root, "out", `dicas-slide-0${n}.jpg`))), { width: 1080, height: 1350 });
-  assert.match(r.stdout, /slide 5: out\/dicas-slide-05\.jpg \(1080x1350/); assert.match(r.stdout, /next: `praeko studio check dicas`/);
+  assert.match(r.stdout, /slide 5: out\/dicas-slide-05\.jpg \(1080x1350/); assert.match(r.stdout, /next: `npx @praeko\/studio@[\d.]+ check dicas`/);
   const big = project(); fs_write(big, "grande", CAROUSEL(20).replace("id: Dica", "id: Grande"));
   const rb = studio(["slides", "grande"], big);
   assert.equal(rb.status, 0, rb.stderr + rb.stdout); assert.equal(log(big).length, 20); assert.ok(existsSync(join(big, "out", "grande-slide-20.jpg")));

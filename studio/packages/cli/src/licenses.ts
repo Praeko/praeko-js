@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { userConfigDir } from "@praeko/studio-voice";
 import { lang } from "./i18n.ts";
+import { STUDIO_NPX } from "./version.ts";
 
 export const NOTICE_VERSION = 1;
 export const NOTICE: Record<"en" | "pt", string> = {
@@ -15,7 +16,7 @@ export const NOTICE: Record<"en" | "pt", string> = {
   - HyperFrames (--engine hyperframes, for videos and covers) is Apache-2.0 (github.com/heygen-com/hyperframes). Scenes and covers written as TSX (\`component:\`) only render in Remotion.
   - ffmpeg, Chromium, ElevenLabs and social networks have their own terms; Studio does not redistribute them. Fonts and music you add are your responsibility.
   - Voice: use only your own voice or one you are authorized to use.
-  Full text: the package's LICENSES.md (praeko studio docs licenses). To record that you read it: praeko studio licenses --accept`,
+  Full text: the package's LICENSES.md (${STUDIO_NPX} docs licenses). To record that you read it: ${STUDIO_NPX} licenses --accept`,
   pt: `Licenças (leia antes do primeiro render)
   - O código do Praeko Studio é MIT.
   - O Remotion é o motor padrão para vídeos E capas; com --engine hyperframes nada do Remotion é usado. O Remotion NÃO é MIT: é "source-available". Grátis para pessoas, organizações sem fins lucrativos, evoluir/avaliar, e empresas com até 3 funcionários.
@@ -24,7 +25,7 @@ export const NOTICE: Record<"en" | "pt", string> = {
   - O HyperFrames (--engine hyperframes, para vídeos e capas) é Apache-2.0 (github.com/heygen-com/hyperframes). Cenas e capas escritas em TSX (\`component:\`) só renderizam no Remotion.
   - ffmpeg, Chromium, ElevenLabs e as redes sociais têm termos próprios; o Studio não os redistribui. Fontes e músicas que você adicionar são de sua responsabilidade.
   - Voz: use só a sua própria voz ou uma que você tem autorização para usar.
-  Texto completo: LICENSES.md do pacote (praeko studio docs licenses). Confirmar que leu: praeko studio licenses --accept`,
+  Texto completo: LICENSES.md do pacote (${STUDIO_NPX} docs licenses). Confirmar que leu: ${STUDIO_NPX} licenses --accept`,
 };
 export const noticeText = (l: "en" | "pt" = lang()): string => NOTICE[l] || NOTICE.en;
 
@@ -39,7 +40,7 @@ export function writeAcceptance(now = new Date()): void {
 /** Short notice (once per render without acceptance) on stderr. Does not block. */
 export function shortNotice(): void {
   if (readAcceptance() || process.env.PRAEKO_STUDIO_NO_NOTICE) return;
-  console.error("(notice) Remotion is not MIT: free up to 3 people, companies of 4+ need a Company License. Details: praeko studio licenses");
+  console.error(`(notice) Remotion is not MIT: free up to 3 people, companies of 4+ need a Company License. Details: ${STUDIO_NPX} licenses`);
 }
 export function licensesCommand(a: string[]): number {
   const i = a.indexOf("--lang");

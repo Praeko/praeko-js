@@ -1,6 +1,6 @@
 # Long form in YAML (16:9, 1920×1080)
 
-`episode.yaml` with `format: long`. Time is **global** (seconds since the start of the video). `praeko studio compile <slug>` validates and writes `episode.spec.json`; `praeko studio render <slug>` renders (compiling first).
+`episode.yaml` with `format: long`. Time is **global** (seconds since the start of the video). `npx @praeko/studio@<version> compile <slug>` validates and writes `episode.spec.json`; `npx @praeko/studio@<version> render <slug>` renders (compiling first).
 
 ## Script in blocks
 ```
@@ -10,7 +10,7 @@
 ## 2 · THE PROBLEM
 …
 ```
-`praeko studio voice <slug> [--quality draft|final|local]` generates one audio per block in `voice-blocks/` (the name carries a hash of the text, voice and pronunciation: only the edited block is regenerated, which saves ElevenLabs credit), joins them with a 0.6 s pause into `voice.mp3` and writes `words.json`, `words.ts` and `blocks.json` (`[{n, title, a, b}]`). Old blocks stay in the cache.
+`npx @praeko/studio@<version> voice <slug> [--quality draft|final|local]` generates one audio per block in `voice-blocks/` (the name carries a hash of the text, voice and pronunciation: only the edited block is regenerated, which saves ElevenLabs credit), joins them with a 0.6 s pause into `voice.mp3` and writes `words.json`, `words.ts` and `blocks.json` (`[{n, title, a, b}]`). Old blocks stay in the cache.
 
 ## Top level and scenes
 ```yaml
@@ -59,10 +59,10 @@ cover:
   code: { title: social.mjs · marketBuy, lines: [{ s: "UPDATE market ..." }, { s: "AND sold_to IS NULL", hl: true }] }   # up to 3 lines
   chips: [{ text: "ok ✔", color: ok }, { text: sold, color: error }]
 ```
-`praeko studio cover <slug>` writes `out/<slug>-cover-1280x720.png` and `out/<slug>-cover-vertical-1080x1920.png` (the vertical one uses the Short covers' `Frame`, inside Instagram's 3:4 grid).
+`npx @praeko/studio@<version> cover <slug>` writes `out/<slug>-cover-1280x720.png` and `out/<slug>-cover-vertical-1080x1920.png` (the vertical one uses the Short covers' `Frame`, inside Instagram's 3:4 grid).
 
 ## Publication package of the long form
-`publication.json` with `"format": "long"` (fields as in the Short, plus `yt.pinnedComment` and `files.verticalCover`). `praeko studio package <slug>` builds `texts.md`: title and alternatives, description **with chapters**, pinned comment, Instagram caption and the check. Chapters come from the scenes (`start` + title in lowercase) and the YouTube rules apply: start at 0:00, 3 or more, 10 s each (otherwise it is an ERROR). For other texts, write `chapters: [{ t, title }]` in `publication.json`. The YouTube UTM uses `utm_medium=long`.
+`publication.json` with `"format": "long"` (fields as in the Short, plus `yt.pinnedComment` and `files.verticalCover`). `npx @praeko/studio@<version> package <slug>` builds `texts.md`: title and alternatives, description **with chapters**, pinned comment, Instagram caption and the check. Chapters come from the scenes (`start` + title in lowercase) and the YouTube rules apply: start at 0:00, 3 or more, 10 s each (otherwise it is an ERROR). For other texts, write `chapters: [{ t, title }]` in `publication.json`. The YouTube UTM uses `utm_medium=long`.
 
 ## Media and animation items (long form)
 All with `when` and `pos`:

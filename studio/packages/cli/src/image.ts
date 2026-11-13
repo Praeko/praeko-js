@@ -1,6 +1,7 @@
 // Image pieces (`format: image` and `format: carousel`): the checks on the JPEG that `praeko studio slides` writes, with no image library (it reads only the header).
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { STUDIO_NPX } from "./version.ts";
 
 /** What the Praeko server and Instagram accept for a feed photo (docs/imagens-e-carrosseis.md). */
 export const IMAGE_LIMITS = { width: 1080, height: 1350, bytesMax: 8 * 1024 * 1024, altMax: 1000, quality: 92 } as const;
@@ -34,7 +35,7 @@ export function checkJpeg(file: string): ImageCheck {
   const errors: string[] = [], warnings: string[] = [];
   if (!existsSync(file)) return { file, bytes: 0, width: null, height: null, errors: [`${file} does not exist`], warnings };
   const bytes = statSync(file).size, head = readFileSync(file).subarray(0, 256 * 1024), s = jpegSize(head);
-  if (!s) { errors.push(`${file} is not a JPEG (or its header has no dimensions): \`praeko studio slides\` writes a JPEG`); return { file, bytes, width: null, height: null, errors, warnings }; }
+  if (!s) { errors.push(`${file} is not a JPEG (or its header has no dimensions): \`${STUDIO_NPX} slides\` writes a JPEG`); return { file, bytes, width: null, height: null, errors, warnings }; }
   if (s.width !== IMAGE_LIMITS.width || s.height !== IMAGE_LIMITS.height) errors.push(`image is ${s.width}x${s.height}, expected ${IMAGE_LIMITS.width}x${IMAGE_LIMITS.height} (4:5)`);
   if (bytes > IMAGE_LIMITS.bytesMax) errors.push(`image has ${(bytes / 1048576).toFixed(1)} MB: Instagram accepts up to ${IMAGE_LIMITS.bytesMax / 1048576} MB`);
   return { file, bytes, width: s.width, height: s.height, errors, warnings };

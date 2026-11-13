@@ -1,20 +1,20 @@
 # Publishing through Praeko
 
-Studio **publishes nothing on its own**. `praeko studio package <slug>` writes `texts.md` and checks limits, hashtags and the AI disclosure; `praeko studio schedule` hands the video, cover and texts to Praeko, which schedules them on the networks connected to your workspace.
+Studio **publishes nothing on its own**. `npx @praeko/studio@<version> package <slug>` writes `texts.md` and checks limits, hashtags and the AI disclosure; `npx @praeko/studio@<version> schedule` hands the video, cover and texts to Praeko, which schedules them on the networks connected to your workspace.
 
 ## From the CLI (`--via praeko`)
 ```sh
-praeko studio login                                            # sign-in by code: you approve it at praeko.app/device; the key is stored for the project's profile
-echo $KEY | praeko studio schedule --via praeko --key          # or paste a praeko_… key (write scope); the same one as the `praeko` CLI
-praeko studio schedule --channels --via praeko                 # lists the connected channels
-praeko studio schedule <slug> --when "06/11 17:30" --via praeko           # SIMULATES (only reads the channels)
-praeko studio schedule <slug> --when "06/11 17:30" --via praeko --send    # uploads the video and really schedules
-praeko studio schedule <slug> --status | --cancel | --clear
+npx @praeko/studio@<version> login                                            # sign-in by code: you approve it at praeko.app/device; the key is stored for the project's profile
+echo $KEY | npx @praeko/studio@<version> schedule --via praeko --key          # or paste a praeko_… key (write scope); the same one as the `praeko` CLI
+npx @praeko/studio@<version> schedule --channels --via praeko                 # lists the connected channels
+npx @praeko/studio@<version> schedule <slug> --when "06/11 17:30" --via praeko           # SIMULATES (only reads the channels)
+npx @praeko/studio@<version> schedule <slug> --when "06/11 17:30" --via praeko --send    # uploads the video and really schedules
+npx @praeko/studio@<version> schedule <slug> --status | --cancel | --clear
 ```
 `brand.json` → `publishing.provider: "praeko"` makes Praeko the default (`init` already writes it that way). `publishing.praeko.channels` pins the account when there is more than one per network. YouTube is uploaded as private and scheduled; TikTok goes as a draft (`publishing.praeko.tiktok.mode`); the minimum time is 5 minutes ahead.
 
 ## Agent without a terminal (Claude Desktop and others): the local MCP server
-`@praeko/studio-mcp` runs on your machine and exposes the Studio steps as tools (`studio_new_episode`, `studio_voice`, `studio_render`, `studio_package`, …). `studio_upload` puts the rendered video and cover in your Praeko media library (two steps: preview and `confirm`) and returns the media ids; publishing is still the remote `praeko` MCP's `create_post`, in two steps. `praeko studio init` and `brief` end by printing the install lines for the project.
+`@praeko/studio-mcp` runs on your machine and exposes the Studio steps as tools (`studio_new_episode`, `studio_voice`, `studio_render`, `studio_package`, …). `studio_upload` puts the rendered video and cover in your Praeko media library (two steps: preview and `confirm`) and returns the media ids; publishing is still the remote `praeko` MCP's `create_post`, in two steps. `npx @praeko/studio@<version> init` and `brief` end by printing the install lines for the project.
 
 ## Through the Praeko MCP (agent with a shell)
 The video file never goes through the MCP. In one step: `create_media_upload { type: "video", name, mime, size }` (`size` in bytes: `wc -c < file`) returns a ready `curl`; upload the file; then `complete_media_upload { mediaId }` until the state is `ready`. Then `create_post`/`schedule_post` in **two steps**: the 1st call returns only the **preview** and a `confirmation_code`; **show the whole preview to the person**, wait for the yes and repeat the call with the same arguments plus `confirm`. The agent never confirms on its own. See the MCP documentation at praeko.app/docs.

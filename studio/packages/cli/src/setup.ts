@@ -29,7 +29,7 @@ import type { Agent as SkillAgent } from "./skill.ts";
 import { lang } from "./i18n.ts";
 import { loginCommandFor, normalizeServer, runLogin } from "./login.ts";
 import type { LoginEnv, LoginOutcome } from "./login.ts";
-import { VERSION } from "./version.ts";
+import { STUDIO_NPX, VERSION } from "./version.ts";
 
 export const REMOTE_MCP_URL = "https://praeko.app/mcp";
 export const SERVER_NAME = "praeko", LOCAL_SERVER_NAME = "praeko-studio";
@@ -171,6 +171,8 @@ export type Plan = {
   requirements: DoctorItem[];
   agents: AgentFound[];
   steps: Step[];
+  /** `--no-login`: the sign-in by code is neither offered nor run (it stays optional, listed in onlyYou). */
+  noLogin: boolean;
   /** Never the key: whether one is found, where from (env | profile | global) and the profile name. */
   key: { present: boolean; source: PraekoKeySource | null; profile: string };
   /** The sign-in by code, once it ran (never the key): authorized, expired, denied, cancelled, error; "declined" when the person said no. */
@@ -198,7 +200,7 @@ function locateProject(c: Ctx, folder: string | undefined): ProjectBase {
   if (folder) {
     const dir = resolve(c.cwd, folder);
     if (!existsSync(dir) || !readdirSync(dir).length) return { dir, state: "create" };
-    if (isProject(dir)) return isLegacyLayout(dir) ? { dir, state: "blocked", reason: "old Portuguese layout: run `praeko studio migrate` there first" } : { dir, state: "existing" };
+    if (isProject(dir)) return isLegacyLayout(dir) ? { dir, state: "blocked", reason: `old Portuguese layout: run \`${STUDIO_NPX} migrate\` in that folder first` } : { dir, state: "existing" };
     return { dir, state: "blocked", reason: "the folder exists, has files and is not a Studio project (no brand.json + src/index.ts): pass another folder" };
   }
   const root = findProjectRoot(c.cwd);
@@ -252,7 +254,8 @@ function onlyYouList(c: Ctx, plan: Omit<Plan, "onlyYou">): string[] {
   if (sel.has("claude")) l.push("Claude Code: sign in to Praeko in the browser: open `claude`, run `/mcp` and choose praeko (or run `claude mcp login praeko`). No key needed.");
   if (sel.has("claude-desktop")) l.push(`Claude Desktop: add the remote server by hand: Customize > Connectors > Add custom connector, name Praeko, URL ${REMOTE_MCP_URL}, then Connect and sign in. Quit Claude Desktop completely and open it again (it loads ${LOCAL_SERVER_NAME}).`);
   const prof = plan.key.profile;
-  if (!plan.key.present && plan.project.state !== "blocked") {
+  if (!plan.key.present && plan.project.state !== "blocked" && plan.noLogin) l.push(`Optional, not needed for your first video: authorize Praeko Studio on this computer so the agent can upload videos by itself. Run ${OPTIONAL_LOGIN(prof)} and approve the code at https://praeko.app/device (profile "${prof}"). Until then, drag the MP4 into the Praeko dashboard.`);
+  else if (!plan.key.present && plan.project.state !== "blocked") {
     const uses = sel.has("claude-desktop") ? " studio_upload (Claude Desktop) reads the key from there." : "";
     if (plan.steps.some((s) => s.kind === "login" && s.action === "add") && !plan.login) l.push(`Approve Praeko Studio in the browser (code shown in the terminal): after applying, setup signs in by code; check the code and the computer name at https://praeko.app/device and approve. The key goes to your Keychain or secrets file for profile "${prof}", never to the screen or the agent. No browser? Paste a write key in YOUR own terminal instead: ${keyCommand(prof)} (hidden input).${uses}`);
     else l.push(`Approve Praeko Studio in the browser (code shown in the terminal): run ${loginCommandFor(prof)} and approve the code at https://praeko.app/device (profile "${prof}"). No browser? Paste a write key in YOUR own terminal instead: ${keyCommand(prof)} (hidden input).${uses}`);
@@ -264,12 +267,15 @@ function onlyYouList(c: Ctx, plan: Omit<Plan, "onlyYou">): string[] {
   }
   for (const s of plan.steps) if (s.action === "manual" && s.kind === "manual" && s.agent && !["claude", "claude-desktop"].includes(s.agent)) l.push(`${AGENT_NAMES[s.agent]}: ${s.summary}`);
   const lic = plan.requirements.find((r) => r.id === "licenses");
-  if (!lic || lic.level !== "ok") l.push("Read the license notice (Remotion is not MIT) and accept it: praeko studio licenses --accept (or npx praeko-studio licenses --accept in the project).");
+  if (!lic || lic.level !== "ok") l.push(`Read the license notice (Remotion is not MIT) and accept it: ${STUDIO_NPX} licenses --accept.`);
   l.push("Connect a channel (YouTube, Instagram or TikTok) under Channels in the Praeko dashboard.");
   return l;
 }
 
-export async function buildPlan(c: Ctx, o: { folder?: string; agents?: SetupAgent[]; noInstall?: boolean; profile?: string }): Promise<Plan> {
+/** The optional sign-in, as the person runs it later from the project folder (its own copy of Studio; the profile comes from .praeko/config.json). */
+export const OPTIONAL_LOGIN = (profile: string): string => `${STUDIO_NPX} login in the project folder (or ${loginCommandFor(profile)} from anywhere else)`;
+
+export async function buildPlan(c: Ctx, o: { folder?: string; agents?: SetupAgent[]; noInstall?: boolean; profile?: string; noLogin?: boolean }): Promise<Plan> {
   const project = resolveProject(c, o.folder, o.profile);
   const agents = detectSetupAgents(c);
   for (const a of agents) a.selected = o.agents ? o.agents.includes(a.id) : a.detected;
@@ -277,10 +283,10 @@ export async function buildPlan(c: Ctx, o: { folder?: string; agents?: SetupAgen
   const skillAgents = [...new Set(sel.map((a) => SKILL_OF[a]).filter(Boolean))] as SkillAgent[];
   // project and instructions
   if (project.state === "create") {
-    steps.push({ id: "project", kind: "project", action: "add", file: project.dir, summary: `create the Studio project in ${tilde(c, project.dir)} (praeko studio init --yes${skillAgents.length ? ` --agent ${skillAgents.join(",")}` : ""}: brand.json, src/, instructions for ${skillAgents.length ? skillAgents.join(", ") : "claude, codex"})` });
+    steps.push({ id: "project", kind: "project", action: "add", file: project.dir, summary: `create the Studio project in ${tilde(c, project.dir)} (Studio init --yes${skillAgents.length ? ` --agent ${skillAgents.join(",")}` : ""}: brand.json, src/, instructions for ${skillAgents.length ? skillAgents.join(", ") : "claude, codex"})` });
     if (!o.noInstall) steps.push({ id: "npm-install", kind: "npm-install", action: "add", file: project.dir, summary: `npm install in ${tilde(c, project.dir)} (Remotion and the Studio packages; needs internet)` });
   } else if (project.state === "existing") {
-    if (skillAgents.length) steps.push({ id: "skill", kind: "skill", action: "update", file: project.dir, summary: `write or refresh the agent instructions in ${tilde(c, project.dir)} (praeko studio skill install --agent ${skillAgents.join(",")})` });
+    if (skillAgents.length) steps.push({ id: "skill", kind: "skill", action: "update", file: project.dir, summary: `write or refresh the agent instructions in ${tilde(c, project.dir)} (Studio skill install --agent ${skillAgents.join(",")})` });
   } else steps.push({ id: "project", kind: "manual", action: "manual", file: project.dir, summary: `no project: ${tilde(c, project.dir)}: ${project.reason}`, reason: project.reason });
   if (project.state !== "blocked") {
     // the key profile, in a file with no secret (it may go to Git)
@@ -323,9 +329,10 @@ export async function buildPlan(c: Ctx, o: { folder?: string; agents?: SetupAgen
   const key = keyStatus(c, project.profile);
   if (project.state !== "blocked") {
     if (key.present) steps.push({ id: "login", kind: "login", action: "skip", summary: `Praeko key already found (${key.source}; never shown): no sign-in needed`, reason: `key from ${key.source}` });
-    else steps.push({ id: "login", kind: "login", action: "add", command: ["praeko", "studio", "login", ...(project.profile === DEFAULT_PROFILE ? [] : ["--profile", project.profile])], summary: `sign in to Praeko by code for profile "${project.profile}" (praeko studio login): shows a short code and https://praeko.app/device; you approve in the browser and the write key goes to your Keychain or secrets file (never to the project, the screen or the agent). No browser? ${keyCommand(project.profile)} in your own terminal` });
+    else if (o.noLogin) steps.push({ id: "login", kind: "login", action: "skip", summary: `sign-in by code skipped (--no-login): it is optional. The first video does not need it (you drag the MP4 into the Praeko dashboard); later, to let the agent upload videos by itself: ${OPTIONAL_LOGIN(project.profile)}`, reason: "--no-login" });
+    else steps.push({ id: "login", kind: "login", action: "add", command: [...loginCommandFor(project.profile).split(" ")], summary: `sign in to Praeko by code for profile "${project.profile}" (${loginCommandFor(project.profile)}): shows a short code and https://praeko.app/device; you approve in the browser and the write key goes to your Keychain or secrets file (never to the project, the screen or the agent). No browser? ${keyCommand(project.profile)} in your own terminal` });
   }
-  const base = { schema: "praeko-studio-setup/1" as const, mode: "plan" as const, version: VERSION, system: { os: c.platform, arch: process.arch, node: process.versions.node }, project, requirements: await requirements(c, project.state === "existing" ? project.dir : c.cwd), agents, steps, key };
+  const base = { schema: "praeko-studio-setup/1" as const, mode: "plan" as const, version: VERSION, noLogin: !!o.noLogin, system: { os: c.platform, arch: process.arch, node: process.versions.node }, project, requirements: await requirements(c, project.state === "existing" ? project.dir : c.cwd), agents, steps, key };
   return { ...base, onlyYou: onlyYouList(c, base) };
 }
 
@@ -593,7 +600,7 @@ function printPlan(c: Ctx, plan: Plan): void {
   for (const s of plan.steps) { o(`  ${ICON[s.action]} ${s.summary}`); if (s.diff && s.action !== "skip") { o(`      --- ${tilde(c, s.file!)}\n      +++ ${tilde(c, s.file!)}`); for (const d of s.diff) o(`      ${d}`); } }
   const src = plan.key.source === "env" ? "PRAEKO_KEY in the environment" : plan.key.source === "profile" ? `the key of profile "${plan.key.profile}"` : "the global key";
   o(`\nPraeko key: profile "${plan.key.profile}"; ${plan.key.present ? `found (${src}; never shown)` : "none found"}. Order: PRAEKO_KEY > the project's profile > the global key.`);
-  o(`Backups of every file touched go to ${tilde(c, join(c.configDir, "setup-backups"))}; \`praeko studio setup uninstall\` removes only what setup added.`);
+  o(`Backups of every file touched go to ${tilde(c, join(c.configDir, "setup-backups"))}; \`${STUDIO_NPX} setup uninstall\` removes only what setup added.`);
 }
 function printOnlyYou(c: Ctx, l: string[]): void {
   c.out("\nWhat only you do:");
@@ -603,11 +610,11 @@ function printOnlyYou(c: Ctx, l: string[]): void {
 // ---------- the command ----------
 const WITH_VALUE = new Set(["agent", "lang", "profile", "server"]);
 const flagValue = (a: string[], k: string): string | undefined => { const i = a.indexOf("--" + k); return i >= 0 && a[i + 1] !== undefined && !a[i + 1]!.startsWith("--") ? a[i + 1] : undefined; };
-export const SETUP_USAGE = "usage: praeko studio setup [folder] [--plan] [--yes] [--agent claude,claude-desktop,codex,cursor,gemini,opencode,cline,windsurf|all] [--profile <name>] [--json] [--no-install] [--no-browser]\n       (with no Praeko key for the profile, setup ends by signing in with a code: you approve it at praeko.app/device)\n       praeko studio setup --key [--profile <name>] [--check-key]      (in your own terminal: asks for the Praeko key with hidden input)\n       praeko studio setup uninstall [--plan] [--yes] [--json]";
+export const SETUP_USAGE = `usage: ${STUDIO_NPX} setup [folder] [--plan] [--yes] [--agent claude,claude-desktop,codex,cursor,gemini,opencode,cline,windsurf|all] [--profile <name>] [--json] [--no-install] [--no-browser] [--no-login]\n       (with no Praeko key for the profile, setup ends by signing in with a code: you approve it at praeko.app/device; --no-login skips it: the sign-in is optional, run ${STUDIO_NPX} login in the project folder later)\n       ${STUDIO_NPX} setup --key [--profile <name>] [--check-key]      (in your own terminal: asks for the Praeko key with hidden input)\n       ${STUDIO_NPX} setup uninstall [--plan] [--yes] [--json]`;
 
 export async function setupCommand(a: string[], e: SetupEnv = {}): Promise<number> {
   const c = context(e);
-  const known = new Set(["plan", "yes", "agent", "json", "no-install", "key", "check-key", "lang", "help", "profile", "no-browser", "server"]);
+  const known = new Set(["plan", "yes", "agent", "json", "no-install", "key", "check-key", "lang", "help", "profile", "no-browser", "server", "no-login"]);
   for (const x of a) if (x.startsWith("--")) {
     const name = x.slice(2).split("=")[0]!;
     if (name === "key" && x.includes("=")) throw new Error("the key is never passed as an argument (it would stay in the shell history). Run `" + KEY_COMMAND + "` and type it at the hidden prompt, or set PRAEKO_KEY in your own terminal first.");
@@ -632,7 +639,7 @@ export async function setupCommand(a: string[], e: SetupEnv = {}): Promise<numbe
   if (positional.length > 1) throw new Error(SETUP_USAGE);
   const ag = flagValue(a, "agent");
   if (a.includes("--agent") && !ag) throw new Error("--agent needs a list: " + SETUP_AGENTS.join(","));
-  const plan = await buildPlan(c, { folder: positional[0], agents: ag ? parseAgentList(ag) : undefined, noInstall: a.includes("--no-install"), profile: profileFlag });
+  const plan = await buildPlan(c, { folder: positional[0], agents: ag ? parseAgentList(ag) : undefined, noInstall: a.includes("--no-install"), profile: profileFlag, noLogin: a.includes("--no-login") });
   const pending = plan.steps.some((s) => s.action === "add" || s.action === "update");
   let go = assumeYes && !planOnly;
   if (!json) printPlan(c, plan);
@@ -679,7 +686,7 @@ export async function setupCommand(a: string[], e: SetupEnv = {}): Promise<numbe
   printOnlyYou(c, after.onlyYou);
   if (failed.length) c.out(`\n${failed.length} step(s) failed: see the ✗ lines above.`);
   if (loginFailed) c.out(`\nThe files are in place, but the sign-in did not finish: run ${loginCommandFor(plan.project.profile)} (or ${keyCommand(plan.project.profile)} in your own terminal).`);
-  c.out("\nNext: open your agent in the project folder and ask it to follow `praeko studio docs first-video`.");
+  c.out(`\nNext: in the project folder (${tilde(c, plan.project.dir)}), ask your agent to follow \`${STUDIO_NPX} docs first-video\`.`);
   return code;
 }
 

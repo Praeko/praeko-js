@@ -62,8 +62,8 @@ test("skill install: writes each agent's right file, with the two-step publishin
     for (const a of files) assert.ok(existsSync(join(d, a)), `${ag}/${lang}: ${a}`);
     const main = read(join(d, files[0]!));
     if (ag === "claude" && files[0]!.endsWith("SKILL.md") || ag !== "claude") {
-      for (const re of [/confirmation_code/, /create_media_upload/, /complete_media_upload/, /synthetic/, /praeko studio docs/, /praeko studio compile/, /praeko studio voice <slug> --quality draft/, /script\.txt/, /brand\.json/]) assert.match(main, re, `${ag}/${lang}: ${re}`);
-      for (const old of [/praeko studio (novo|voz|compilar|checar|pacote|agendar)\b/, /--(titulo|qualidade|quando|enviar)\b/, /marca\.json|roteiro\.txt|publicacao\.json|episodio\.yaml/]) assert.doesNotMatch(main, old, `${ag}/${lang}: ${old}`);
+      for (const re of [/confirmation_code/, /create_media_upload/, /complete_media_upload/, /synthetic/, /npx @praeko\/studio@[\d.]+ docs/, /npx @praeko\/studio@[\d.]+ compile/, /npx @praeko\/studio@[\d.]+ voice <slug> --quality draft/, /script\.txt/, /brand\.json/]) assert.match(main, re, `${ag}/${lang}: ${re}`);
+      for (const old of [/(?:praeko studio|npx @praeko\/studio@[\d.]+) (novo|voz|compilar|checar|pacote|agendar)\b/, /--(titulo|qualidade|quando|enviar)\b/, /marca\.json|roteiro\.txt|publicacao\.json|episodio\.yaml/]) assert.doesNotMatch(main, old, `${ag}/${lang}: ${old}`);
     }
     assert.doesNotMatch(main, /marcone|dev\.ocioso|guilda|\/Users\//i);
     if (ag !== "claude" || files[0]!.endsWith("SKILL.md")) assert.match(main, lang === "en" ? /Never confirm on your own/ : /Nunca confirme por conta própria/);
@@ -158,7 +158,7 @@ test("docs: lists the topics and prints one; an unknown topic fails; --version a
   const help = cli(["--help"]).stdout;
   assert.doesNotMatch(help, /bardo/i);
   const pkg = JSON.parse(read(join(PACKAGE, "package.json")));
-  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.3.1");
+  assert.deepEqual(Object.keys(pkg.bin), ["praeko-studio"]); assert.equal(pkg.name, "@praeko/studio"); assert.notEqual(pkg.private, true); assert.equal(pkg.version, "0.3.2");
 });
 test("publication audit: nothing of the owner (name, brand, voice ids, paths, game) in the packages that go public", () => {
   // the patterns are built in parts so this file does not accuse itself in the publication scan

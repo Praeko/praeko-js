@@ -3,17 +3,17 @@
 Praeko Studio renders with **Remotion** (default) or with **HyperFrames** (HTML + GSAP, frame-capture rendering). `episode.yaml`, the voice, the captions, the cover and the publication package are the same; only who draws the frames changes.
 
 ```
-praeko studio render <slug> --engine hyperframes     # out/<slug>.hf.mp4 (does not overwrite the Remotion one)
-praeko studio preview <slug> --engine hyperframes    # opens the HyperFrames preview of the generated project
-praeko studio compile <slug> --engine hyperframes    # warns about scenes that use `component:` (TSX)
+npx @praeko/studio@<version> render <slug> --engine hyperframes     # out/<slug>.hf.mp4 (does not overwrite the Remotion one)
+npx @praeko/studio@<version> preview <slug> --engine hyperframes    # opens the HyperFrames preview of the generated project
+npx @praeko/studio@<version> compile <slug> --engine hyperframes    # warns about scenes that use `component:` (TSX)
 ```
 
-Which engine an episode uses (the first one that exists): `--engine` on the command line → `engine: hyperframes` at the top of `episode.yaml` → `"engine": "hyperframes"` in `brand.json` → `remotion`. A new channel can use `"engine": "hyperframes"` in the brand and never touch Remotion (with `--engine hyperframes` the cover is rendered by HyperFrames too: `praeko studio cover <slug> --engine hyperframes`; nothing from Remotion is used).
+Which engine an episode uses (the first one that exists): `--engine` on the command line → `engine: hyperframes` at the top of `episode.yaml` → `"engine": "hyperframes"` in `brand.json` → `remotion`. A new channel can use `"engine": "hyperframes"` in the brand and never touch Remotion (with `--engine hyperframes` the cover is rendered by HyperFrames too: `npx @praeko/studio@<version> cover <slug> --engine hyperframes`; nothing from Remotion is used).
 
 ## What happens
 
 1. Compiles `episode.yaml` (`episode.spec.json`), as always.
-2. `@praeko/studio-hyperframes` generates a project in `<project>/.hf/<slug>/` (already in the `.gitignore` of `praeko studio init`): `index.html`, one sub-composition per scene in `compositions/`, and `assets/` with **only** what the episode uses (copied from the brand's `publicDir`).
+2. `@praeko/studio-hyperframes` generates a project in `<project>/.hf/<slug>/` (already in the `.gitignore` of `npx @praeko/studio@<version> init`): `index.html`, one sub-composition per scene in `compositions/`, and `assets/` with **only** what the episode uses (copied from the brand's `publicDir`).
 3. `npx hyperframes@0.9.13 check --json`: errors stop the render; warnings become one summary line (code × count).
 4. `npx hyperframes@0.9.13 render --output out/<slug>.hf.mp4`.
 
@@ -27,7 +27,7 @@ Known differences:
 - **Fonts:** only the fonts bundled with HyperFrames resolve by name. Arial Black becomes Montserrat 900 and Menlo becomes JetBrains Mono (slightly different width; text that wraps in one may wrap in the other). With `"hyperframes": { "localFonts": true }` in `brand.json` the brand font is loaded from the system (`local()`), with the bundled one as a fallback: exact parity, but only on this machine.
 - **Game videos** (`window`, `phone`): the segment `[from, clipDuration]` repeats until the end of the scene (several `<video>` elements in sequence, instead of `Loop`).
 - **Red dot** of the window label is fixed (it blinks in Remotion).
-- **Audio** comes out about 3 dB louder (mean −16.8 dB against −19.8 dB in the same Short): check with `praeko studio check` before publishing.
+- **Audio** comes out about 3 dB louder (mean −16.8 dB against −19.8 dB in the same Short): check with `npx @praeko/studio@<version> check` before publishing.
 - **Vertical safe zone:** the YAML positions are used as they are (the label sits at y=70, the caption 190 px from the bottom). HyperFrames' `check` does not complain, but the apps' borders cover the top.
 
 ## Long form (1920×1080)
@@ -53,7 +53,7 @@ Code lines: `hl: [start-phrase, end-phrase]` lights the line between the two phr
 
 ## Limits
 
-- **`component:` (TSX) does not exist in HyperFrames.** A scene (or cover) made in `scenes.tsx` has to become YAML items or the episode stays in Remotion. The generator fails with the slug, the number, the title and the component of the scene; `praeko studio compile --engine hyperframes` warns before. A cover written as a TSX component (`cover.component`) only exists in Remotion; a declarative cover (title/items) renders in HyperFrames too.
+- **`component:` (TSX) does not exist in HyperFrames.** A scene (or cover) made in `scenes.tsx` has to become YAML items or the episode stays in Remotion. The generator fails with the slug, the number, the title and the component of the scene; `npx @praeko/studio@<version> compile --engine hyperframes` warns before. A cover written as a TSX component (`cover.component`) only exists in Remotion; a declarative cover (title/items) renders in HyperFrames too.
 - The `check` times are those of a sampled instant: contrast warnings on still-empty bars and empty-screen warnings on frame 0 are expected (frame 0 of a Short is only the background; the cover is the thumbnail).
 - HyperFrames fetches GSAP from the CDN (jsdelivr) and the bundled fonts the first time: it needs internet on the first render.
 - Pinned version: `hyperframes@0.9.13` (`HF_VERSION` in `packages/hyperframes/src/common.ts`). Raising the version = running the tests and comparing frames.

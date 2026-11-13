@@ -12,7 +12,7 @@ import { compileEpisode, imageEngine, imageFormat, isImagePiece } from "./compil
 import { IMAGE_LIMITS, SLIDE_TIMEOUT_S, checkJpeg, slideFile } from "./image.ts";
 import { cutAudio, readJson, resolvePoint, sliceWords } from "./cut.ts";
 import { coverHyperframes, engineOf, hyperframesWarnings, previewHyperframes, renderHyperframes } from "./engine.ts";
-import { HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
+import { STUDIO_NPX, HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
 import { noticeText, shortNotice } from "./licenses.ts";
 import { lang } from "./i18n.ts";
 import { detectAgents, installSkill } from "./skill.ts";
@@ -35,7 +35,7 @@ const run = (cmd: string, args: string[], cwd: string, timeoutMs?: number): Prom
 const runRemotion = (p: Project, args: string[], timeoutMs?: number): Promise<number> => {
   let cli: string;
   try { cli = join(dirname(createRequire(join(p.root, "package.json")).resolve("@remotion/cli/package.json")), "remotion-cli.js"); }
-  catch { throw new Error("@remotion/cli is not installed in this project: run `npm install` in the project folder (or create it with `praeko studio init`)"); }
+  catch { throw new Error(`@remotion/cli is not installed in this project: run \`npm install\` in the project folder (or create it with \`${STUDIO_NPX} init\`)`); }
   return run(process.execPath, [cli, ...args], p.root, timeoutMs);
 };
 /** `npm` without a shell: on Windows, the npm-cli.js that ships with Node; elsewhere, the `npm` on PATH. */
@@ -48,7 +48,7 @@ const isTTY = (): boolean => !!process.stdin.isTTY && !!process.stdout.isTTY;
 const openAsk = (io: InitIO): { ask: Ask; close: () => void } => io.ask ? { ask: io.ask, close: () => {} } : lineAsk(process.stdin, process.stdout);
 
 export async function init(a: string[], io: InitIO = {}): Promise<number> {
-  const usage = 'usage: praeko studio init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--brand <brand folder>] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]';
+  const usage = `usage: ${STUDIO_NPX} init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--brand <brand folder>] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]`;
   if (!a[0] || a[0].startsWith("--")) throw new Error(usage);
   const dir = resolve(a[0]);
   if (existsSync(dir) && readdirSync(dir).length) throw new Error(`${dir} already exists and is not empty`);
@@ -86,7 +86,7 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   write(join(dir, "src", "brand.ts"), T.brandTs);
   write(join(dir, "src", "Root.tsx"), T.rootTsx);
   write(join(dir, ".gitignore"), T.PROJECT_GITIGNORE);
-  write(join(dir, "README.md"), `# ${name}\n\nPraeko Studio video project. First video: \`npx praeko-studio new my-first\` (or \`praeko studio new my-first\`). Check the environment with \`praeko studio doctor\`.\n`);
+  write(join(dir, "README.md"), `# ${name}\n\nPraeko Studio video project. First video: \`${STUDIO_NPX} new my-first\` (or \`praeko studio new my-first\` with @praeko/cli installed). Check the environment with \`${STUDIO_NPX} doctor\`.\n`);
   cpSync(join(PACKAGE_ROOT, "templates", "sfx"), join(dir, "public", "sfx"), { recursive: true });
   mkdirSync(join(dir, "public", "cover"), { recursive: true });
   copyFileSync(join(PACKAGE_ROOT, "templates", "avatar.png"), join(dir, "public", "cover", "avatar.png"));
@@ -99,7 +99,7 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   if (hasBrief(ans)) for (const m of writeBriefFiles(dir, { ...ans, name, handle, lang: ans.lang || lang() }, null)) console.log(m);
   console.log("\n" + noticeText());
   if (!has(a, "no-install")) { const c = await npmInstall(dir); if (c) throw new Error("npm install failed"); }
-  console.log(`\nnext step: cd ${dir} && npx praeko-studio new my-first --title "My first video"`);
+  console.log(`\nnext step: cd ${dir} && ${STUDIO_NPX} new my-first --title "My first video"`);
   console.log("\n" + mcpInstallLines(dir).join("\n"));
   return 0;
 }
@@ -139,7 +139,7 @@ export async function brief(a: string[], io: InitIO = {}): Promise<number> {
       }
       ans = await interview(q.ask, given, { lang: given.lang ?? defaults.lang!, say, defaults, tokens: readBrandTokens(proj.root), only: only ?? new Set(allowed) });
     } finally { q.close(); }
-  } else if (!Object.keys(given).length) throw new Error('usage: praeko studio brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]…  (without answer flags it asks, in a terminal)');
+  } else if (!Object.keys(given).length) throw new Error(`usage: ${STUDIO_NPX} brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]…  (without answer flags it asks, in a terminal)`);
   const file = join(proj.root, "brand.json"), cur = readFileSync(file, "utf8"), next = applyBrand(cur, ans, prevBrief?.font);
   if (next !== cur) { writeFileSync(file, next); console.log("brief: updated brand.json"); }
   for (const m of writeBriefFiles(proj.root, ans, prevBrief)) console.log(m);
@@ -149,7 +149,7 @@ export async function brief(a: string[], io: InitIO = {}): Promise<number> {
 
 export function newEpisode(a: string[]): number {
   const proj = findProject(), slug = a[0];
-  if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error('usage: praeko studio new <slug-in-lowercase-with-hyphens> [--title "Video title"] [--long | --image | --carousel]');
+  if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error(`usage: ${STUDIO_NPX} new <slug-in-lowercase-with-hyphens> [--title "Video title"] [--long | --image | --carousel]`);
   const folder = join(proj.root, "episodes", slug);
   if (existsSync(folder)) throw new Error(`${folder} already exists`);
   const id = pascal(slug), cover = `Cover${id}`, title = flag(a, "title") || slug.replace(/-/g, " ");
@@ -158,7 +158,7 @@ export function newEpisode(a: string[]): number {
   const upper = title.toUpperCase().split(/\s+/).filter(Boolean), size = Math.ceil(upper.length / Math.min(3, upper.length));
   const lines: string[] = [];
   for (let i = 0; i < upper.length; i += size) lines.push(upper.slice(i, i + size).join(" "));
-  if (imageForm) { // a photo post or a carousel: no script, voice or video; the slides are rendered to JPEG by `praeko studio slides`
+  if (imageForm) { // a photo post or a carousel: no script, voice or video; the slides are rendered to JPEG by `npx @praeko/studio@<version> slides`
     write(join(folder, "publication.json"), T.imagePublication({ title, carousel: carouselForm }));
     write(join(folder, "episode.json"), JSON.stringify({ id, title, format: carouselForm ? "carousel" : "image" }, null, 2) + "\n");
     write(join(folder, "episode.yaml"), carouselForm ? T.carouselYaml({ id, title }) : T.imageYaml({ id, title }));
@@ -187,27 +187,27 @@ export function newEpisode(a: string[]): number {
   if (!s.includes(`// ${T.MARKER_IMPORTS}`) || !s.includes(`{/* ${T.MARKER_COMPOSITIONS} */}`)) throw new Error(`src/Root.tsx has no \`${T.MARKER_IMPORTS}\` and \`${T.MARKER_COMPOSITIONS}\` markers: register the episode by hand`);
   s = s.replace(`// ${T.MARKER_IMPORTS_END}`, `import { ${id}Composition } from "../episodes/${slug}/episode";\n// ${T.MARKER_IMPORTS_END}`).replace(`{/* ${T.MARKER_COMPOSITIONS_END} */}`, `<${id}Composition />\n    {/* ${T.MARKER_COMPOSITIONS_END} */}`);
   writeFileSync(root, s);
-  if (imageForm) console.log(`${carouselForm ? "carousel" : "image post"} created: episodes/${slug}/ (id ${id}). Next: edit the ${carouselForm ? "slides" : "slide"} in episode.yaml (each with its alt text), the caption in publication.json, then \`praeko studio slides ${slug}\``);
-  else console.log(`episode created: episodes/${slug}/ (id ${id}). Next: write script.txt and run \`praeko studio voice ${slug} --quality draft\``);
+  if (imageForm) console.log(`${carouselForm ? "carousel" : "image post"} created: episodes/${slug}/ (id ${id}). Next: edit the ${carouselForm ? "slides" : "slide"} in episode.yaml (each with its alt text), the caption in publication.json, then \`${STUDIO_NPX} slides ${slug}\``);
+  else console.log(`episode created: episodes/${slug}/ (id ${id}). Next: write script.txt and run \`${STUDIO_NPX} voice ${slug} --quality draft\``);
   return 0;
 }
 
 /** Image pieces have no voice, video or cover: the commands of a video say what to run instead. */
-const notForImage = (ep: Episode, what: string): void => { if (isImagePiece(ep.folder)) throw new Error(`"${ep.slug}" is an image piece (format: ${imageFormat(ep.folder)}): it has no ${what}. Render it with \`praeko studio slides ${ep.slug}\``); };
+const notForImage = (ep: Episode, what: string): void => { if (isImagePiece(ep.folder)) throw new Error(`"${ep.slug}" is an image piece (format: ${imageFormat(ep.folder)}): it has no ${what}. Render it with \`${STUDIO_NPX} slides ${ep.slug}\``); };
 
 export async function voice(a: string[]): Promise<number> {
   const sub = a[0];
   if (["balance", "voices", "account", "config"].includes(sub!)) return run(process.execPath, [VOICE_BIN(sub!), ...a.slice(1)], process.cwd());
   const proj = findProject(), ep = episodeOf(proj, sub);
   notForImage(ep, "voice");
-  if (existsSync(join(ep.folder, "cut.json"))) throw new Error(`"${sub}" is a cut derived from a long video: the voice comes from there. Make the voice of the long video and run \`praeko studio cut ${sub} --redo\``);
+  if (existsSync(join(ep.folder, "cut.json"))) throw new Error(`"${sub}" is a cut derived from a long video: the voice comes from there. Make the voice of the long video and run \`${STUDIO_NPX} cut ${sub} --redo\``);
   const r = await narrate({ folder: ep.folder, brand: proj.brand as any, log: (m: string) => console.error(m), noFailover: has(a, "no-failover"), voice: flag(a, "voice"), quality: flag(a, "quality"), aligner: flag(a, "aligner") });
   const target = join(publicDir(proj), "audio", `${ep.id}.mp3`);
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(join(ep.folder, "voice.mp3"), target);
   if (r.corrected?.length) console.log("captions corrected from the script:", r.corrected.map(([x, y]) => `${x}→${y}`).join(", "));
   if (r.blocks) console.log(`long video in ${r.blocks} blocks: ${r.regenerated} generated, ${r.reused} reused from the cache · ${r.duration.toFixed(1)} s · ${r.words} words · block starts in episodes/${ep.slug}/blocks.json`);
-  if (r.estimated) console.log(`ESTIMATED voice (silent, ~190 words/min) · ${r.duration.toFixed(1)} s · ${r.words} words → ${relative(proj.root, target)}\n⚠ good for assembling and checking scenes; the timings change with the final voice (run \`praeko studio compile\` again). Anchors with numbers: the script spells them out, the real voice returns digits.`);
+  if (r.estimated) console.log(`ESTIMATED voice (silent, ~190 words/min) · ${r.duration.toFixed(1)} s · ${r.words} words → ${relative(proj.root, target)}\n⚠ good for assembling and checking scenes; the timings change with the final voice (run \`${STUDIO_NPX} compile\` again). Anchors with numbers: the script spells them out, the real voice returns digits.`);
   else if (!r.blocks) console.log(`voice ${r.voice} (${r.provider}, ${r.account}) · ${r.duration.toFixed(1)} s · ${r.words} words → ${relative(proj.root, target)}`);
   return 0;
 }
@@ -222,13 +222,13 @@ export async function cut(a: string[]): Promise<number> {
   const proj = findProject();
   const redo = has(a, "redo"), detach = has(a, "detach");
   const slug = redo || detach ? a[0] : a[1];
-  const usage = 'usage: praeko studio cut <long> <new-slug> --from <seconds|block:N|"phrase"> --to <…> [--hook "hook"] [--title "T"]  |  praeko studio cut <slug> --redo [--hook "…"|--no-hook]  |  praeko studio cut <slug> --detach';
+  const usage = `usage: ${STUDIO_NPX} cut <long> <new-slug> --from <seconds|block:N|"phrase"> --to <…> [--hook "hook"] [--title "T"]  |  ${STUDIO_NPX} cut <slug> --redo [--hook "…"|--no-hook]  |  ${STUDIO_NPX} cut <slug> --detach`;
   if (!slug || (!redo && !detach && !a[0])) throw new Error(usage);
   const cutFile = join(proj.root, "episodes", slug, "cut.json");
   if (detach) {
     if (!existsSync(cutFile)) throw new Error(`"${slug}" has no cut.json (it is not a derived cut)`);
     unlinkSync(cutFile);
-    console.log(`"${slug}" detached from the long video: it is now a plain Short. The audio and the script stay as they are; edit script.txt and run \`praeko studio voice ${slug} --quality final\` for a brand-new voice.`);
+    console.log(`"${slug}" detached from the long video: it is now a plain Short. The audio and the script stay as they are; edit script.txt and run \`${STUDIO_NPX} voice ${slug} --quality final\` for a brand-new voice.`);
     return 0;
   }
   let cfg: any;
@@ -239,7 +239,7 @@ export async function cut(a: string[]): Promise<number> {
   if (cfg.from === undefined || cfg.to === undefined) throw new Error("--from and --to are required");
   const lg = episodeOf(proj, cfg.long);
   const words = readJson<any[]>(join(lg.folder, "words.json"), []), blocks = readJson<any[]>(join(lg.folder, "blocks.json"), []);
-  if (!words.length || !existsSync(join(lg.folder, "voice.mp3"))) throw new Error(`the long video "${cfg.long}" has no voice yet: run \`praeko studio voice ${cfg.long} --quality draft\``);
+  if (!words.length || !existsSync(join(lg.folder, "voice.mp3"))) throw new Error(`the long video "${cfg.long}" has no voice yet: run \`${STUDIO_NPX} voice ${cfg.long} --quality draft\``);
   const t0 = resolvePoint(cfg.from, "from", { words, blocks }), t1 = resolvePoint(cfg.to, "to", { words, blocks });
   if (t1 - t0 < 5) throw new Error(`an excerpt of ${(t1 - t0).toFixed(1)} s is too short (from ${t0.toFixed(2)} to ${t1.toFixed(2)}); minimum 5 s`);
   const f = sliceWords(words, t0, t1);
@@ -274,7 +274,7 @@ export async function cut(a: string[]): Promise<number> {
   const target = join(publicDir(proj), "audio", `${ep.id}.mp3`);
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(join(ep.folder, "voice.mp3"), target);
-  if (estimated) write(join(ep.folder, "voice.estimated"), "estimated voice: make the final one (on the long video, and `praeko studio cut " + slug + " --redo`; the hook with --quality final) before publishing\n");
+  if (estimated) write(join(ep.folder, "voice.estimated"), `estimated voice: make the final one (on the long video, and \`${STUDIO_NPX} cut ` + slug + " --redo`; the hook with --quality final) before publishing\n");
   else if (existsSync(join(ep.folder, "voice.estimated"))) unlinkSync(join(ep.folder, "voice.estimated"));
   if (!redo) { // fits the initial YAML to the duration and the package to the "full video"
     const y = join(ep.folder, "episode.yaml");
@@ -288,7 +288,7 @@ export async function cut(a: string[]): Promise<number> {
   const r = compileEpisode(ep.folder);
   console.log(`cut "${slug}": ${total.toFixed(1)} s (${t0.toFixed(2)}–${t1.toFixed(2)} of the long video "${cfg.long}"${cfg.hook ? " + own hook" : ""}), ${words2.length} words${redo ? " (redone)" : ""}`);
   r.warnings.forEach((x) => console.log(`${ICON.warning} ${x}`)); r.errors.forEach((x) => console.log(`${ICON.error} ${x}`));
-  if (!redo) console.log(`next: write the scenes in episodes/${slug}/episode.yaml (\`start\` and \`when\` accept phrases of this excerpt) and run \`praeko studio render ${slug}\``);
+  if (!redo) console.log(`next: write the scenes in episodes/${slug}/episode.yaml (\`start\` and \`when\` accept phrases of this excerpt) and run \`${STUDIO_NPX} render ${slug}\``);
   return r.errors.length ? 1 : 0;
 }
 
@@ -352,7 +352,7 @@ export async function cover(a: string[]): Promise<number> {
  */
 export async function slides(a: string[]): Promise<number> {
   const p = findProject(), ep = episodeOf(p, a[0]);
-  if (!isImagePiece(ep.folder)) throw new Error(`"${a[0]}" is not an image piece: set \`format: image\` (one slide) or \`format: carousel\` (2 to 20) and \`slides:\` in episode.yaml (create one with \`praeko studio new <slug> --image\` or \`--carousel\`). Videos use render and cover`);
+  if (!isImagePiece(ep.folder)) throw new Error(`"${a[0]}" is not an image piece: set \`format: image\` (one slide) or \`format: carousel\` (2 to 20) and \`slides:\` in episode.yaml (create one with \`${STUDIO_NPX} new <slug> --image\` or \`--carousel\`). Videos use render and cover`);
   if (flag(a, "engine") === "hyperframes" || imageEngine(ep.folder) === "hyperframes") throw new Error("image pieces render only with Remotion: HyperFrames has no image mode yet (remove --engine hyperframes / engine: hyperframes)");
   if (flag(a, "engine") && flag(a, "engine") !== "remotion") throw new Error(`engine "${flag(a, "engine")}" does not exist (image pieces use remotion)`);
   if (compileIfPresent(ep)) return 1;
@@ -367,7 +367,7 @@ export async function slides(a: string[]): Promise<number> {
     const file = slideFile(p.root, ep.slug, i + 1);
     rmSync(file, { force: true }); // never leave the file of an older render standing in for a slide that failed now
     const c = await runRemotion(p, ["still", "src/index.ts", s.id, file, "--image-format=jpeg", `--jpeg-quality=${IMAGE_LIMITS.quality}`], timeoutS * 1000);
-    if (c) { console.log(`${ICON.error} slide ${i + 1} of ${total} (${s.id}) failed to render (exit ${c}; limit ${timeoutS} s per slide): fix that slide in episode.yaml and run \`praeko studio slides ${ep.slug}\` again`); failedSlides.push(i + 1); failed++; continue; }
+    if (c) { console.log(`${ICON.error} slide ${i + 1} of ${total} (${s.id}) failed to render (exit ${c}; limit ${timeoutS} s per slide): fix that slide in episode.yaml and run \`${STUDIO_NPX} slides ${ep.slug}\` again`); failedSlides.push(i + 1); failed++; continue; }
     const r = checkJpeg(file);
     r.errors.forEach((x) => console.log(`${ICON.error} slide ${i + 1}: ${x}`)); r.warnings.forEach((x) => console.log(`${ICON.warning} slide ${i + 1}: ${x}`));
     console.log(`${r.errors.length ? ICON.error : ICON.ok} slide ${i + 1}: ${relative(process.cwd(), file)} (${r.width}x${r.height}, ${(r.bytes / 1024).toFixed(0)} KB)`);
@@ -375,7 +375,7 @@ export async function slides(a: string[]): Promise<number> {
     failed += r.errors.length;
   }
   if (failedSlides.length) console.log(`${ICON.error} ${failedSlides.length} of ${total} slide(s) failed: ${failedSlides.join(", ")}`);
-  else console.log("next: `praeko studio check " + ep.slug + "` and `praeko studio package " + ep.slug + "`");
+  else console.log(`next: \`${STUDIO_NPX} check ` + ep.slug + `\` and \`${STUDIO_NPX} package ` + ep.slug + "`");
   return failed ? 1 : 0;
 }
 /** publication.json of an image piece with `images` filled from the compiled spec (alt text) and the slide files. */
@@ -393,7 +393,7 @@ function checkImage(p: Project, ep: Episode): number {
   const publication = withImages(p, ep, JSON.parse(readFileSync(join(ep.folder, "publication.json"), "utf8")), extra.spec);
   for (const [i, im] of (publication.images || []).entries()) {
     const abs = resolve(p.root, im.file);
-    if (!existsSync(abs)) res.push({ level: "warning", msg: `slide ${i + 1} is not rendered yet (${im.file}): run \`praeko studio slides ${ep.slug}\`` });
+    if (!existsSync(abs)) res.push({ level: "warning", msg: `slide ${i + 1} is not rendered yet (${im.file}): run \`${STUDIO_NPX} slides ${ep.slug}\`` });
     else for (const x of checkJpeg(abs).errors) res.push({ level: "error", msg: x });
   }
   const v = validate({ brand: p.brand, publication });
@@ -414,7 +414,7 @@ export function contactSheetCommand(a: string[]): number {
 export function check(a: string[]): number {
   const p = findProject(), ep = episodeOf(p, a[0]);
   if (isImagePiece(ep.folder)) return checkImage(p, ep);
-  const estimated = existsSync(join(ep.folder, "voice.estimated")) ? [{ level: "warning" as const, msg: "the voice is ESTIMATED (silent draft): make the final one before publishing (praeko studio voice " + ep.slug + " --quality final)" }] : [];
+  const estimated = existsSync(join(ep.folder, "voice.estimated")) ? [{ level: "warning" as const, msg: `the voice is ESTIMATED (silent draft): make the final one before publishing (${STUDIO_NPX} voice ` + ep.slug + " --quality final)" }] : [];
   const extra = existsSync(join(ep.folder, "episode.yaml")) ? compileEpisode(ep.folder, { write: false }) : null;
   const res = [...estimated, ...(extra ? [...extra.errors.map((msg) => ({ level: "error" as const, msg })), ...extra.warnings.map((msg) => ({ level: "warning" as const, msg }))] : []), ...checkEpisode({ folder: ep.folder, brand: p.brand as any, video: existsSync(ep.mp4) ? ep.mp4 : undefined })];
   for (const x of res) console.log(`${ICON[x.level]} ${x.msg}`);
