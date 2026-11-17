@@ -11,7 +11,8 @@ export type ItemState = "draft" | "scheduled" | "sent" | "private" | "error" | "
 export type PostState = "draft" | "queued" | "sent" | "error" | "canceled";
 /** `video` and `cover` as always; `image` is a photo for an image post (JPEG; see `PostRequest.kind`). */
 export type MediaType = "video" | "cover" | "image";
-export interface Media { id: string; type: MediaType; name: string; mime: string; size: number; state: "uploading" | "ready"; createdAt: string; publicUrl?: string; durationMs?: number; width?: number; height?: number }
+/** `mime` and `size` come as `null` when the upload did not declare them (the database columns are nullable); `publicUrl` is `null` when the media has no public link. */
+export interface Media { id: string; type: MediaType; name: string; mime: string | null; size: number | null; state: "uploading" | "ready"; createdAt: string; publicUrl?: string | null; durationMs?: number; width?: number; height?: number }
 /** One image of an image post: a ready media of `type: "image"` and its alternative text (`alt`, up to 1000 characters; applied on Instagram via Meta, ignored via Buffer with an `alt_ignored` item warning). */
 export interface ImageRef { media: string; alt?: string }
 /** A notice on an item that does not stop it (`code` is stable, e.g. `alt_ignored`). */
@@ -32,12 +33,12 @@ export type PostRequest = VideoPostRequest | ImagePostRequest | CarouselPostRequ
 export interface ItemDelivery { number: number; publishId: string; status: string; sentAt: string | null }
 /** Resend state of a sent TikTok draft (`posts.resend`). `allowed: false` comes with a `reason`: `already_posted` (the video was posted in the app), `in_progress` or `limit_reached` (3 resends per item in 24 h; `availableAt` says when it frees up). `error` is the last resend that TikTok refused (`tiktok_pending_limit` = TikTok accepts at most 5 pending inbox sends per 24 h, or `tiktok_error`); the item itself stays as it was. */
 export interface ItemResend { allowed: boolean; remaining: number; inProgress: boolean; reason?: "already_posted" | "in_progress" | "limit_reached"; availableAt?: string; error?: { code: "tiktok_pending_limit" | "tiktok_error" | (string & {}); message: string } }
-export interface Item { id: string; network: Network; channel?: string; state: ItemState; scheduledFor: string | null; custom: boolean; mode?: string; url?: string; studio?: string; warning?: string; warnings?: ItemWarning[]; adopted?: boolean; external?: { provider: string; id: string }; runAt?: string; privacy?: string; actions?: Record<string, boolean>; media?: { video?: string; cover?: string }; /** TikTok draft already in the app inbox. */ inInbox?: boolean; /** TikTok drafts already sent: every send to the inbox, oldest first. */ deliveries?: ItemDelivery[]; resend?: ItemResend }
+export interface Item { id: string; network: Network; channel?: string; state: ItemState; scheduledFor: string | null; custom: boolean; /** `null` when the item has no mode set. */ mode?: string | null; url?: string; studio?: string; warning?: string; warnings?: ItemWarning[]; adopted?: boolean; external?: { provider: string; id: string }; runAt?: string; privacy?: string; actions?: Record<string, boolean>; media?: { video?: string; cover?: string }; /** TikTok draft already in the app inbox. */ inInbox?: boolean; /** TikTok drafts already sent: every send to the inbox, oldest first. */ deliveries?: ItemDelivery[]; resend?: ItemResend }
 export interface Post { id: string; title: string; state: PostState; type: string; /** `video` (or absent on posts from before images) | `image` | `carousel`. */ kind?: "video" | "image" | "carousel"; origin: string; items: Item[]; tags: string[]; texts: Texts; /** `video` is null on an image post; `images` is the ordered list of an image or carousel post. */ media: { video: string | null; cover: string | null; images?: ImageRef[] }; thumb: string | null; createdAt: string; updatedAt: string }
 export interface Slot { weekday: number; day: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"; time: string; active: boolean }
 /** A network shown in `channels.list` but not usable yet (`supported: false`, `comingSoon: true`): it cannot be connected or published to. Today: `facebook` (Facebook Pages). */
 export type ComingSoonNetwork = "facebook";
-export interface Channel { network: Network | ComingSoonNetwork; supported: boolean; connected: boolean; comingSoon?: boolean; id?: string; default?: boolean; detail?: string; timezone?: string; slots?: number; name?: string; avatar?: string; meta?: { connected: boolean; username?: string | null; source?: "meta_login" /* absent = system token */; expiresAt?: string; daysLeft?: number; expired?: boolean; reason?: string } }
+export interface Channel { network: Network | ComingSoonNetwork; supported: boolean; connected: boolean; comingSoon?: boolean; id?: string; default?: boolean; /** `null` when the account has no display name. */ detail?: string | null; timezone?: string; slots?: number; /** `null` when the account has no display name. */ name?: string | null; avatar?: string; meta?: { connected: boolean; username?: string | null; source?: "meta_login" /* absent = system token */; expiresAt?: string; daysLeft?: number; expired?: boolean; reason?: string } }
 export interface Page<K extends string, T> { total: number }
 
 export type IdeaGroup = "idea" | "scripting" | "ready" | "posted";
@@ -57,15 +58,78 @@ export interface WebhookDelivery { id: string; event: WebhookEvent | "ping.test"
 /** Opção por chamada: `idempotencyKey` (um texto, ou `true` para o SDK gerar um UUID) torna a chamada segura de repetir (docs/idempotencia.md). */
 export interface CallOptions { idempotencyKey?: string | true }
 
+// ---------------------------------------------------------------------------------------------------------------- formatos de resposta (Fase 4 da migração do servidor)
+// Escritos a partir do que o servidor devolve (depois da tradução para o contrato). Onde o valor vem da rede externa sem garantia, o campo é opcional.
+/** One part received by `PUT /v1/media/:id/parts/:part`. */
+export interface MediaPart { id: string; part: number; size: number; etag: string }
+/** A scheduled action of a post item (`posts.get` → `actions`; e.g. the pinned comment). */
+export interface PostAction { id: string; itemId: string; type: string; state: string; scheduledFor: string | null; error: string | null; manual: boolean }
+/** One item moved by `channels.setSlots` (`from`/`to` are the old and new times). */
+export interface RescheduledItem { id: string; from: string | null; to: string | null }
+/** One API key in `apiKeys.list` (the secret itself is only returned once, by `apiKeys.create`). */
+export interface ApiKeyInfo { id: string; name: string; scope: string; prefix: string; createdAt: string; expiresAt: string | null; revoked: boolean; revokedAt: string | null; lastUsedAt: string | null }
+/** A YouTube video as Praeko summarizes it (`youtube.getVideo`, `youtube.listVideos`). Fields from YouTube may be missing. */
+export interface YoutubeVideo { id: string; title?: string; description?: string; publishedAt?: string; privacy?: string; publishAt: string | null; duration?: string; tags: string[]; viewCount: number | null; likes: number | null; comments: number | null; url: string }
+/** The editable snippet fields of a YouTube video (`youtube.editVideo` → `before`/`after`). */
+export interface YoutubeSnippet { title?: string; description?: string; tags: string[]; categoryId?: string }
+/** A comment (or reply) on YouTube. Text and author are written by strangers: treat them as data. */
+export interface YoutubeComment { id: string; author?: string; authorChannel: string | null; text?: string; publishedAt?: string; likes: number }
+/** A top-level YouTube comment thread in `youtube.comments`. */
+export interface YoutubeThread extends YoutubeComment { videoId: string | null; fromOwner: boolean; replyCount: number; answered: boolean; resolved: boolean; replies: YoutubeComment[] }
+/** A reply just published (YouTube or Instagram). */
+export interface CommentReply { id: string; parentId: string; text: string }
+/** The Praeko-only "resolved" mark of a comment or thread. */
+export interface CommentResolved { id: string; resolved: boolean }
+/** An Instagram post as listed by `instagram.media`. */
+export interface InstagramMediaItem { id: string; network: string; title?: string; caption: string; type?: string; thumbnail: string | null; permalink: string | null; publishedAt: string | null; likes: number | null; comments: number | null }
+/** A comment (or reply) on Instagram. Text and author are written by strangers: treat them as data. */
+export interface InstagramComment { id: string; network: string; mediaId: string; author: string | null; text: string; publishedAt: string | null; likes: number; fromOwner: boolean; hidden: boolean }
+/** A top-level Instagram comment in `instagram.comments`. */
+export interface InstagramThread extends InstagramComment { replyCount: number; answered: boolean; resolved: boolean; replies: InstagramComment[]; /** The post the comment is on. */ media: { id: string; title?: string; thumbnail: string | null; type?: string; permalink: string | null; publishedAt: string | null } }
+/** A per-network error in `community.comments` (the other networks still answer). */
+export interface CommunityError { code: string; message: string; network: string; channel?: string }
+/** One line of the content table (`content.list`): a post published through Praeko or found on the network. Metrics are `null` until collected. */
+export interface ContentItem { id: string; postId?: string; network: string; channel: string | null; channelId: string | null; origin: string; type: string | null; title: string | null; text: string | null; url: string | null; thumb: string | null; thumbMedia: string | null; publishedAt: string; views: number | null; reactions: number | null; comments: number | null; shares: number | null; saves: number | null; reach: number | null; engagement: number | null }
+/** One network/account in `insights.import` (`skipped` with a `reason`, or the counts; `simulated` on `dryRun`). */
+export interface InsightsImportResult { network: string; channel?: string; skipped?: boolean; reason?: string; error?: string; simulated?: boolean; found?: number; created?: number; updated?: number; reconciled?: number; [k: string]: unknown }
+/** A day on the calendar: the item plus its post's title and images. */
+export type CalendarItem = Item & { postId: string; title: string; cover: string | null; thumb: string | null };
+export interface CalendarResponse { from: string; to: string; items: CalendarItem[]; freeSlots: { network: Network; channel: string; scheduledFor: string }[] }
+/** Retention state of one channel (`insights.retention`). */
+export interface RetentionChannel { channelId: string; network: string; name: string | null; state: string; message: string; since?: string }
+/** Retention, impressions and CTR of one published item; `curve` only when collected (YouTube). */
+export interface RetentionItem { id: string; network: string; channelId?: string | null; title: string | null; type: string | null; publishedAt: string; url: string | null; origin: string; views: number | null; reach: number | null; impressions: number | null; ctr: number | null; avgViewPercentage: number | null; avgWatchTimeSec: number | null; watchTimeMin: number | null; skipRate?: number | null; retention: { state: string; source: string; message?: string; collectedAt?: string; points?: number }; curve?: { position: number; watched: number; relative: number }[] }
+export interface RetentionResponse { channels: RetentionChannel[]; collection: { last: string | null }; items: RetentionItem[]; period: { from: string; to: string }; total: number }
+export interface RetentionItemResponse { item?: RetentionItem; channels: RetentionChannel[] }
+/** Totals of a period in `insights.get` (`cards` and `cards.previous`). */
+export interface InsightsTotals { posts: number; followers: number | null; followersChange: number | null; followersGained: number | null; reactions: number; comments: number; engagement: number | null; overallEngagement: number | null; views: number; shares: number | null; saves: number | null; reach: number | null; watchTimeMin: number | null; avgWatchTimeSec: number | null }
+/** One post row in `insights.get` → `posts.items`. */
+export interface InsightsPost { id: string; network: string; channelId?: string | null; title?: string | null; type: string | null; publishedAt: string; url: string | null; thumb: string | null; thumbType: string | null; reactions: number; comments: number; views: number; shares: number | null; saves: number | null; reach: number | null; watchTimeMin: number | null; avgWatchTimeSec: number | null; engagement: number | null; noMetrics: boolean; origin?: string }
+export interface InsightsPostsPage { total: number; page: number; limit: number; sort: string; direction: string; items: InsightsPost[] }
+export interface InsightsResponse {
+  period: { from: string; to: string }; previousPeriod: { from: string; to: string };
+  channels: { network: string; id?: string; name: string | null; avatar: string; posts: number; reactions: number; comments: number; views: number; engagement: number | null; shares: number | null; saves: number | null; reach: number | null; watchTimeMin: number | null; avgWatchTimeSec: number | null }[];
+  cards: InsightsTotals & { previous: InsightsTotals; change: Record<string, { absolute: number; pct: number | null } | null> };
+  collection: { last: string | null; postsWithMetrics: number; postsWithoutMetrics: number; collecting: boolean; storedReadings: number; imported: number; lastImport: string | null };
+  filters: { channel: string | null; type: string | null; tag: string | null };
+  sources: { current: Record<string, string>; previous: Record<string, string>; bufferAggregate: boolean; aggregateUpdatedAt?: string | null; scope: string | null };
+  /** `source`: `current`, `milestone48h` or `no-data`. */
+  reading48h: { postId?: string; itemId: string; title: string | null; network: string; publishedAt: string; views: number | null; likes: number | null; comments: number | null; followersGained: number | null; source: string; url?: string }[];
+  reading48hText: string;
+  summary: { title: string; text: string; action?: string }[];
+  posts?: InsightsPostsPage; previousPosts?: InsightsPostsPage;
+  topPosts: { title?: string | null; network: string; type: string | null; publishedAt: string; reactions: number; comments: number; views: number; engagement: number | null; url?: string; thumb: string | null; thumbType: string | null; noMetrics: boolean }[];
+}
+
 // ---------------------------------------------------------------------------------------------------------------- um objeto por recurso
 export interface MediaApi {
   create(meta: { type: MediaType; name: string; mime: string; size: number; simple?: boolean; sha256?: string }, o?: CallOptions): Promise<{ id: string; minPartSize?: number; maxPartSize?: number; suggestedPartSize?: number }>;
-  uploadPart(id: string, n: number, bytes: Uint8Array): Promise<unknown>;
+  uploadPart(id: string, n: number, bytes: Uint8Array): Promise<MediaPart>;
   uploadContent(id: string, bytes: Uint8Array): Promise<Media>;
   complete(id: string, o?: CallOptions): Promise<Media>;
   get(id: string): Promise<Media>;
   list(type?: string): Promise<{ media: Media[] }>;
-  remove(id: string): Promise<unknown>;
+  remove(id: string): Promise<{ removed: string }>;
   /** Uploads a whole file (one PUT or parts, depending on size). Returns the ready media. */
   upload(source: Source, o: { type: MediaType; name: string; mime: string; part?: number; onProgress?: (done: number, total: number) => void }): Promise<Media>;
 }
@@ -73,14 +137,16 @@ export interface PostsApi {
   /** `o.idempotencyKey`: a string (or `true` for a fresh UUID) makes the call safe to retry: the server replays the first response instead of creating a second post. */
   create(p: PostRequest, o?: CallOptions): Promise<{ id: string; items: Item[] }>;
   list(f?: { state?: string; channel?: string; tag?: string; limit?: number; offset?: number }): Promise<{ total: number; posts: Post[] }>;
-  get(id: string): Promise<Post & { actions: unknown[] }>;
+  get(id: string): Promise<Post & { actions: PostAction[] }>;
   update(id: string, changes: Record<string, unknown>, o?: CallOptions): Promise<Post>;
   publishNow(id: string, o?: { network?: Network; idempotencyKey?: string | true }): Promise<Post>;
-  cancel(id: string, o?: CallOptions): Promise<{ id: string; canceled: string[]; kept: Item[] }>;
+  /** `o.dismiss`: also takes off the queue what only waits for the owner (private YouTube video, TikTok draft); `o.deleteVideo` (with `dismiss`): also deletes the PRIVATE YouTube video. Sent as the query `dismiss=true` and `delete_video=true`. */
+  cancel(id: string, o?: CallOptions & { dismiss?: boolean; deleteVideo?: boolean }): Promise<{ id: string; canceled: string[]; kept: Item[] }>;
   /** Registers a Reel already scheduled in Buffer; does not call Buffer. */
   adopt(body: Record<string, unknown>, o?: CallOptions): Promise<Post>;
-  scheduleYoutube(id: string, scheduledFor: string, o?: CallOptions): Promise<{ url: string; publishAt: string }>;
-  comment(id: string, itemId: string): Promise<unknown>;
+  scheduleYoutube(id: string, scheduledFor: string, o?: CallOptions): Promise<{ id: string; url: string; publishAt: string; privacy: "private"; changed: boolean }>;
+  /** Releases the item's saved comment now: `alreadyDone` (it was already published), `inProgress`, or the network's `result`. */
+  comment(id: string, itemId: string): Promise<{ alreadyDone?: boolean; inProgress?: boolean; result?: unknown }>;
   /**
    * Sends a TikTok draft that already reached the app inbox to the inbox AGAIN (a new notification for the same video). Returns the post; the send runs in the background
    * (`item.resend.inProgress`) and every send is listed in `item.deliveries`. Errors: `not_resendable` (422), `already_posted`, `resend_in_progress`, `channel_not_connected` (409),
@@ -89,45 +155,50 @@ export interface PostsApi {
   resend(id: string, itemId: string, o?: CallOptions): Promise<Post>;
 }
 export interface ChannelsApi {
-  remove(channel: string): Promise<{ network: Network; channel: string; removed: true }>;
+  /** The server answers `accountRemoved: true` (docs/api-contract.md: `removido` → `accountRemoved`); this type said `removed` until 16/11/2026. */
+  remove(channel: string): Promise<{ network: Network; channel: string; accountRemoved: true }>;
   setDefault(channel: string): Promise<{ network: Network; channel: string; default: true }>;
   list(o?: { verify?: boolean }): Promise<{ channels: Channel[] }>;
   slots(network: Network, o?: { channel?: string }): Promise<{ network: Network; timezone: string; slots: Slot[] }>;
-  setSlots(network: Network, slots: (string | { day: string | number; time: string })[], o?: { timezone?: string; channel?: string }): Promise<{ network: Network; timezone: string; slots: Slot[]; rescheduled: unknown[] }>;
+  setSlots(network: Network, slots: (string | { day: string | number; time: string })[], o?: { timezone?: string; channel?: string }): Promise<{ network: Network; timezone: string; slots: Slot[]; rescheduled: RescheduledItem[] }>;
   setFollowers(network: Network, value: number, o?: { day?: string; channel?: string }): Promise<{ network: Network; day: string; followers: number; source: string }>;
-  followers(network: Network, o?: { channel?: string }): Promise<{ network: Network; records: { day: string; followers: number; source: string }[] }>;
+  followers(network: Network, o?: { channel?: string }): Promise<{ network: Network; records: { day: string; /** `null` when the day has a record without a value. */ followers: number | null; source: string }[] }>;
   connect(network: Network | "meta", o?: { replace?: boolean; add?: boolean; instagram?: string; instagramId?: string; probe?: boolean }): Promise<{ url: string; redirect: string; expiresAt: string; warning?: string }>;
-  disconnect(network: Network, o?: { channel?: string }): Promise<{ network: Network; channel?: string; disconnected: boolean; revokedAtTiktok: boolean }>;
-  sendInstagramToken(body: { token: string; userId: string; username?: string; type?: string; host?: string }): Promise<unknown>;
+  /** `revokedAtTiktok` only comes for TikTok (YouTube: `revokedAtGoogle`); `newDefault` when another account became the default. */
+  disconnect(network: Network, o?: { channel?: string }): Promise<{ network: Network; channel?: string; disconnected: boolean; revokedAtTiktok?: boolean; revokedAtGoogle?: boolean; revocationSkipped?: boolean; newDefault?: string }>;
+  sendInstagramToken(body: { token: string; userId: string; username?: string; type?: string; host?: string }): Promise<{ connected: boolean; username: string | null; followers: number | null; mediaItems: number | null; host: string }>;
 }
-export interface TiktokApi { creator(o?: { channel?: string }): Promise<unknown> }
+/** What the connected TikTok account accepts now (creator_info). `allowedPrivacyLevels` is only `SELF_ONLY` until TikTok audits the app (`appAudited`). */
+export interface TiktokCreator { connected: true; name: string | null; username: string | null; avatar?: string; privacyLevels: string[]; allowedPrivacyLevels: string[]; appAudited: boolean; directAvailable: boolean; maxDurationSec: number | null; commentsDisabled: boolean; duetDisabled: boolean; stitchDisabled: boolean; queriedAt: string }
+export interface TiktokApi { creator(o?: { channel?: string }): Promise<TiktokCreator> }
 export interface InstagramApi {
-  media(o?: { max?: number; page?: string }): Promise<unknown>;
-  comments(o?: { media?: string; unanswered?: boolean; sort?: string; max?: number }): Promise<unknown>;
-  reply(id: string, text: string, o?: CallOptions): Promise<unknown>;
-  hide(id: string, hide?: boolean): Promise<unknown>;
-  resolve(id: string): Promise<unknown>;
-  reopen(id: string): Promise<unknown>;
+  media(o?: { max?: number; page?: string }): Promise<{ mediaItems: InstagramMediaItem[]; next: string | null }>;
+  comments(o?: { media?: string; unanswered?: boolean; sort?: string; max?: number; page?: string }): Promise<{ comments: InstagramThread[]; mediaItems: { id: string; pending: number; [k: string]: unknown }[]; sort: string; pending: number; next?: string | null }>;
+  reply(id: string, text: string, o?: CallOptions): Promise<CommentReply>;
+  hide(id: string, hide?: boolean): Promise<{ id: string; hidden: boolean; ok: boolean }>;
+  resolve(id: string): Promise<CommentResolved>;
+  reopen(id: string): Promise<CommentResolved>;
 }
-export interface CommunityApi { comments(o?: { network?: "all" | Network; unanswered?: boolean; sort?: string; max?: number }): Promise<unknown> }
+/** `comments`/`mediaItems` mix YouTube threads and Instagram comments (each with its `network`); `errors` holds the networks that failed, by network or channel. */
+export interface CommunityApi { comments(o?: { network?: "all" | Network; unanswered?: boolean; sort?: string; max?: number }): Promise<{ comments: (YoutubeThread | InstagramThread | Record<string, unknown>)[]; mediaItems: Record<string, unknown>[]; errors: Record<string, CommunityError>; pending: number; pendingByNetwork: Record<string, number>; pendingByChannel: Record<string, number> }> }
 export interface YoutubeApi {
-  listVideos(o?: { max?: number; page?: string }): Promise<{ videos: unknown[]; next?: string | null }>;
-  getVideo(id: string): Promise<{ video: unknown }>;
-  editVideo(id: string, o?: { title?: string; description?: string; tags?: string[]; dryRun?: boolean }): Promise<{ before: unknown; after: unknown; changed: boolean; written?: boolean }>;
-  comments(o?: { video?: string; unanswered?: boolean; sort?: string; max?: number; page?: string }): Promise<{ comments: unknown[]; next?: string | null; pending: number }>;
-  resolve(threadId: string): Promise<unknown>;
-  reopen(threadId: string): Promise<unknown>;
-  reply(threadId: string, text: string, o?: CallOptions): Promise<unknown>;
+  listVideos(o?: { max?: number; page?: string }): Promise<{ videos: YoutubeVideo[]; next?: string | null }>;
+  getVideo(id: string): Promise<{ video: YoutubeVideo }>;
+  editVideo(id: string, o?: { title?: string; description?: string; tags?: string[]; dryRun?: boolean }): Promise<{ id: string; before: YoutubeSnippet; after: YoutubeSnippet; changed: boolean; written?: boolean; url?: string }>;
+  comments(o?: { video?: string; unanswered?: boolean; sort?: string; max?: number; page?: string }): Promise<{ comments: YoutubeThread[]; next?: string | null; pending: number; sort: string }>;
+  resolve(threadId: string): Promise<CommentResolved>;
+  reopen(threadId: string): Promise<CommentResolved>;
+  reply(threadId: string, text: string, o?: CallOptions): Promise<CommentReply>;
 }
 export interface InsightsApi {
-  get(o?: { from?: string; to?: string; channel?: string; tag?: string; type?: string; compare?: boolean; sort?: string; direction?: string; page?: number; limit?: number }): Promise<Record<string, any>>;
-  import(o?: { network?: "all" | Network; dryRun?: boolean }): Promise<{ imported: Record<string, any>[] }>;
+  get(o?: { from?: string; to?: string; channel?: string; tag?: string; type?: string; compare?: boolean; sort?: string; direction?: string; page?: number; limit?: number }): Promise<InsightsResponse>;
+  import(o?: { network?: "all" | Network; dryRun?: boolean }): Promise<{ imported: InsightsImportResult[] }>;
 }
-export interface ContentApi { list(o?: { network?: string; type?: string; from?: string; to?: string; sort?: string; limit?: number; offset?: number }): Promise<{ total: number; items: Record<string, any>[] }> }
+export interface ContentApi { list(o?: { network?: string; type?: string; from?: string; to?: string; sort?: string; limit?: number; offset?: number }): Promise<{ total: number; items: ContentItem[] }> }
 export interface ApiKeysApi {
-  list(): Promise<{ keys: unknown[] }>;
+  list(): Promise<{ keys: ApiKeyInfo[] }>;
   create(name: string, scope?: Scope, expiresInDays?: number, o?: CallOptions): Promise<{ id: string; key: string; scope: Scope }>;
-  revoke(id: string): Promise<unknown>;
+  revoke(id: string): Promise<{ revoked: string }>;
 }
 export interface UsageApi {
   get(o?: { days?: number }): Promise<{ days: number; period: { from: string; to: string }; total: number; succeeded: number; errors: number; p95Ms: number | null; peakPerMinute: number; limitPerMinute: number; byDay: { day: string; total: number; errors: number }[]; byHour?: { start: string; total: number; errors: number }[]; byKey: { id: string; name: string; total: number; errors: number; lastAt: string }[] }>;

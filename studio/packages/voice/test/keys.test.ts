@@ -47,9 +47,11 @@ test("keys outside macOS: environment wins, otherwise the secrets file with mode
   delete process.env.ELEVENLABS_API_KEY;
 });
 test("Praeko key: PRAEKO_KEY works and writing uses the `praeko` CLI account (praeko/chave)", () => {
+  const realKey = process.env.PRAEKO_KEY; delete process.env.PRAEKO_KEY; // isola o teste da chave real da máquina (nunca a imprima nem a use aqui)
   const d = sandbox();
   storeKey("praeko/main", "praeko_X");
   assert.equal(JSON.parse(readFileSync(join(d, "secrets.json"), "utf8"))["praeko/chave"], "praeko_X");
   assert.equal(getKey("praeko/main"), "praeko_X");
   process.env.PRAEKO_KEY = "praeko_ENV"; assert.equal(getKey("praeko/main"), "praeko_ENV"); delete process.env.PRAEKO_KEY;
+  if (realKey !== undefined) process.env.PRAEKO_KEY = realKey;
 });

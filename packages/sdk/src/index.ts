@@ -6,7 +6,7 @@
 // Errors become PraekoError (status, code, message, details). GET and part uploads retry on network failure, 429 and 5xx. A mutating call (POST/PATCH/DELETE) retries too, but ONLY when it carries an `idempotencyKey`
 // (the server then replays the first response instead of repeating the work; docs/idempotencia.md); without one it never retries.
 import { addLegacy } from "./legacy.ts";
-import type { ApiKeysApi, Network, CallOptions, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, LegacyCanaisApi, LegacyChavesApi, LegacyComunidadeApi, LegacyConteudoApi, LegacyInsights, LegacyInstagram, LegacyMidiaApi, LegacyPosts, LegacyYoutube, MediaApi, NotificationsApi, PostsApi, PreferencesApi, Source, SourceReader, TiktokApi, UsageApi, WebhooksApi, YoutubeApi } from "./types.ts";
+import type { ApiKeysApi, CalendarResponse, Network, CallOptions, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, LegacyCanaisApi, LegacyChavesApi, LegacyComunidadeApi, LegacyConteudoApi, LegacyInsights, LegacyInstagram, LegacyMidiaApi, LegacyPosts, LegacyYoutube, MediaApi, NotificationsApi, PostsApi, PreferencesApi, Source, SourceReader, TiktokApi, UsageApi, WebhooksApi, YoutubeApi } from "./types.ts";
 
 export type * from "./types.ts";
 /** Login por código (RFC 8628): pedir o código, consultar e esperar a chave de escrita, sem chave (docs/device-login.md). */
@@ -139,7 +139,7 @@ export class Praeko {
       scheduleYoutube: (id, scheduledFor, o) => a._req("POST", `/v1/posts/${ref(id)}/youtube/schedule`, { body: { scheduledFor }, ...idem(o) }),
       update: (id, changes, o) => a._req("PATCH", `/v1/posts/${ref(id)}`, { body: changes, ...idem(o) }),
       publishNow: (id, { network, idempotencyKey } = {}) => a._req("POST", `/v1/posts/${ref(id)}/publish-now`, { query: { network }, ...idem({ idempotencyKey }) }),
-      cancel: (id, o) => a._req("DELETE", `/v1/posts/${ref(id)}`, idem(o)),
+      cancel: (id, o) => a._req("DELETE", `/v1/posts/${ref(id)}`, { query: { dismiss: o?.dismiss ? "true" : undefined, delete_video: o?.deleteVideo ? "true" : undefined }, ...idem(o) }),
       comment: (id, itemId) => a._req("POST", `/v1/posts/${ref(id)}/items/${ref(itemId)}/comment`),
       resend: (id, itemId, o) => a._req("POST", `/v1/posts/${ref(id)}/items/${ref(itemId)}/resend`, idem(o)),
     } as PostsApi & LegacyPosts;
@@ -167,7 +167,7 @@ export class Praeko {
     this.instagram = {
       media: ({ max, page } = {}) => a._req("GET", "/v1/instagram/media", { query: { max, page } }),
       /** `sort`: recent | comments | views. Returns { comments, mediaItems, pending, next }. */
-      comments: ({ media, unanswered, sort, max } = {}) => a._req("GET", "/v1/instagram/comments", { query: { media, unanswered: unanswered ? 1 : undefined, sort, max } }),
+      comments: ({ media, unanswered, sort, max, page } = {}) => a._req("GET", "/v1/instagram/comments", { query: { media, unanswered: unanswered ? 1 : undefined, sort, max, page } }),
       reply: (commentId, text, o) => a._req("POST", `/v1/instagram/comments/${ref(commentId)}/reply`, { body: { text }, ...idem(o) }),
       hide: (commentId, hide = true) => a._req("POST", `/v1/instagram/comments/${ref(commentId)}/hide`, { body: { hide } }),
       resolve: (commentId) => a._req("POST", `/v1/instagram/comments/${ref(commentId)}/resolve`),
@@ -239,7 +239,7 @@ export class Praeko {
     };
     addLegacy(this);
   }
-  calendar({ from, to, channel, tag }: { from?: string; to?: string; channel?: string; tag?: string } = {}): Promise<{ from: string; to: string; items: unknown[]; freeSlots: { network: Network; scheduledFor: string }[] }> { return this._req("GET", "/v1/calendar", { query: { from, to, channel, tag } }); }
+  calendar({ from, to, channel, tag }: { from?: string; to?: string; channel?: string; tag?: string } = {}): Promise<CalendarResponse> { return this._req("GET", "/v1/calendar", { query: { from, to, channel, tag } }); }
   mentions({ network }: { network?: string } = {}): Promise<{ mentions: unknown[]; reason: string }> { return this._req("GET", "/v1/mentions", { query: { network } }); }
   health(): Promise<{ ok: boolean; service: string; version: string }> { return this._req("GET", "/health", { noKey: true }); }
 

@@ -58,7 +58,7 @@ export const ROUTES = [
   { key: "posts.list", method: "GET", path: "/v1/posts", legacy: "/v1/posts", scope: "read", summary: "List posts (filters: state, channel, tag)" },
   { key: "posts.get", method: "GET", path: "/v1/posts/:id", legacy: "/v1/posts/:id", scope: "read", summary: "One post with its items and actions" },
   { key: "posts.update", method: "PATCH", path: "/v1/posts/:id", legacy: "/v1/posts/:id", scope: "write", body: "json", summary: "Edit title, texts, media, tags, items; move to draft/queue; reschedule/edit a YouTube video already uploaded and still scheduled" },
-  { key: "posts.cancel", method: "DELETE", path: "/v1/posts/:id", legacy: "/v1/posts/:id", scope: "write", summary: "Cancel the pending items of a post" },
+  { key: "posts.cancel", method: "DELETE", path: "/v1/posts/:id", legacy: "/v1/posts/:id", scope: "write", summary: "Cancel the pending items of a post (`dismiss=true` also takes off the queue what only waits for the owner; `delete_video=true`, with `dismiss`, also deletes the private YouTube video)" },
   { key: "posts.publishNow", method: "POST", path: "/v1/posts/:id/publish-now", legacy: "/v1/posts/:id/publicar-agora", scope: "write", summary: "Take pending items out of the queue and publish now (?network=)" },
   { key: "posts.youtubeSchedule", method: "POST", path: "/v1/posts/:id/youtube/schedule", legacy: "/v1/posts/:id/youtube/agendar", scope: "write", body: "json", summary: "Schedule publication of a video already uploaded to YouTube (private)" },
   { key: "posts.itemComment", method: "POST", path: "/v1/posts/:id/items/:item/comment", legacy: "/v1/posts/:id/itens/:destino/comentar", scope: "write", summary: "Release the stored pinned comment of an item" },
@@ -173,7 +173,7 @@ const KEY_ROWS = [
   ["leitura48hTexto", "reading48hText"], ["leiturasNoBanco", "storedReadings"], ["lembrete", "reminder"], ["limite", "limit"], ["mantidos", "kept"], ["marcaPropria", "ownBrand"],
   ["marcaTerceiros", "thirdPartyBrand"], ["marcos", "milestones"], ["mencoes", "mentions"], ["mensagem", "message"], ["midia", "media"], ["midiaId", "mediaId"], ["midias", "mediaItems"], ["miniatura", "thumb"],
   ["miniaturaMidia", "thumbMedia"], ["miniaturaMs", "coverFrameMs"], ["miniaturaTipo", "thumbType"], ["modo", "mode"], ["motivo", "reason"], ["mover", "moveTo"],
-  ["moverRascunho", "moveToDraft"], ["envio", "delivery"], ["revogacaoPulada", "revocationSkipped"], ["removido", "accountRemoved"], ["motivoFalha", "failReason"], ["verificadoEm", "checkedAt"], ["mudou", "changed"], ["naCaixaDeEntrada", "inInbox"], ["nome", "name"], ["novos", "created"], ["ocultar", "hide"], ["oculto", "hidden"],
+  ["moverRascunho", "moveToDraft"], ["envio", "delivery"], ["revogacaoPulada", "revocationSkipped"], ["removido", "accountRemoved"], ["motivoFalha", "failReason"], ["verificadoEm", "checkedAt"], ["mudou", "changed"], ["alterado", "changed", "res"], ["naCaixaDeEntrada", "inInbox"], ["nome", "name"], ["novos", "created"], ["ocultar", "hide"], ["oculto", "hidden"],
   ["opcoes", "options"], ["ordem", "sort"], ["origem", "origin"], ["pagina", "page"], ["paginas", "pages"], ["parte", "part"], ["parteMaxima", "maxPartSize"], ["parteMinima", "minPartSize"],
   ["padrao", "default"], ["partes", "parts"], ["parteSugerida", "suggestedPartSize"], ["pendentes", "pending"], ["pendentesPorRede", "pendingByNetwork"], ["pendentesPorCanal", "pendingByChannel"], ["periodo", "period"], ["periodoAnterior", "previousPeriod"],
   ["postsAnterior", "previousPosts"], ["postsComMetricas", "postsWithMetrics"], ["postsSemMetricas", "postsWithoutMetrics"], ["prefixo", "prefix"], ["privacidade", "privacy"],
@@ -209,6 +209,10 @@ const KEY_ROWS = [
 export const KEYS: ReadonlyArray<KeyRow> = KEY_ROWS.filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i);
 /** Campo legado (PT) → campo do contrato (EN) (a primeira linha de cada campo vale; veja o comentário de cada linha acima). */
 export type FieldMap = { [R in (typeof KEY_ROWS)[number] as R[0]]: R[1] };
+/** Campo interno (PT) → campo do contrato (EN) numa RESPOSTA: sem as linhas "só pedido"; a primeira linha de cada campo vale (como em `toEN`). */
+export type ResponseFieldMap = { [R in Exclude<(typeof KEY_ROWS)[number], readonly [string, string, "req"]> as R[0]]: R[1] };
+/** Campo do contrato (EN) → campo interno (PT) num PEDIDO: sem as linhas "só resposta" (como `toPT(…, "req")`). */
+export type RequestFieldMap = { [R in Exclude<(typeof KEY_ROWS)[number], readonly [string, string, "res"]> as R[1]]: R[0] };
 /** Campo do contrato que tem tradução (os de SAME_KEYS passam iguais e não entram aqui). */
 export type ContractField = FieldMap[keyof FieldMap];
 export type LegacyField = keyof FieldMap;
@@ -394,6 +398,8 @@ export const ERROR_CODES = {
   // login por código (RFC 8628; device.js): os quatro do polling têm os nomes da RFC
   autorizacao_pendente: "authorization_pending", consulta_rapida: "slow_down", codigo_expirado: "expired_token", acesso_negado: "access_denied", concessao_invalida: "invalid_grant",
   codigo_dispositivo_invalido: "invalid_user_code", codigo_dispositivo_usado: "user_code_used", codigo_dispositivo_bloqueado: "user_code_locked",
+  // quadro de tarefas da plataforma (tarefas.js; rotas /v1/platform/tasks, fora da tabela)
+  tarefa_inexistente: "task_not_found", tarefa_com_dependentes: "task_has_dependents", limite_de_tarefas: "task_limit", parece_segredo: "looks_like_secret", dado_pessoal: "personal_data",
 } as const;
 /** Código de erro legado (PT) → código do contrato (EN). */
 export type ErrorCodeMap = typeof ERROR_CODES;
@@ -444,3 +450,6 @@ export function normalizeUserCode(input: unknown): string | null {
 }
 /** "BCDFGHJK" → "BCDF-GHJK" (como o CLI mostra e a pessoa digita). */
 export const formatUserCode = (code: string): string => (code.length === DEVICE.USER_CODE_LENGTH ? `${code.slice(0, 4)}-${code.slice(4)}` : code);
+
+// Tipos de pedido e resposta por rota (só tipos): route-types.ts.
+export type * from "./route-types.ts";

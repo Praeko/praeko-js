@@ -512,7 +512,7 @@ async function keyCmd(f: any, log: any, extra: any) {
     if (!["read", "write", "admin"].includes(scope)) throw new Error("scope: read, write or admin");
     const scopeDb = SCOPE_DB[scope] ?? scope; // the database stores leitura/escrita/admin
     const sqlName = String(f.name).replace(/'/g, "''");
-    log(`Key (store it now, it is not shown again):\n  ${k}\n\nRun on D1 (see docs/servidor.md; use --local for wrangler dev):\n  npx wrangler d1 execute arauto --remote --command "INSERT INTO chaves_api (id, nome, hash, prefixo, scope, criado_em) VALUES ('${id}', '${sqlName}', '${h}', '${prefixoChave(k)}', '${scopeDb}', '${new Date().toISOString()}')"`);
+    log(`Key (store it now, it is not shown again):\n  ${k}\n\nRun on D1 (see docs/servidor.md; use --local for wrangler dev):\n  npx wrangler d1 execute arauto --remote --command "INSERT INTO chaves_api (workspace_id, id, nome, hash, prefixo, escopo, criado_em) VALUES ('ws_inicial', '${id}', '${sqlName}', '${h}', '${prefixoChave(k)}', '${scopeDb}', '${new Date().toISOString()}')"`);
     return 0;
   }
   const a = remoteClient(f, loadConfigIfAny(f).config, extra);

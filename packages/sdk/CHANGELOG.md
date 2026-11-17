@@ -2,8 +2,12 @@
 
 Segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado]
+## [0.5.0] - 2026-11-17
 
+- Tipos das respostas conferidos contra o servidor (migração do servidor para TypeScript): campos que a API já devolvia como `null` agora são `| null` nos tipos, e respostas antes `unknown`/`any` ganharam tipos reais. **Quem lê esses campos com `strict` pode precisar tratar `null`**; em tempo de execução nada muda.
+- `posts.scheduleYoutube` (POST `/v1/posts/:id/youtube/schedule`): a resposta traz `changed: boolean` no tipo (o servidor já devolvia no contrato novo; o legado segue com `alterado`).
+- `posts.cancel(id, { dismiss, deleteVideo })`: documenta e aceita os parâmetros que o painel já usava; `instagram.comments` aceita `page`.
+- Itens que estavam em "Não lançado":
 - Login por código (RFC 8628, `docs/device-login.md`), sem chave: `startDeviceLogin({ url, computerName?, os? })` (POST `/v1/device/code`), `pollDeviceToken({ url, deviceCode })` (uma consulta a POST `/v1/device/token`) e `waitForDeviceLogin({ url, deviceCode, interval, expiresIn, signal, onPoll })`, que respeita o `interval`, soma 5 s a cada `slow_down` e devolve `{ key, id, name, scope: "write", prefix, workspace }` uma única vez. Tipos `DeviceCode`, `DeviceToken`, `DevicePollError`. Em `@praeko/sdk/contract`: `DEVICE` (alfabeto, tamanho, validade, intervalo), `normalizeUserCode` e `formatUserCode`, e os códigos de erro `authorization_pending`, `slow_down`, `expired_token`, `access_denied`, `invalid_grant`, `invalid_user_code`, `user_code_used`, `user_code_locked`.
 - Acesso antecipado do Instagram e do TikTok (`docs/acesso-antecipado.md`): códigos de erro novos em `@praeko/sdk/contract` (`ERROR_CODES`): `early_access_open`, `early_access_not_needed`, `early_access_not_found`, `early_access_rate_limited` e `panel_session_required` (as rotas `/v1/early-access` exigem a sessão do painel: o cliente não ganhou métodos para elas).
 - `Channel.network` aceita `ComingSoonNetwork` (`"facebook"`) e `Channel.comingSoon?: boolean`: `channels.list()` passa a terminar com um item informativo do Facebook (Páginas), `supported: false`, `comingSoon: true`. Ele não conecta nem publica; `Network` (redes de publicação) não muda. Campo novo no contrato: `emBreve` ↔ `comingSoon` (só respostas).
