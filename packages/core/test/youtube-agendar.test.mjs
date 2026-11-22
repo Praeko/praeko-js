@@ -21,8 +21,8 @@ test("agendarPublicacao: mantém o resto do status e põe privado + publishAt", 
 });
 test("agendarPublicacao: recusa horário próximo demais ou inválido", async () => {
   const ctx = ctxCom([], {});
-  await assert.rejects(agendarPublicacao({ item: { videoId: "a", quando: "2026-11-05T00:02:00Z" }, ctx, agora: Date.parse("2026-11-05T00:00:00Z") }), /5 minutos/);
-  await assert.rejects(agendarPublicacao({ item: { videoId: "a", quando: "lixo" }, ctx }), /inválido/);
+  await assert.rejects(agendarPublicacao({ item: { videoId: "a", quando: "2026-11-05T00:02:00Z" }, ctx, agora: Date.parse("2026-11-05T00:00:00Z") }), (e) => e.codigo === "horario_muito_cedo" && e.minMinutos === 5 && /5 minutos/.test(e.message));
+  await assert.rejects(agendarPublicacao({ item: { videoId: "a", quando: "lixo" }, ctx }), (e) => e.codigo === "horario_invalido" && /inválido/.test(e.message));
 });
 test("agendarPublicacao: nunca mexe em vídeo público e não escreve quando o horário já é esse", async () => {
   const agora = Date.parse("2026-11-05T00:00:00Z");

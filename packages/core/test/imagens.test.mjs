@@ -1,23 +1,12 @@
-// Foto única: pedido (kind/images), limites do Instagram, post do Buffer com UM asset de imagem e contêiner de imagem da Meta. Nenhuma chamada de rede.
+// Foto única: pedido (kind/images), limites do Instagram e contêiner de imagem da Meta. Nenhuma chamada de rede.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarFotoInstagram } from "../src/buffer-api.ts";
 import { LIMITES_IMAGEM_INSTAGRAM, validarImagemInstagram, validarPedido } from "../src/contrato.ts";
 import { REF_META, criarContainerImagem } from "../src/provedores/instagram-meta.ts";
 
 const AGORA = Date.parse("2026-11-04T20:00:00Z");
-const foto = { canalId: "CH", texto: "Legenda #a", imagemUrl: "https://praeko.app/v1/m/ID/TOK/foto.jpg", quando: "2026-11-08T15:00:00Z", agora: AGORA };
 const pedidoImg = (extra = {}) => ({ titulo: "Foto", kind: "image", midia: { images: [{ midia: "M1", alt: "descrição" }] }, textos: { instagram: { texto: "Legenda" } }, destinos: [{ rede: "instagram", quando: "2026-11-08T15:00:00Z" }], ...extra });
 
-test("montarFotoInstagram: UM asset de imagem, metadata type post, sem alt e sem metadados de vídeo", () => {
-  const i = montarFotoInstagram(foto);
-  assert.deepEqual(i, { channelId: "CH", schedulingType: "automatic", needsApproval: false, source: "arauto", mode: "customScheduled", dueAt: "2026-11-08T15:00:00.000Z", text: "Legenda #a", assets: [{ image: { url: foto.imagemUrl } }], metadata: { instagram: { type: "post", shouldShareToFeed: true } } });
-  assert.equal(montarFotoInstagram({ ...foto, quando: null, agoraMesmo: true }).mode, "shareNow");
-  assert.throws(() => montarFotoInstagram({ ...foto, imagemUrl: "http://x/f.jpg" }), /https/);
-  assert.throws(() => montarFotoInstagram({ ...foto, quando: new Date(AGORA + 4 * 60e3).toISOString() }), /5 minutos/);
-  assert.throws(() => montarFotoInstagram({ ...foto, texto: "" }), /vazia/);
-  assert.throws(() => montarFotoInstagram({ ...foto, canalId: "" }), /canal/);
-});
 test("validarPedido: kind image exige media.images e não aceita vídeo, capa nem imagens por item; kind inválido é recusado; vídeo segue como sempre", () => {
   assert.deepEqual(validarPedido(pedidoImg()), []);
   assert.match(validarPedido(pedidoImg({ midia: {} }))[0], /media\.images is required/);

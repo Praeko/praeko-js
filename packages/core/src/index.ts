@@ -108,7 +108,7 @@ export function pacote({ config, ep }: any) {
   return o.join("\n") + "\n";
 }
 
-export * from "./buffer.ts";
+export * from "./quando-textos.ts";
 export * as hospedagem from "./hospedagem.ts";
 export * as capaQuadro from "./capa-quadro.ts";
 export * from "./fila.ts";

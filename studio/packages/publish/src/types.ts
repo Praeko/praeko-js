@@ -21,7 +21,6 @@ export interface Brand {
     provider?: string; hashtags?: { allowed?: string[]; banned?: string[] }; limits?: Partial<Limits>; aiTics?: boolean; aiTicPatterns?: AiTicPattern[];
     timezoneOffset?: string; folder?: string; hosting?: Hosting; utm?: Partial<Record<NetworkName, [string, string]>>; labels?: Partial<Labels>;
     youtube?: NetworkOptions; instagram?: NetworkOptions; tiktok?: NetworkOptions; praeko?: PraekoSettings;
-    buffer?: NetworkOptions & { channels?: Record<string, string>; youtube?: NetworkOptions };
     networks?: string[]; channels?: Record<string, string>;
   };
 }

@@ -1,6 +1,6 @@
 // Instagram pela API da Meta (login unificado: token de USUÁRIO DE SISTEMA, host graph.facebook.com, sem expiração).
 // Só fetch (roda no Worker): mídias, comentários e respostas, menções por marcação, seguidores e métricas por mídia.
-// Escritas (responder/ocultar comentário) só existem aqui como funções chamadas pelas rotas do servidor; publicar Reels continua no Buffer.
+// Escritas (responder/ocultar comentário) só existem aqui como funções chamadas pelas rotas do servidor.
 // Token guardado como segredo `instagram/meta` (JSON { token, userId, username, tipo, host }).
 // Nomes de métricas conferidos na doc da Meta (Instagram media insights, v23): REELS aceita comments, ig_reels_avg_watch_time,
 // ig_reels_video_view_total_time, likes, reach, saved, shares, total_interactions, views; `impressions` está obsoleta e `plays` não existe mais.

@@ -1,7 +1,6 @@
 // praeko studio schedule --via praeko: FAKE fetch, no real network call, nothing is really sent.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -42,7 +41,7 @@ async function run(root: string, args: string[], { routes, key = "praeko_TEST", 
   finally { process.chdir(cwd); console.log = log; }
   return { calls, text: out.join("\n"), code, error };
 }
-const CHANNELS = { channels: [{ network: "youtube", id: "yt1", name: "YT channel", connected: true }, { network: "instagram", id: "ig1", name: "mychannel", connected: true, default: true }, { network: "instagram", id: "ig2", name: "other", connected: true }, { network: "tiktok", id: "tt1", name: "tt", connected: true }] };
+const CHANNELS = { channels: [{ network: "youtube", id: "yt1", name: "YT channel", connected: true }, { network: "instagram", id: "ig1", name: "mychannel", connected: true, default: true, meta: { connected: true } }, { network: "instagram", id: "ig2", name: "other", connected: true, meta: { connected: true } }, { network: "tiktok", id: "tt1", name: "tt", connected: true }] };
 /** Happy fake server: channels, media, post. */
 function happy() {
   let m = 0;
@@ -56,18 +55,19 @@ function happy() {
 }
 const writes = (calls: Call[]) => calls.filter((c) => c.method !== "GET");
 
-test("the default provider is still Buffer (without --via and without brand publishing.provider)", async () => {
+test("the default provider is Praeko (without --via and without brand publishing.provider)", async () => {
   const root = project();
-  const r = await run(root, [SLUG, "--when", WHEN]);
+  const r = await run(root, [SLUG, "--when", WHEN], { routes: happy() });
   assert.equal(r.error, undefined); assert.equal(r.code, 0);
-  assert.match(r.text, /SIMULATION \(nothing will be sent; use --send\)/); assert.doesNotMatch(r.text, /PRAEKO/);
-  assert.equal(r.calls.length, 0);
+  assert.match(r.text, /SIMULATION ON PRAEKO \(nothing will be sent; use --send\)/);
+  assert.equal(writes(r.calls).length, 0);
 });
-test("brand.json → publishing.provider picks the default; --via buffer wins; an invalid provider gives a clear error", async () => {
+test("brand.json → publishing.provider picks the default; --via buffer is a clear error (removed); an invalid provider too", async () => {
   const root = project({ provider: "praeko" });
-  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "buffer"])).text, /SIMULATION \(nothing will be sent/);
+  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "buffer"])).error.message, /Buffer provider was removed/);
+  assert.match((await run(project({ provider: "buffer" }), [SLUG, "--when", WHEN])).error.message, /Buffer provider was removed.*publishing\.provider/);
   assert.match((await run(root, [SLUG, "--when", WHEN], { key: null })).text, /SIMULATION ON PRAEKO/);
-  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "zap"])).error.message, /provider "zap" is unknown.*buffer or praeko/);
+  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "zap"])).error.message, /provider "zap" is unknown.*use praeko/);
   assert.match((await run(project({ provider: "arauto" }), [SLUG, "--when", WHEN])).error.message, /publishing\.provider/);
 });
 test("--via praeko without a key: simulates without network, but --send refuses with a useful message and writes nothing", async () => {
@@ -85,7 +85,7 @@ test("a simulation with a key only reads the channels (no write call), shows the
   assert.deepEqual(r.calls.map((c) => `${c.method} ${c.path}`), ["GET /v1/channels"]);
   assert.equal(writes(r.calls).length, 0);
   assert.match(r.text, /SIMULATION ON PRAEKO/); assert.match(r.text, /YouTube .*scheduled \(Praeko uploads it private and schedules it\)/);
-  assert.match(r.text, /Instagram .*via buffer/); assert.match(r.text, /TikTok .*draft/);
+  assert.match(r.text, /Instagram .*Meta API/); assert.match(r.text, /TikTok .*draft/);
   assert.ok(!existsSync(schedFile(root)));
 });
 test("a simulation warns about a channel that is not connected, but only --send refuses", async () => {
@@ -107,7 +107,7 @@ test("--send: uploads video and cover (simple media), creates the post with the 
   assert.equal(post.id, SLUG); assert.equal(post.title, "A title"); assert.deepEqual(post.media, { video: "m1", cover: "m2" });
   assert.deepEqual(post.items, [
     { network: "youtube", scheduledFor: "2099-11-06T17:30:00-03:00", mode: "scheduled" },
-    { network: "instagram", scheduledFor: "2099-11-06T17:30:00-03:00", via: "buffer" },
+    { network: "instagram", scheduledFor: "2099-11-06T17:30:00-03:00", via: "meta" },
     { network: "tiktok", scheduledFor: "2099-11-06T17:30:00-03:00", mode: "draft" },
   ]);
   assert.equal(post.texts.youtube.title, "A title"); assert.equal(post.options.format, "short");
@@ -124,27 +124,28 @@ test("--networks and per-network times: only the chosen items, each at its time"
   const post = JSON.parse(r.calls.at(-1)!.body);
   assert.deepEqual(post.items.map((i: any) => [i.network, i.scheduledFor]), [["youtube", "2099-11-06T17:30:00-03:00"], ["tiktok", "2099-11-06T19:00:00-03:00"]]);
 });
-test("brand.json options: direct TikTok, Instagram through Meta (25 min) and a pinned channel", async () => {
+test("brand.json options: direct TikTok, Instagram (25 min) and a pinned channel", async () => {
   const root = project({ praeko: { tiktok: { mode: "direct" }, instagram: { via: "meta" }, channels: { instagram: "ig2" } } });
-  const routes = (c: Call) => (c.path === "/v1/channels" ? { body: { channels: CHANNELS.channels.map((x) => (x.network === "instagram" ? { ...x, meta: { connected: true } } : x)) } } : happy()(c));
-  const r = await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes });
+  const r = await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes: happy() });
   assert.equal(r.error, undefined, r.error?.message);
   const post = JSON.parse(r.calls.at(-1)!.body);
   assert.deepEqual(post.items.find((i: any) => i.network === "tiktok"), { network: "tiktok", scheduledFor: "2099-11-06T17:30:00-03:00", mode: "direct" });
   assert.deepEqual(post.items.find((i: any) => i.network === "instagram"), { network: "instagram", scheduledFor: "2099-11-06T17:30:00-03:00", channel: "ig2", via: "meta" });
   assert.deepEqual(post.options.tiktok, { privacy: "SELF_ONLY" });
-  // via meta without Meta connected on Praeko: refuses before uploading anything
-  const no = await run(project({ praeko: { instagram: { via: "meta" } } }), [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes: happy() });
+  // Meta not connected on Praeko: refuses before uploading anything
+  const noMeta = (c: Call) => (c.path === "/v1/channels" ? { body: { channels: CHANNELS.channels.map((x) => (x.network === "instagram" ? { ...x, meta: { connected: false } } : x)) } } : happy()(c));
+  const no = await run(project(), [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes: noMeta });
   assert.match(no.error.message, /Meta API is not connected/); assert.equal(writes(no.calls).length, 0);
-  // less than 25 min ahead on Instagram via meta
+  // less than 25 min ahead on Instagram
   const soon = new Date(Date.now() + 10 * 60e3).toISOString();
   const short = await run(project({ praeko: { instagram: { via: "meta" } } }), [SLUG, "--via", "praeko", "--networks", "ig", "--when", soon], { routes: happy() });
   assert.match(short.error.message, /less than 25 minutes/);
 });
-test("--reminder does not exist on Praeko: refuses with a clear message; --url too", async () => {
+test("--reminder and --url no longer exist: refuse with a clear message and no network call", async () => {
   const root = project();
-  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--reminder"])).error.message, /--reminder does not exist on Praeko.*--via buffer/);
-  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--url", "https://x/v.mp4"])).error.message, /--url is Buffer's/);
+  const a = await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--reminder"], { routes: happy() });
+  assert.match(a.error.message, /--reminder no longer exists/); assert.equal(a.calls.length, 0);
+  assert.match((await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--url", "https://x/v.mp4"])).error.message, /--url no longer exists/);
 });
 test("a failure creating the post: the server error is shown and the media that was uploaded is removed (no orphans)", async () => {
   const root = project();
@@ -184,19 +185,14 @@ test("--cancel --networks: only when the network fills the whole post (Praeko ca
   assert.match(r.error.message, /cancels the whole post.*YouTube/); assert.equal(writes(r.calls).length, 0);
   assert.ok(existsSync(schedFile(root)));
 });
-test("it never mixes providers: a Buffer schedule is not touched by Praeko and vice versa", async () => {
+test("a leftover schedule from the removed Buffer provider is refused with a clear message", async () => {
   const buf = project();
-  writeFileSync(schedFile(buf), JSON.stringify({ slug: SLUG, title: "t", videoUrl: "https://v/x.mp4", objectKey: "k", posts: [{ network: "youtube", id: "b1", dueAt: "2099-11-06T20:30:00.000Z" }] })); // no `provider`: Buffer
-  const a = await run(buf, [SLUG, "--cancel", "--via", "praeko"], { routes: happy() });
-  assert.match(a.error.message, /scheduled by Buffer.*--via buffer/); assert.equal(a.calls.length, 0);
-  assert.match((await run(buf, [SLUG, "--status", "--via", "praeko"], { routes: happy() })).error.message, /scheduled by Buffer/);
-  assert.match((await run(buf, [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes: happy() })).error.message, /already scheduled by Buffer: cancel it there first/);
-  const sbuf = await run(buf, [SLUG, "--status"], { routes: happy() });
-  assert.equal(sbuf.error, undefined); assert.match(sbuf.text, /video: https:\/\/v\/x\.mp4/); assert.equal(sbuf.calls.length, 0);
-  const pk = project();
-  writeFileSync(schedFile(pk), JSON.stringify({ provider: "praeko", slug: SLUG, postId: SLUG, posts: [{ network: "youtube", id: "it1", postId: SLUG, dueAt: "2099-11-06T20:30:00.000Z" }] }));
-  const b = await run(pk, [SLUG, "--cancel", "--via", "buffer"], { routes: happy() });
-  assert.match(b.error.message, /scheduled by Praeko.*--via praeko/); assert.equal(b.calls.length, 0); assert.ok(existsSync(schedFile(pk)));
+  writeFileSync(schedFile(buf), JSON.stringify({ slug: SLUG, title: "t", videoUrl: "https://v/x.mp4", objectKey: "k", posts: [{ network: "youtube", id: "b1", dueAt: "2099-11-06T20:30:00.000Z" }] })); // no `provider`: it was Buffer's
+  for (const args of [[SLUG, "--status"], [SLUG, "--cancel"], [SLUG, "--when", WHEN, "--send"]]) {
+    const a = await run(buf, args, { routes: happy() });
+    assert.match(a.error.message, /removed Buffer provider.*delete that file/); assert.equal(a.calls.length, 0);
+  }
+  assert.ok(existsSync(schedFile(buf)));
 });
 test("--clear on Praeko: no hosting; archives to schedule.done.json only if nothing is pending", async () => {
   const root = project();
@@ -221,28 +217,13 @@ test("--key with --via praeko stores under praeko/main and refuses a key that is
   assert.match(r.text, /system keychain.*praeko\/main/); assert.doesNotMatch(r.text, /praeko_NEW/);
   const bad = await run(project(), ["--via", "praeko", "--key", "something-else"], { store: (ref, k) => stored.push([ref, k]) });
   assert.match(bad.error.message, /does not look like a Praeko key/); assert.equal(stored.length, 1);
-  const buf = await run(project(), ["--key", "bufferkey"], { store: (ref, k) => stored.push([ref, k]) }); // without --via: still Buffer's
-  assert.deepEqual(stored.at(-1), ["buffer/principal", "bufferkey"]); assert.match(buf.text, /Buffer key stored/);
+  const noVia = await run(project(), ["--key", "praeko_OTHER"], { store: (ref, k) => stored.push([ref, k]) }); // without --via: Praeko is the default
+  assert.deepEqual(stored.at(-1), ["praeko/main", "praeko_OTHER"]); assert.match(noVia.text, /Praeko key stored/);
+  assert.match((await run(project(), ["--via", "buffer", "--key", "x"], { store: () => { throw new Error("no"); } })).error.message, /Buffer provider was removed/);
 });
-test("an episode with a publication error does not schedule (same rule as Buffer)", async () => {
+test("an episode with a publication error does not schedule ", async () => {
   const root = project();
   writeFileSync(join(root, "episodes", SLUG, "publication.json"), JSON.stringify({ ...META, hashtags: { instagram: Array.from({ length: 31 }, (_, i) => `#t${i}`) } }));
   const r = await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes: happy() });
   assert.equal(r.code, 1); assert.match(r.text, /✗ more than 30 hashtags/); assert.equal(r.calls.length, 0);
-});
-// Instagram through Buffer: the Instagram item carries a copy of the video with the cover in the first 2 frames (needs ffmpeg; skipped without it).
-const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0 && spawnSync("ffprobe", ["-version"]).status === 0;
-test("Instagram via buffer: the cover pasted into the first 2 frames becomes media of the Instagram item only", { skip: !hasFfmpeg && "no ffmpeg" }, async () => {
-  const root = project();
-  const f = (...a: string[]) => assert.equal(spawnSync("ffmpeg", ["-v", "error", "-y", ...a]).status, 0);
-  f("-f", "lavfi", "-i", "testsrc=size=90x160:rate=10:duration=1", "-pix_fmt", "yuv420p", join(root, "out", `${SLUG}.mp4`));
-  f("-f", "lavfi", "-i", "color=c=red:size=90x160", "-frames:v", "1", join(root, "out", `${SLUG}-cover.png`));
-  const r = await run(root, [SLUG, "--when", WHEN, "--via", "praeko", "--send"], { routes: happy() });
-  assert.equal(r.error, undefined, r.error?.message);
-  assert.deepEqual(r.calls.filter((c) => c.method === "PUT").map((c) => c.path), ["/v1/media/m1/content", "/v1/media/m2/content", "/v1/media/m3/content"]);
-  const post = JSON.parse(r.calls.at(-1)!.body);
-  assert.deepEqual(post.media, { video: "m1", cover: "m2" });
-  assert.deepEqual(post.items.find((i: any) => i.network === "instagram").media, { video: "m3" });
-  assert.equal(post.items.find((i: any) => i.network === "youtube").media, undefined);
-  assert.ok(existsSync(join(root, "episodes", SLUG, "..", "..", "out", `${SLUG}.cover.mp4`)));
 });

@@ -4,7 +4,6 @@
   "timezoneOffset": "-03:00",
   "provider": "local",
   "hosting": { "type": "r2", "bucket": "test", "baseUrl": "https://example.com/media" },
-  "buffer": { "channels": { "youtube": "cy", "instagram": "ci", "tiktok": "ct" } },
   "youtube": { "mode": "private" },
   "tiktok": { "mode": "draft" },
   "hashtags": { "allowed": ["#shorts", "#test"], "banned": ["#bitcoin"] }

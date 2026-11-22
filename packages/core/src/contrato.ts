@@ -1,18 +1,18 @@
 // O contrato do Praeko sem dependências de Node: nomes de rede, modos e a validação do pedido. É o que o servidor (Worker),
 // o SDK e o CLI compartilham. Veja publicador.ts para a descrição do formato do pedido e da resposta.
-export type Rede = "youtube" | "instagram" | "tiktok";
+export type Rede = "youtube" | "instagram" | "tiktok" | "linkedin" | "bluesky" | "mastodon" | "telegram" | "tumblr";
 export type EstadoItem = "agendado" | "enviado" | "rascunho" | "privado" | "erro" | "cancelado";
 /** Um destino do pedido: rede, horário ISO (ou null) e modo (youtube: privado|agendado|publico; tiktok: rascunho|direto; instagram: agora). */
 export interface Destino { rede: Rede; quando?: string | null; modo?: string; fila?: boolean; midia?: { video?: string; capa?: string }; [k: string]: unknown }
 /** O pedido que todo Publicador aceita (detalhes em publicador.ts). */
 export interface Pedido {
-  id?: string; titulo?: string; etiquetas?: string[]; kind?: "video" | "image" | "carousel"; midia: { video?: string; capa?: string | null; images?: { midia: string; alt?: string }[] };
+  id?: string; titulo?: string; etiquetas?: string[]; kind?: "video" | "image" | "carousel" | "text"; midia: { video?: string; capa?: string | null; images?: { midia: string; alt?: string }[] };
   textos: { youtube?: { titulo?: string; texto: string; comentarioFixo?: string }; instagram?: { texto: string; comentarioFixo?: string }; tiktok?: { texto: string }; [rede: string]: any };
   destinos: Destino[]; opcoes?: { formato?: "short" | "longo"; [k: string]: unknown };
 }
 export interface ItemResposta { rede: Rede; id: string; estado: EstadoItem; quando: string | null; url?: string; aviso?: string; studio?: string; [k: string]: any }
 export interface RespostaPublicacao { id: string; itens: ItemResposta[] }
-/** O contrato do Publicador: o mesmo para o Buffer, a fila local e o serviço remoto. */
+/** O contrato do Publicador: o mesmo para a fila local e o serviço remoto. */
 export interface Publicador {
   publicar(pedido: Pedido, opcoes?: any): Promise<RespostaPublicacao>;
   status(id: string): Promise<RespostaPublicacao>;
@@ -20,9 +20,11 @@ export interface Publicador {
   canais(): Promise<{ rede: Rede; conectado: boolean; detalhe?: string; id?: string }[]>;
   [k: string]: any;
 }
-export const REDES: Record<string, Rede> = { yt: "youtube", youtube: "youtube", ig: "instagram", instagram: "instagram", tt: "tiktok", tiktok: "tiktok" };
+export const REDES: Record<string, Rede> = { yt: "youtube", youtube: "youtube", ig: "instagram", instagram: "instagram", tt: "tiktok", tiktok: "tiktok", li: "linkedin", linkedin: "linkedin" };
 
-export const REDES_VALIDAS: readonly Rede[] = ["youtube", "instagram", "tiktok"];
+export const REDES_VALIDAS: readonly Rede[] = ["youtube", "instagram", "tiktok", "linkedin", "bluesky", "mastodon", "telegram", "tumblr"];
+/** LinkedIn (perfil pessoal, T-040): só existe para quem tem a chave `linkedin.ligado` de plataforma_config ligada (padrão DESLIGADA); o servidor a esconde e recusa com a chave desligada. */
+export const REDE_LINKEDIN = "linkedin" as const;
 /** Redes "em breve": aparecem na lista de canais (`suportado: false`, `emBreve: true`) e na UI, mas NÃO publicam, não conectam e não entram em `REDES_VALIDAS`
  *  nem nos enums de publicação. Facebook = Páginas do Facebook (docs/facebook-pagina.md); nada aqui pede permissão à Meta. */
 export type RedeEmBreve = "facebook";
@@ -53,11 +55,11 @@ export function normalizarHandle(bruto: unknown): string | null {
   return h.length >= HANDLE_MIN && h.length <= HANDLE_MAX && /^[a-z0-9._]+$/.test(h) && !/^\.|\.$/.test(h) ? h : null;
 }
 
-export const KINDS = ["video", "image", "carousel"] as const;
-export const CARROSSEL_MIN = 2, CARROSSEL_MAX = 20; // itens de um carrossel do Instagram (Meta: até 20; Buffer: até 20 pela central de ajuda)
+export const KINDS = ["video", "image", "carousel", "text"] as const; // text: LinkedIn (T-040), Bluesky, Mastodon, Telegram e Tumblr (T-046), sem mídia (`media: {}`)
+export const CARROSSEL_MIN = 2, CARROSSEL_MAX = 20; // itens de um carrossel do Instagram (Meta: até 20)
 export const ALT_MAX = 1000; // `alt` (texto alternativo): o limite do alt_text da Meta
-export const MODOS: Record<string, any> = { youtube: ["privado", "agendado", "publico"], tiktok: ["rascunho", "direto"], instagram: ["agora"] };
-export const PROVEDORES = ["buffer", "local", "remoto"];
+export const MODOS: Record<string, any> = { youtube: ["privado", "agendado", "publico"], tiktok: ["rascunho", "direto"], instagram: ["agora"], linkedin: ["agora"], bluesky: ["agora"], mastodon: ["agora"], telegram: ["agora"], tumblr: ["agora"] };
+export const PROVEDORES = ["local", "remoto"];
 
 /** Confere o pedido. Devolve a lista de erros (vazia = ok). */
 export function validarPedido(p: any): string[] {
@@ -65,7 +67,9 @@ export function validarPedido(p: any): string[] {
   if (!p || typeof p !== "object") return ["pedido vazio"];
   const kind = p.kind ?? "video";
   if (!KINDS.includes(kind)) e.push(`kind "${p.kind}" is invalid (use ${KINDS.join(", ")})`);
-  else if (kind === "video") {
+  else if (kind === "text") {
+    if (p.midia?.video != null || p.midia?.images !== undefined || p.midia?.capa != null) e.push("media does not apply to kind text (send media: {})");
+  } else if (kind === "video") {
     if (!p.midia?.video) e.push("midia.video é obrigatório");
     if (p.midia?.images !== undefined) e.push("media.images only applies to kind image");
   } else {
@@ -113,7 +117,7 @@ export function verificarProvedor(mod: any): string[] {
 }
 
 // ---------- Imagens (posts de imagem) ----------
-/** Limites da foto no Instagram (docs/imagens-e-carrosseis.md, seção 1.1: Meta, referência de IG User /media; conferidos em 08/11/2026). A proporção usa o mais estrito entre a Meta (4:5) e a ajuda do Buffer (3:4). */
+/** Limites da foto no Instagram (docs/imagens-e-carrosseis.md, seção 1.1: Meta, referência de IG User /media; conferidos em 08/11/2026). A proporção usa a da Meta (4:5). */
 export const LIMITES_IMAGEM_INSTAGRAM = { mimes: ["image/jpeg"], bytesMax: 8 * 1024 * 1024, proporcaoMin: 4 / 5, proporcaoMax: 1.91, larguraMin: 320, larguraMax: 1440, altMax: ALT_MAX } as const;
 export interface ProblemaImagem { codigo: string; mensagem: string }
 /**
@@ -139,8 +143,7 @@ export function validarImagemInstagram(m: { mime?: string | null; tamanho?: numb
 export const contenedoresDoCarrossel = (n: number) => n + 1;
 /**
  * Avisos de um carrossel (cada imagem já passou por `validarImagemInstagram`). A Meta corta TODAS as imagens pela proporção da PRIMEIRA (padrão 1:1; documentação da Meta, 08/11/2026),
- * então imagens com proporção diferente da primeira não recusam o post: `carousel_aspect_ratio_mismatch` (o corte pode comer texto). A proporção mínima do Buffer (3:4, central de ajuda,
- * não confirmada) é MENOS estrita que a da Meta (4:5), então não gera aviso extra: o mais estrito já vale.
+ * então imagens com proporção diferente da primeira não recusam o post: `carousel_aspect_ratio_mismatch` (o corte pode comer texto). A proporção que vale é a da Meta (4:5).
  */
 export function avisosCarrosselInstagram(imagens: { largura?: number | null; altura?: number | null }[]): ProblemaImagem[] {
   const avisos: ProblemaImagem[] = [], dim = (m: any) => (m?.largura && m?.altura ? m.largura / m.altura : null), base = dim(imagens[0]);

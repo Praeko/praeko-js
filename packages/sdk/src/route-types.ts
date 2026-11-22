@@ -55,14 +55,14 @@ export interface RouteTypesTable {
   "media.delete": { response: Res<MediaApi["remove"]> };
 
   "posts.create": { body: Arg<PostsApi["create"], 0>; response: Res<PostsApi["create"]> };
-  "posts.adopt": { body: Arg<PostsApi["adopt"], 0>; response: Res<PostsApi["adopt"]> };
   "posts.list": { query: Q<Arg<PostsApi["list"], 0>>; response: Res<PostsApi["list"]> };
   "posts.get": { response: Res<PostsApi["get"]> };
   "posts.update": { body: Arg<PostsApi["update"], 1>; response: Res<PostsApi["update"]> };
-  "posts.cancel": { query: { dismiss?: string; delete_video?: string }; response: Res<PostsApi["cancel"]> };
+  "posts.cancel": { query: { dismiss?: string; delete_video?: string; delete_remote?: string }; response: Res<PostsApi["cancel"]> };
   "posts.publishNow": { query: { network?: Network }; response: Res<PostsApi["publishNow"]> };
   "posts.youtubeSchedule": { body: { scheduledFor: string }; response: Res<PostsApi["scheduleYoutube"]> };
   "posts.itemComment": { response: Res<PostsApi["comment"]> };
+  "posts.itemDismiss": { response: Res<PostsApi["dismissItem"]> };
   "posts.itemResend": { response: Res<PostsApi["resend"]> };
   "calendar.get": { query: { from?: string; to?: string; channel?: string; tag?: string }; response: CalendarResponse };
 

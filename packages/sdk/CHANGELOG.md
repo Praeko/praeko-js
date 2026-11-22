@@ -2,6 +2,11 @@
 
 Segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+- Breaking (servidor sem Buffer, 21/11/2026): removidos `posts.adopt` (e `posts.adotar` do legado), o campo `replaces` do item, `via: "buffer"` (o tipo agora é só `"meta"`; o servidor responde `invalid_field`), `sources.bufferAggregate`/`aggregateUpdatedAt`/`scope` da resposta de `insights.get` (`sources` segue com `current` e `previous`, vazios) e os códigos de erro `buffer_error`, `channel_is_buffer`, `post_adopted` e `already_adopted`. Código novo: `post_historic` (409, item antigo do Buffer: só cancelar). O Instagram só publica pela Meta (mínimo 25 min à frente) e os avisos `alt_ignored` e `buffer_carousel_unverified` não existem mais.
+- `posts.dismissItem(id, itemId)` (DELETE `/v1/posts/:id/items/:item`): tira do calendário um item com erro ou já cancelado (T-035). Códigos novos em `ERROR_CODES`: `item_not_removable` (409) e `youtube_text_invalid` (422, `<`/`>` ou descrição acima de 5000 bytes no título/descrição do YouTube, em `posts.create` e `posts.update`).
+
 ## [0.5.0] - 2026-11-17
 
 - Tipos das respostas conferidos contra o servidor (migração do servidor para TypeScript): campos que a API já devolvia como `null` agora são `| null` nos tipos, e respostas antes `unknown`/`any` ganharam tipos reais. **Quem lê esses campos com `strict` pode precisar tratar `null`**; em tempo de execução nada muda.

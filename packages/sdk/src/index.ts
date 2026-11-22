@@ -134,13 +134,12 @@ export class Praeko {
       create: (request, o) => a._req("POST", "/v1/posts", { body: request, ...idem(o) }),
       list: (filters = {}) => a._req("GET", "/v1/posts", { query: filters }),
       get: (id) => a._req("GET", `/v1/posts/${ref(id)}`),
-      /** Registers a Reel already scheduled in Buffer ({ id, title, network: "instagram", scheduledFor, external: { provider: "buffer", id } }); does not call Buffer. */
-      adopt: (body, o) => a._req("POST", "/v1/posts/adopt", { body, ...idem(o) }),
       scheduleYoutube: (id, scheduledFor, o) => a._req("POST", `/v1/posts/${ref(id)}/youtube/schedule`, { body: { scheduledFor }, ...idem(o) }),
       update: (id, changes, o) => a._req("PATCH", `/v1/posts/${ref(id)}`, { body: changes, ...idem(o) }),
       publishNow: (id, { network, idempotencyKey } = {}) => a._req("POST", `/v1/posts/${ref(id)}/publish-now`, { query: { network }, ...idem({ idempotencyKey }) }),
-      cancel: (id, o) => a._req("DELETE", `/v1/posts/${ref(id)}`, { query: { dismiss: o?.dismiss ? "true" : undefined, delete_video: o?.deleteVideo ? "true" : undefined }, ...idem(o) }),
+      cancel: (id, o) => a._req("DELETE", `/v1/posts/${ref(id)}`, { query: { dismiss: o?.dismiss ? "true" : undefined, delete_video: o?.deleteVideo ? "true" : undefined, delete_remote: o?.deleteRemote ? "true" : undefined }, ...idem(o) }),
       comment: (id, itemId) => a._req("POST", `/v1/posts/${ref(id)}/items/${ref(itemId)}/comment`),
+      dismissItem: (id, itemId, o) => a._req("DELETE", `/v1/posts/${ref(id)}/items/${ref(itemId)}`, idem(o)),
       resend: (id, itemId, o) => a._req("POST", `/v1/posts/${ref(id)}/items/${ref(itemId)}/resend`, idem(o)),
     } as PostsApi & LegacyPosts;
     this.channels = {
@@ -189,7 +188,7 @@ export class Praeko {
     this.insights = {
       /** Cards, top 5, channels, summary and the 48 h reading of the period (ISO). Server default: the last 30 days. */
       get: ({ from, to, channel, tag, type, compare, sort, direction, page, limit } = {}) => a._req("GET", "/v1/insights", { query: { from, to, channel, tag, type, compare: compare ? 1 : undefined, sort, direction, page, limit } }),
-      /** (admin) Imports the history of YouTube, Instagram (via Buffer) and TikTok. `network`: all | youtube | instagram | tiktok; `dryRun` only counts. */
+      /** (admin) Imports the history of YouTube and TikTok (Instagram has no bulk import: it comes back as ignored). `network`: all | youtube | instagram | tiktok; `dryRun` only counts. */
       import: ({ network = "all", dryRun } = {}) => a._req("POST", "/v1/insights/import", { query: { network, dryRun: dryRun ? 1 : undefined } }),
     } as InsightsApi & LegacyInsights;
     /** Everything already published (Praeko + imported), newest first: { total, items }. */

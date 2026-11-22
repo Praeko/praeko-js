@@ -44,7 +44,6 @@ export function addLegacy(a: Praeko): void {
     criar: (pedido) => L("POST", "/v1/posts", { corpo: pedido }),
     listar: (filtros = {}) => L("GET", "/v1/posts", { consulta: filtros }),
     obter: (id) => L("GET", `/v1/posts/${enc(id)}`),
-    adotar: (corpo) => L("POST", "/v1/posts/adotar", { corpo }),
     agendarYoutube: (id, quando) => L("POST", `/v1/posts/${enc(id)}/youtube/agendar`, { corpo: { quando } }),
     editar: (id, mudancas) => L("PATCH", `/v1/posts/${enc(id)}`, { corpo: mudancas }),
     publicarAgora: (id, { rede } = {}) => L("POST", `/v1/posts/${enc(id)}/publicar-agora`, { consulta: { rede } }),

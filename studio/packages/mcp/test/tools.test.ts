@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { TOOL_NAMES } from "../src/server.ts";
 import { FAKE_BIN, REAL_BIN, SECRETS, connect, fakeProject, noSecret, realProject, tmp } from "./helpers.ts";
 
-const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_review", "studio_status", "studio_upload", "studio_voice", "studio_write_script"];
+const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_review", "studio_status", "studio_transcribe", "studio_upload", "studio_voice", "studio_write_script"];
 
-test("the tool list is exactly the 15 expected ones and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
+test("the tool list is exactly the 16 expected ones and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   const { tools } = await c.client.listTools();
   assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
   assert.deepEqual([...TOOL_NAMES].sort(), EXPECTED);
-  assert.equal(tools.length, 15);
+  assert.equal(tools.length, 16);
   for (const t of tools) assert.doesNotMatch(t.name, /post|schedule|queue|account|connect|publish|login|key/i, t.name);
   await c.close();
 });
@@ -148,5 +148,17 @@ test("no response or error carries a secret (fake keys injected in the environme
   for (const o of outs) noSecret("output", o);
   assert.match(outs[0]!, /sk_…3e/, "masked form is kept");
   assert.match(outs[2]!, /key sk_…3e/);
+  await c.close();
+});
+
+test("studio_transcribe: writes files but destroys nothing, is declarative, takes no cloud switch and keeps paths inside the project", async () => {
+  const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
+  const { tools } = await c.client.listTools();
+  const t = tools.find((x) => x.name === "studio_transcribe")!;
+  assert.equal(t.annotations?.readOnlyHint, false); assert.equal(t.annotations?.destructiveHint, false);
+  assert.deepEqual(Object.keys((t.inputSchema as any).properties).sort(), ["file", "language", "out"]);
+  assert.doesNotMatch(t.description ?? "", /\b(you must|always call|then call|run studio_)\b/i);
+  for (const file of ["../x.mp4", "/etc/passwd", "nope.mp4"]) assert.ok((await c.call("studio_transcribe", { file })).isError, file);
+  assert.ok((await c.call("studio_transcribe", { file: "a.mp4", out: "../out" })).isError);
   await c.close();
 });

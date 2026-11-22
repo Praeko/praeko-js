@@ -44,27 +44,25 @@ const ok = (warnings: any[] = []) => (c: Call) => {
   return { status: 404, body: { error: { code: "route_not_found", message: "route?" } } };
 };
 
-test("simulation: shows the image, the Instagram time and the alt-text warning for Buffer; sends nothing, no network", async () => {
+test("simulation: shows the image, the Instagram time and no Buffer warnings; sends nothing, no network", async () => {
   const root = project();
   const r = await run(root, [SLUG, "--via", "praeko", "--when", WHEN]);
   assert.equal(r.error, undefined); assert.equal(r.code, 0); assert.equal(r.calls.length, 0);
   assert.match(r.text, /SIMULATION ON PRAEKO .*Dica de PR \(image post\)/); assert.match(r.text, /image: episodes\/.*\n|image: out\/dica-slide-01\.jpg \(1080x1350/);
-  assert.match(r.text, /Instagram .* via buffer/); assert.match(r.text, /alt text is ignored when Instagram goes through Buffer/);
-  const meta = await run(project({ praeko: { instagram: { via: "meta" } } }), [SLUG, "--via", "praeko", "--when", WHEN]);
-  assert.doesNotMatch(meta.text, /alt text is ignored/); assert.match(meta.text, /via meta/);
+  assert.match(r.text, /Instagram .*caption/); assert.doesNotMatch(r.text, /Buffer|alt text is ignored/);
 });
 test("--send: uploads the JPEG as type image, then posts kind image with media.images [{ media, alt }] and ONE Instagram item; saves schedule.json; prints the item warnings", async () => {
   const root = project();
-  const r = await run(root, [SLUG, "--via", "praeko", "--when", WHEN, "--send"], ok([{ code: "alt_ignored", message: "alt text is not applied when publishing through Buffer" }]));
+  const r = await run(root, [SLUG, "--via", "praeko", "--when", WHEN, "--send"], ok([{ code: "some_warning", message: "a server warning" }]));
   assert.equal(r.error, undefined, r.error?.message); assert.equal(r.code, 0);
   const media = r.calls.find((c) => c.method === "POST" && c.path === "/v1/media")!, post = r.calls.find((c) => c.path === "/v1/posts")!;
   assert.deepEqual(JSON.parse(media.body), { type: "image", name: "dica-slide-01.jpg", mime: "image/jpeg", size: 2041, simple: true });
   const b = JSON.parse(post.body);
   assert.deepEqual([b.kind, b.id, b.title, b.media, b.texts], ["image", SLUG, "Dica de PR", { images: [{ media: "m1", alt: ALT }] }, { instagram: { text: "Um PR, uma ideia. #dev" } }]);
-  assert.equal(b.items.length, 1); assert.deepEqual([b.items[0].network, b.items[0].via, b.items[0].scheduledFor], ["instagram", "buffer", "2099-11-06T17:30:00-03:00"]);
+  assert.equal(b.items.length, 1); assert.deepEqual([b.items[0].network, b.items[0].via, b.items[0].scheduledFor], ["instagram", "meta", "2099-11-06T17:30:00-03:00"]);
   assert.equal(b.media.video, undefined); assert.equal(b.options, undefined);
   assert.ok(!r.calls.some((c) => c.method === "POST" && c.path === "/v1/media" && JSON.parse(c.body).type !== "image"), "no video or cover upload");
-  assert.match(r.text, /alt_ignored: alt text is not applied/);
+  assert.match(r.text, /some_warning: a server warning/);
   const saved = JSON.parse(readFileSync(join(root, "episodes", SLUG, "schedule.json"), "utf8"));
   assert.deepEqual([saved.provider, saved.kind, saved.postId, saved.posts.length], ["praeko", "image", SLUG, 1]);
   assert.ok(!JSON.stringify(r.calls.map((c) => c.body ?? "")).includes("praeko_TEST"), "the key is never in a body");
@@ -80,7 +78,7 @@ test("refuses before any request: other networks, a wrong-size JPEG, no image li
   const root = project();
   assert.match((await run(root, [SLUG, "--via", "praeko", "--networks", "ig,tt", "--when", WHEN])).error.message, /TikTok: image and carousel posts go only to Instagram/);
   assert.match((await run(root, [SLUG, "--via", "praeko"])).error.message, /missing the time for Instagram/);
-  assert.match((await run(root, [SLUG, "--via", "praeko", "--when", "2000-01-01T10:00"])).error.message, /less than 5 minutes/);
+  assert.match((await run(root, [SLUG, "--via", "praeko", "--when", "2000-01-01T10:00"])).error.message, /less than 25 minutes/);
   assert.match((await run(project({}, { size: [1080, 1080] }), [SLUG, "--via", "praeko", "--when", WHEN, "--send"])).error.message, /fix the image first/);
   assert.match((await run(project({}, { images: false }), [SLUG, "--via", "praeko", "--when", WHEN])).error.message, /no image in publication\.json/);
 });
@@ -100,17 +98,15 @@ function carouselProject(n: number, publishing: any = {}, { bad = 0 } = {}) {
 const okMany = () => { let k = 0; return (c: Call) => {
   if (c.method === "POST" && c.path === "/v1/media") return { body: { id: `m${++k}`, state: "uploading" } };
   if (c.method === "PUT" && c.path.endsWith("/content")) return { body: { state: "ready" } };
-  if (c.method === "POST" && c.path === "/v1/posts") { const b = JSON.parse(c.body); return { status: 201, body: { id: b.id, items: [{ id: "it1", network: "instagram", state: "scheduled", scheduledFor: "2099-11-06T20:30:00.000Z", warnings: [{ code: "buffer_carousel_unverified", message: "not tested live" }] }] } }; }
+  if (c.method === "POST" && c.path === "/v1/posts") { const b = JSON.parse(c.body); return { status: 201, body: { id: b.id, items: [{ id: "it1", network: "instagram", state: "scheduled", scheduledFor: "2099-11-06T20:30:00.000Z", warnings: [{ code: "some_warning", message: "not tested live" }] }] } }; }
   return { status: 404, body: { error: { code: "route_not_found", message: "route?" } } };
 }; };
-test("carousel simulation: lists every slide and the not-tested-live note for Buffer; sends nothing", async () => {
+test("carousel simulation: lists every slide without Buffer notes; sends nothing", async () => {
   const r = await run(carouselProject(3), [SLUG, "--via", "praeko", "--when", WHEN]);
   assert.equal(r.error, undefined); assert.equal(r.code, 0); assert.equal(r.calls.length, 0);
   assert.match(r.text, /Dicas de PR \(carousel, 3 slides\)/); assert.match(r.text, /slide 1: out\/dica-slide-01\.jpg \(1080x1350/); assert.match(r.text, /slide 3: out\/dica-slide-03\.jpg/);
-  assert.match(r.text, /a carousel through Buffer was NOT tested live/); assert.match(r.text, /alt text is ignored when Instagram goes through Buffer/);
+  assert.doesNotMatch(r.text, /Buffer|NOT tested live|alt text is ignored/);
   assert.match(r.text, /The 3 slides go straight to .*media type image ×3/);
-  const meta = await run(carouselProject(3, { praeko: { instagram: { via: "meta" } } }), [SLUG, "--via", "praeko", "--when", WHEN]);
-  assert.doesNotMatch(meta.text, /NOT tested live/);
 });
 test("carousel --send: uploads the N JPEGs ONE BY ONE in slide order as type image, then ONE post kind carousel with media.images in that order; saves schedule.json", async () => {
   const root = carouselProject(4);
@@ -122,7 +118,7 @@ test("carousel --send: uploads the N JPEGs ONE BY ONE in slide order as type ima
   const b = JSON.parse(posts[0]!.body);
   assert.equal(b.kind, "carousel"); assert.deepEqual(b.media, { images: [1, 2, 3, 4].map((n) => ({ media: `m${n}`, alt: `Slide ${n}: ${ALT}` })) });
   assert.equal(b.items.length, 1); assert.equal(b.items[0].network, "instagram"); assert.equal(b.media.video, undefined);
-  assert.match(r.text, /uploading slide 3 of 4/); assert.match(r.text, /buffer_carousel_unverified: not tested live/);
+  assert.match(r.text, /uploading slide 3 of 4/); assert.match(r.text, /some_warning: not tested live/);
   const saved = JSON.parse(readFileSync(join(root, "episodes", SLUG, "schedule.json"), "utf8"));
   assert.deepEqual([saved.kind, saved.postId], ["carousel", SLUG]);
 });

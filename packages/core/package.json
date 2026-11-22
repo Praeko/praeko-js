@@ -11,7 +11,7 @@
     "./provedores/*": "./src/provedores/*.ts",
     "./contrato": "./src/contrato.ts",
     "./chaves": "./src/chaves.ts",
-    "./buffer-api": "./src/buffer-api.ts"
+    "./instagram-legenda": "./src/instagram-legenda.ts"
   },
   "engines": {
     "node": ">=22"

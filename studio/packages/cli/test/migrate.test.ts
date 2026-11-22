@@ -177,9 +177,9 @@ test("migrate --lang pt prints the report headings in Portuguese", () => {
 });
 
 test("key translators: brand, voices, publication, schedule and episode", () => {
-  assert.equal(translateBrand({ cores: { destaque: "#1" }, publicacao: { hospedagem: { tipo: "r2", urlBase: "u" }, buffer: { canais: { youtube: "x" } } } }).value.colors.accent, "#1");
+  assert.equal(translateBrand({ cores: { destaque: "#1" }, publicacao: { hospedagem: { tipo: "r2", urlBase: "u" } } }).value.colors.accent, "#1");
   assert.deepEqual(translateBrand({ publicacao: { hospedagem: { tipo: "r2", urlBase: "u" } } }).value.publishing.hosting, { type: "r2", baseUrl: "u" });
-  assert.deepEqual(translateBrand({ publicacao: { buffer: { canais: { youtube: "x" } } } }).value.publishing.buffer.channels, { youtube: "x" });
+  assert.deepEqual(translateBrand({ publicacao: { praeko: { canais: { youtube: "x" } } } }).value.publishing.praeko.channels, { youtube: "x" });
   const v = translateVoices({ qualidade: { rascunho: "rascunho-mudo", final: "minha-voz" }, vozes: { "voz-local": { provedor: "voicestudio", idioma: "pt-BR" } }, estrategia: { elevenlabs: "failover-saldo" } }).value;
   assert.deepEqual(v.quality, { draft: "draft-silent", final: "my-voice" }); assert.equal(v.voices["local-voice"].language, "pt-BR"); assert.equal(v.strategy.elevenlabs, "failover-balance");
   assert.equal(translatePublication({ formato: "longo", capitulos: [{ t: 0, titulo: "a" }] }).value.chapters[0].title, "a");

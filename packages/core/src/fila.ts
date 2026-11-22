@@ -1,4 +1,4 @@
-// Fila de publicação própria (substitui o Buffer aos poucos). Um arquivo JSON por projeto: <raiz>/.praeko/fila.json (antes: .praeko/fila.json, ainda lido).
+// Fila de publicação própria Um arquivo JSON por projeto: <raiz>/.praeko/fila.json (antes: .praeko/fila.json, ainda lido).
 // Estados: pendente → (preparado) → enviado | erro | cancelado. Cada item tem um `provedor` (youtube, instagram, tiktok).
 // O executor é idempotente: roda de tempos em tempos (launchd) e só age no que venceu; o que já foi enviado nunca reenvia.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";

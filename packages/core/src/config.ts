@@ -1,5 +1,5 @@
 // Praeko configuration: `praeko.json` (flat). After normalizing, the configuration is always FLAT:
-//   { nome, links, fusoOffset, pasta, utm, limites, hashtags:{permitidas,proibidas}, hospedagem, buffer, provedor, provedores,
+//   { nome, links, fusoOffset, pasta, utm, limites, hashtags:{permitidas,proibidas}, hospedagem, provedor, provedores,
 //     youtube:{modo,categoriaId,…}, instagram:{versao,comentar,…}, tiktok:{modo,privacidade,auditado,…} }
 // The public CLI reads the English `praeko.json` and translates it to this internal shape (packages/cli/src/package-folder.ts).
 import { existsSync, readFileSync } from "node:fs";

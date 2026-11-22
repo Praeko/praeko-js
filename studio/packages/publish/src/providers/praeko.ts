@@ -1,10 +1,10 @@
-// Praeko provider: schedules/posts DIRECTLY on the Praeko service (Cloudflare Worker, https://praeko.app), without Buffer and without R2 hosting.
+// Praeko provider: schedules/posts DIRECTLY on the Praeko service (Cloudflare Worker, https://praeko.app), without R2 hosting.
 // Plain HTTP client (injectable fetch, no dependencies). It speaks Praeko's English contract (header `X-Arauto-Contract: en`):
 // /v1/media, /v1/posts, /v1/channels; fields title, media, texts, items, scheduledFor, mode, via.
 // Key: `praeko_…` format (or `arauto_…`) with the write scope, in the keychain (service praeko, account praeko/main) or in PRAEKO_STUDIO_KEY_PRAEKO_MAIN.
 import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { basename, extname } from "node:path";
-import { textsByNetwork } from "../buffer.ts";
+import { textsByNetwork } from "../texts.ts";
 import type { Brand, NetworkOptions, PraekoSettings, Publication } from "../types.ts";
 
 export const DEFAULT_URL = "https://praeko.app";
@@ -48,11 +48,10 @@ const HINTS: Record<string, string> = {
   channel_not_connected: "the network is not connected on Praeko (connect it under Channels in the dashboard)",
   channel_not_found: "the given channel does not exist on Praeko (see: praeko studio schedule --channels --via praeko)",
   network_not_supported: "Praeko does not support that network yet",
-  buffer_error: "Buffer (which Praeko uses for Instagram) refused",
   instagram_error: "Meta refused the Instagram request",
   tiktok_unavailable: "TikTok refused or is unavailable",
   youtube_error: "YouTube refused the request",
-  instagram_meta_not_connected: "Instagram is not connected to the Meta API on Praeko (use instagram.via = \"buffer\" or connect Meta)",
+  instagram_meta_not_connected: "Instagram is not connected to the Meta API on Praeko (connect Meta in the dashboard)",
   internal_error: "internal Praeko error; try again shortly",
 };
 
@@ -168,14 +167,14 @@ export type ResolvedPraeko = PraekoSettings & { url: string; instagram: NetworkO
 /** `brand.json → publishing.praeko`, with the options validated. */
 export function praekoConfig(brand?: Brand): ResolvedPraeko {
   const c: PraekoSettings = brand?.publishing?.praeko || {};
-  const via = c.instagram?.via ?? "buffer", mode = c.tiktok?.mode ?? "draft";
-  if (!["buffer", "meta"].includes(via)) throw new Error(`publishing.praeko.instagram.via is invalid: "${via}" (use "buffer" or "meta")`);
+  const via = c.instagram?.via ?? "meta", mode = c.tiktok?.mode ?? "draft";
+  if (via !== "meta") throw new Error(`publishing.praeko.instagram.via is invalid: "${via}" (Instagram only goes through Meta now; remove the option or use "meta")`);
   if (!["draft", "direct"].includes(mode)) throw new Error(`publishing.praeko.tiktok.mode is invalid: "${mode}" (use "draft" or "direct")`);
   return { ...c, url: c.url || DEFAULT_URL, instagram: { ...(c.instagram || {}), via }, tiktok: { ...(c.tiktok || {}), mode } };
 }
 
-/** Smallest lead time the server accepts for a network's item (minutes): Instagram through Meta 25, the others 5. */
-export const leadMin = (network: string, cfg: ResolvedPraeko): number => (network === "instagram" && cfg.instagram.via === "meta" ? 25 : 5);
+/** Smallest lead time the server accepts for a network's item (minutes): Instagram (Meta) 25, the others 5. */
+export const leadMin = (network: string, _cfg?: ResolvedPraeko): number => (network === "instagram" ? 25 : 5);
 
 /**
  * Body of `POST /v1/posts` (English contract). `media`: { video, cover } ids of media already uploaded; `networkMedia`: { instagram: { video } } (a copy for that item only).

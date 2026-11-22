@@ -1,4 +1,4 @@
-// The publishing queue itself (replaces Buffer step by step). One JSON file per project: <root>/.praeko-studio/queue.json .
+// The publishing queue itself One JSON file per project: <root>/.praeko-studio/queue.json .
 // States: pending → (prepared) → sent | error | cancelled.
 // Each item has a `provider` (youtube, instagram, tiktok). The runner is idempotent: it runs from time to time (launchd) and only acts on what is due; what was already sent is never sent again.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";

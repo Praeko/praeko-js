@@ -1,5 +1,5 @@
 // Segredos do Praeko (chaves de API, tokens OAuth). Ordem de leitura: ambiente → Chaveiro do macOS → arquivo 600.
-// `ref` é um nome como "buffer/principal" ou "youtube/token". Valores são texto (os tokens são JSON em texto).
+// `ref` é um nome como "praeko/chave" ou "youtube/token". Valores são texto (os tokens são JSON em texto).
 //
 // Renomeação Arauto → Praeko (docs/renomeacao-praeko.md): o serviço do Chaveiro passa de `arauto` para `praeko` (a conta `arauto/chave` vira `praeko/chave`),
 // as variáveis de ambiente de ARAUTO_* para PRAEKO_* e o arquivo de ~/.config/arauto para ~/.config/praeko. LEITURA: o novo e, se não houver, o antigo.
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 
 export const SERVICO = "praeko", SERVICO_ANTIGO = "arauto";
 /** Refs que o Praeko usa (e que `migrar` copia). O Chaveiro não lista contas sem expor valores, então a lista é fixa. */
-export const REFS_CONHECIDAS = ["praeko/chave", "buffer/principal", "youtube/cliente", "youtube/token", "instagram/token", "instagram/meta", "tiktok/cliente", "tiktok/token", "tiktok/pendente"];
+export const REFS_CONHECIDAS = ["praeko/chave", "youtube/cliente", "youtube/token", "instagram/token", "instagram/meta", "tiktok/cliente", "tiktok/token", "tiktok/pendente"];
 /** `praeko/chave` → `arauto/chave` (a única conta que levava o nome do produto); as outras refs não mudaram. */
 export const refAntiga = (ref: any) => (ref.startsWith("praeko/") ? "arauto/" + ref.slice("praeko/".length) : ref);
 

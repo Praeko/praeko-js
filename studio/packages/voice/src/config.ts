@@ -22,6 +22,8 @@ export type VoicesConfig = {
   strategy?: Record<string, string>;
   quality?: Record<string, string>;
   voicestudio?: { base?: string };
+  /** Local transcription (see transcribe.ts). `allowCloud` is the person's consent to send audio to ElevenLabs Scribe; off by default. */
+  transcription?: { engines?: string[]; allowCloud?: boolean; model?: string; modelPath?: string; localTimeoutFactor?: number; cloudTimeoutFactor?: number; minTimeoutSec?: number };
 };
 /** A voice resolved from a name (or from the old `{ provider, idEnv, model }` shape). */
 export type ResolvedVoice = VoiceDef & { alias: string; legacyShape?: boolean };
@@ -50,7 +52,7 @@ const readJson = (file: string): any => { try { return JSON.parse(readFileSync(f
 const merge = (base: any, extra: any): VoicesConfig => ({
   ...base, ...extra,
   accounts: { ...base.accounts, ...extra.accounts }, voices: { ...base.voices, ...extra.voices }, strategy: { ...base.strategy, ...extra.strategy },
-  quality: { ...base.quality, ...extra.quality }, voicestudio: { ...base.voicestudio, ...extra.voicestudio },
+  quality: { ...base.quality, ...extra.quality }, voicestudio: { ...base.voicestudio, ...extra.voicestudio }, transcription: { ...base.transcription, ...extra.transcription },
 });
 
 /** With `file`, reads only that file (tests and advanced use). With no argument, merges default < user < project (`from`: where to look for the project, default the current folder). */
@@ -103,7 +105,7 @@ export function getKey(ref: string): string | null {
 /** Known accounts (`ref` names): those in the voices config and Studio's fixed ones. */
 export const knownRefs = (config: VoicesConfig = loadConfig()): string[] => {
   const el = config.accounts?.elevenlabs;
-  return [...new Set([...(Array.isArray(el) ? el : Object.keys(el || {})).map((n) => `elevenlabs/${n}`), ...Object.keys(config.accounts?.disabled || {}).map((n) => `elevenlabs/${n}`), "elevenlabs/principal", "buffer/principal", "praeko/main"])];
+  return [...new Set([...(Array.isArray(el) ? el : Object.keys(el || {})).map((n) => `elevenlabs/${n}`), ...Object.keys(config.accounts?.disabled || {}).map((n) => `elevenlabs/${n}`), "elevenlabs/principal", "praeko/main"])];
 };
 
 /** Stores a key: macOS keychain on darwin; elsewhere the secrets file (mode 600 where the OS honors it; on Windows use an environment variable). Returns where it went. */

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { hookHash, joinAudios, narrate, narratePiece } from "@praeko/studio-voice";
+import { InputError, MANAGED_MODEL, ModelError, TranscribeError, downloadModel, humanSize, modelPathFor, hookHash, joinAudios, narrate, narratePiece, transcribe, writeTranscript } from "@praeko/studio-voice";
 import { buildPackage, validate } from "@praeko/studio-publish";
 import { checkEpisode, contactSheet } from "@praeko/studio-review";
 import { episodeOf, findProject, pascal } from "./project.ts";
@@ -194,6 +194,52 @@ export function newEpisode(a: string[]): number {
 
 /** Image pieces have no voice, video or cover: the commands of a video say what to run instead. */
 const notForImage = (ep: Episode, what: string): void => { if (isImagePiece(ep.folder)) throw new Error(`"${ep.slug}" is an image piece (format: ${imageFormat(ep.folder)}): it has no ${what}. Render it with \`${STUDIO_NPX} slides ${ep.slug}\``); };
+
+/** `transcribe --download-model [--yes]`: the managed Whisper model (only after an explicit yes; SHA-256 checked; temp file renamed at the end). */
+async function downloadModelCommand(a: string[], io: InitIO & { fetchImpl?: typeof fetch; spec?: typeof MANAGED_MODEL; dest?: string }): Promise<number> {
+  const spec = io.spec ?? MANAGED_MODEL, say = io.say ?? ((m: string) => console.log(m));
+  const dest = io.dest ?? modelPathFor(spec);
+  if (existsSync(dest)) { say(`model already installed: ${dest}`); return 0; }
+  say(`model: ${spec.name} (whisper.cpp), ${humanSize(spec.bytes)}\nfrom: ${spec.url}\nto: ${dest}\nSHA-256 expected: ${spec.sha256}`);
+  if (!has(a, "yes")) {
+    if (!(io.ask || (io.interactive ?? isTTY()))) throw new Error(`downloading ${humanSize(spec.bytes)} needs your explicit yes: run it in a terminal and answer, or add --yes`);
+    const q = openAsk(io);
+    try { const r = (await q.ask(`Download ${humanSize(spec.bytes)} now? (y/N)`)).trim().toLowerCase(); if (r !== "y" && r !== "yes" && r !== "s" && r !== "sim") { say("cancelled: nothing was downloaded"); return 1; } } finally { q.close(); }
+  }
+  let last = -1;
+  try {
+    const r = await downloadModel({ spec, dest, fetchImpl: io.fetchImpl, log: say, onProgress: (d, t) => { const p = Math.floor((d / t) * 10) * 10; if (p !== last) { last = p; say(`${p}%`); } } });
+    say(`model installed: ${r.path} (SHA-256 ok${r.resumedFrom ? `, resumed from ${Math.round(r.resumedFrom / 1048576)} MB` : ""})`);
+    return 0;
+  } catch (e: any) { if (e instanceof ModelError) throw new Error(e.message); throw e; }
+}
+
+/** `transcribe <file> [--lang pt|en|auto] [--cloud] [--engine …] [--out <folder>] [--json]`: transcript.json/.srt/.txt next to the file (or in --out). */
+export async function transcribeCommand(a: string[], io: InitIO & { fetchImpl?: typeof fetch; spec?: typeof MANAGED_MODEL; dest?: string } = {}): Promise<number> {
+  if (has(a, "download-model")) return downloadModelCommand(a, io);
+  const file = a[0] && !a[0].startsWith("--") ? a[0] : undefined;
+  const usage = `usage: ${STUDIO_NPX} transcribe <file> [--lang pt|en|auto] [--cloud] [--engine voicestudio|whisper-local|scribe] [--out <folder>] [--json]\n       ${STUDIO_NPX} transcribe --download-model [--yes]`;
+  if (!file) throw new Error(usage);
+  const engine = flag(a, "engine");
+  if (engine && !["voicestudio", "whisper-local", "scribe"].includes(engine)) throw new Error(`unknown engine "${engine}" (voicestudio, whisper-local or scribe)`);
+  const l = flag(a, "lang") ?? "auto"; // --lang pt|en also sets the language of these messages
+  const out = resolve(flag(a, "out") ?? dirname(resolve(file)));
+  const json = has(a, "json");
+  try {
+    const r = await transcribe({ file: resolve(file), language: l, engines: engine ? [engine] : undefined, allowCloud: has(a, "cloud") ? true : undefined, log: json ? () => {} : (m) => console.log(m) });
+    const f = writeTranscript(r, out);
+    if (json) console.log(JSON.stringify({ engine: r.engine, engineVersion: r.engineVersion, language: r.language, durationSec: r.durationSec, wordCount: r.words.length, attempts: r.attempts, files: f, preview: r.text.slice(0, 240) }));
+    else {
+      for (const t of r.attempts.filter((x) => !x.ok)) console.log(`· ${t.engine}: ${t.reason}`);
+      console.log(`transcript: ${r.engine} · ${r.language} · ${r.durationSec} s · ${r.words.length} words → ${f.json}`);
+      console.log(`${f.srt}\n${f.txt}`);
+    }
+    return 0;
+  } catch (e: any) {
+    if (e instanceof TranscribeError || e instanceof InputError) throw new Error(e.message);
+    throw e;
+  }
+}
 
 export async function voice(a: string[]): Promise<number> {
   const sub = a[0];

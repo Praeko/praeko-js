@@ -1,5 +1,5 @@
 // O contrato do Praeko: qualquer projeto (o Bardo, um script, um agente) fala com um `Publicador` e não sabe
-// se por trás está o Buffer, a fila local com os provedores diretos, ou o serviço remoto.
+// se por trás está a fila local com os provedores diretos ou o serviço remoto.
 //
 //   publicador.publicar(pedido)  → { id, itens: [{ rede, id, estado, quando, url?, aviso? }] }
 //   publicador.status(id)        → o mesmo formato, com os estados atuais
@@ -19,9 +19,10 @@
 import { REDES, REDES_VALIDAS, MODOS, PROVEDORES, validarPedido, verificarProvedor } from "./contrato.ts";
 import type { Publicador } from "./contrato.ts";
 
-/** Fábrica: criarPublicador({ config, provedor, ctx }). `provedor` padrão: config.provedor ou "buffer". */
+/** Fábrica: criarPublicador({ config, provedor, ctx }). `provedor` padrão: config.provedor ou "local". */
 export async function criarPublicador({ config, provedor, ctx }: any = {}): Promise<Publicador> {
-  const nome = provedor || config?.provedor || "buffer";
+  const nome = provedor || config?.provedor || "local";
+  if (nome === "buffer") throw new Error('o provedor "buffer" foi removido: use "local" ou "remoto"');
   if (!PROVEDORES.includes(nome)) throw new Error(`provedor "${nome}" desconhecido (use ${PROVEDORES.join(", ")})`);
   const mod = await import(`./adaptadores/${nome}.ts`);
   return mod.criar({ config, ctx });

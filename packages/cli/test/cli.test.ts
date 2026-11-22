@@ -43,12 +43,29 @@ test("guards: invalid mode, [LINK_…] marker, banned hashtag and network withou
   assert.equal(s.code, 0); assert.match(s.output, /Instagram\s+now/);
   rmSync(dir, { recursive: true, force: true });
 });
-test("schedule (Buffer): simulation, and Buffer refuses a time that already passed", async () => {
-  const dir = setup(), pk = join(dir, "packages", "test-package");
-  const r = await run(["schedule", pk, "--when", "30/12 17:30", "--networks", "yt,ig", ...base(dir)]);
-  assert.equal(r.code, 0); assert.match(r.output, /\[buffer\]/); assert.match(r.output, /YouTube\s+30\/12\/2026/);
-  const passado = await run(["schedule", pk, "--when", "2020-01-01T10:00", "--networks", "yt", ...base(dir)]);
-  assert.equal(passado.code, 1); assert.match(passado.output, /less than 5 minutes|already past/);
+test("schedule always goes through the Praeko service: simulation shows [remote] and calls nothing", async () => {
+  const dir = setup(), a = fake(), pk = join(dir, "packages", "test-package");
+  const r = await run(["schedule", pk, "--server", "https://x", "--when", "30/12 17:30", "--networks", "yt,ig", ...base(dir)], { praeko: a });
+  assert.equal(r.code, 0, r.output); assert.match(r.output, /SIMULATION \(nothing will be sent; use --send\) \[remote\]/); assert.match(r.output, /YouTube\s+30\/12\/2026/);
+  assert.equal(a.calls.length, 0);
+  const noServer = await run(["schedule", pk, "--when", "30/12 17:30", "--send", ...base(dir)]); // no --server and no "remote" in praeko.json
+  assert.equal(noServer.code, 1); assert.match(noServer.output, /falta a url do serviço/);
+  rmSync(dir, { recursive: true, force: true });
+});
+test("Buffer is gone: --via buffer, --reminder and `schedule --key` give a clear error and call nothing", async () => {
+  const dir = setup(), a = fake(), pk = join(dir, "packages", "test-package");
+  for (const [args, re] of [
+    [["schedule", pk, "--via", "buffer", "--when", "30/12 17:30"], /--via buffer no longer exists/],
+    [["post", pk, "--via", "buffer", "--when", "30/12 17:30"], /--via buffer no longer exists/],
+    [["channels", "--via", "buffer"], /--via buffer no longer exists/],
+    [["schedule", pk, "--reminder", "--when", "30/12 17:30"], /--reminder no longer exists/],
+    [["schedule", "--key", "x"], /no longer exists.*key store/],
+    [["schedule", pk, "--via", "local", "--when", "30/12 17:30"], /always goes through the Praeko service/],
+  ] as [string[], RegExp][]) {
+    const r = await run([...args, ...base(dir)], { praeko: a });
+    assert.equal(r.code, 1, args.join(" ")); assert.match(r.output, re);
+  }
+  assert.equal(a.calls.length, 0);
   rmSync(dir, { recursive: true, force: true });
 });
 test("queue: list and `comment <id>` releases the manual item and comments (simulated network)", async () => {
@@ -123,44 +140,6 @@ test("key: create --sql generates the key and the SQL (database scope spelling) 
   assert.match((await run(["key", "revoke", "chv_1", ...base(dir)], { praeko: a })).output, /revoked/);
   delete process.env.ARAUTO_CHAVE; delete process.env.PRAEKO_KEY; const none = await run(["posts", "--server", "https://x", ...base(dir)]);
   assert.equal(none.code, 1); assert.match(none.output, /missing the service key/);
-  rmSync(dir, { recursive: true, force: true });
-});
-
-// ---- Instagram through Buffer on the remote service: cover on the first 2 frames and adoption ----
-import { spawnSync } from "node:child_process";
-const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0 && spawnSync("ffprobe", ["-version"]).status === 0;
-const withIds = () => { const a = fake(); let n = 0; a.media.upload = (f, o) => { a.calls.push(["media.upload", f, o]); return { id: `M${++n}-${o.type}` }; }; return a; };
-
-test("remote + Instagram: the target gets a copy of the video with the cover on the first 2 frames (extra media of the target)", { skip: !hasFfmpeg && "no ffmpeg" }, async () => {
-  const dir = setup(), a = withIds(), pk = join(dir, "packages", "test-package");
-  const sim = await run(["post", pk, "--server", "https://x", "--when", "30/12 17:30", "--networks", "yt,ig", "--yt-mode", "scheduled", ...base(dir)], { praeko: a });
-  assert.equal(sim.code, 0, sim.output); assert.match(sim.output, /Instagram: cover on the first 2 frames/); assert.equal(a.calls.length, 0); assert.ok(!existsSync(join(dir, ".praeko", "test-package-instagram.mp4")), "a cópia só sai no --send");
-  const r = await run(["post", pk, "--server", "https://x", "--when", "30/12 17:30", "--networks", "yt,ig", "--yt-mode", "scheduled", "--send", ...base(dir)], { praeko: a });
-  assert.equal(r.code, 0, r.output); assert.match(r.output, /cover pasted on the first 2 frames/);
-  assert.ok(existsSync(join(dir, ".praeko", "test-package-instagram.mp4")));
-  const uploads = a.calls.filter((c) => c[0] === "media.upload");
-  assert.equal(uploads.length, 3, "video, cover and the Instagram copy");
-  const created = a.calls.find((c) => c[0] === "posts.create")[1], ig = created.items.find((d) => d.network === "instagram"), yt = created.items.find((d) => d.network === "youtube");
-  assert.deepEqual(created.media, { video: "M1-video", cover: "M2-cover" }); assert.deepEqual(ig.media, { video: "M3-video" }); assert.equal(yt.media, undefined, "só o Instagram leva cópia");
-  rmSync(dir, { recursive: true, force: true });
-});
-test("remote + Instagram: --no-cover-in-frame turns it off; a long video gets no cover in the frames", { skip: !hasFfmpeg && "no ffmpeg" }, async () => {
-  const dir = setup(), a = withIds(), pk = join(dir, "packages", "test-package");
-  const r = await run(["post", pk, "--server", "https://x", "--when", "30/12 17:30", "--networks", "ig", "--no-cover-in-frame", "--send", ...base(dir)], { praeko: a });
-  assert.equal(r.code, 0, r.output); assert.equal(a.calls.filter((c) => c[0] === "media.upload").length, 2); assert.equal(a.calls.find((c) => c[0] === "posts.create")[1].items[0].media, undefined);
-  const meta = JSON.parse(readFileSync(join(pk, "publication.json"), "utf8"));
-  writeFileSync(join(pk, "publication.json"), JSON.stringify({ ...meta, formato: "longo" }));
-  const l = await run(["post", pk, "--server", "https://x", "--when", "30/12 17:30", "--networks", "ig", ...base(dir)], { praeko: a });
-  assert.match(l.output, /cover not pasted on the long video/);
-  rmSync(dir, { recursive: true, force: true });
-});
-test("remote: adopt-buffer registers in the dashboard a Reel already scheduled in Buffer (without calling Buffer) and requires the fields", async () => {
-  const dir = setup(), a = fake(); a.posts.adopt = (p) => { a.calls.push(["posts.adopt", p]); return { id: p.id, items: [{ state: "scheduled", scheduledFor: p.scheduledFor }] }; };
-  const r = await run(["adopt-buffer", "--id", "longo-ig", "--title", "I was about to close the gap", "--when", "30/12 10:00", "--buffer-id", "6aebc2a5", "--text", "Caption", "--server", "https://x", ...base(dir)], { praeko: a });
-  assert.equal(r.code, 0, r.output); assert.match(r.output, /adopted: longo-ig/);
-  const esperado = { id: "longo-ig", title: "I was about to close the gap", network: "instagram", scheduledFor: "2026-12-30T13:00:00.000Z", external: { provider: "buffer", id: "6aebc2a5" }, texts: { instagram: { text: "Caption" } } };
-  assert.deepEqual(a.calls.find((x) => x[0] === "posts.adopt")[1], esperado);
-  assert.equal((await run(["adopt-buffer", "--title", "x", "--server", "https://x", ...base(dir)], { praeko: a })).code, 1);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -288,7 +267,7 @@ test("webhook through the service: create shows the secret once; list, test, del
 // ---- English only: no Portuguese aliases, help or messages ----
 test("Portuguese commands and flags are gone: they are unknown (code 2, help) instead of aliases", async () => {
   const dir = setup();
-  for (const cmd of ["postar", "agendar", "fila", "conta", "canais", "calendario", "vagas", "publicar-agora", "youtube-agendar", "adotar-buffer", "importar", "conteudo", "seguidores", "chave", "ajuda"]) {
+  for (const cmd of ["postar", "agendar", "fila", "conta", "canais", "calendario", "vagas", "publicar-agora", "youtube-agendar", "adotar-buffer", "adopt-buffer", "importar", "conteudo", "seguidores", "chave", "ajuda"]) {
     const r = await run([cmd, ...base(dir)]);
     assert.equal(r.code, 2, `${cmd} must not be a command`); assert.match(r.output, /Praeko CLI/);
   }
@@ -334,7 +313,7 @@ test("PRAEKO_SECRETS picks the secrets file and PRAEKO_NO_KEYCHAIN skips the Key
   try {
     process.env.PRAEKO_SECRETS = file; assert.equal(arquivoSegredos(), file);
     assert.equal(semChaveiro({ PRAEKO_NO_KEYCHAIN: "1" } as any), true); assert.equal(semChaveiro({} as any), false);
-    assert.equal(segredos.guardar("buffer/principal", "tok"), "arquivo"); assert.equal(JSON.parse(readFileSync(file, "utf8"))["buffer/principal"], "tok");
+    assert.equal(segredos.guardar("youtube/token", "tok"), "arquivo"); assert.equal(JSON.parse(readFileSync(file, "utf8"))["youtube/token"], "tok");
     delete process.env.PRAEKO_SECRETS;
     assert.match(arquivoSegredos(), /\.config\/praeko\/secrets\.json$/);
   } finally { if (prev === undefined) delete process.env.PRAEKO_SECRETS; else process.env.PRAEKO_SECRETS = prev; rmSync(dir, { recursive: true, force: true }); }

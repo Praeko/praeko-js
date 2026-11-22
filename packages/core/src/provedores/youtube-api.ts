@@ -285,10 +285,13 @@ export async function comentar({ item, ctx }: any) {
   return { id, comentario: true, url: `https://youtu.be/${item.videoId}?lc=${id}`, lembrete: "a API não fixa comentário: fixe pelo app" };
 }
 export async function canalId(ctx: any) {
+  const cache = await ctx.canalYt?.ler?.();
+  if (cache?.channelId) return cache.channelId; // T8: já sabemos (guardado em `canais`): 0 unidades
   const r = await api(ctx, `${API}/channels?part=id&mine=true`);
   if (!r.ok) throw falha(r.status, await r.text());
   const c = (await r.json()).items?.[0];
   if (!c) throw new Error("a conta autorizada não tem canal do YouTube");
+  await ctx.canalYt?.guardar?.({ channelId: c.id });
   return c.id;
 }
 
@@ -303,18 +306,22 @@ export async function planejar({ item }: any) {
   ];
 }
 
+/** Erro de agendamento com `codigo` estável (horario_invalido | horario_muito_cedo | video_inexistente | video_publicado); o servidor o converte em 4xx. */
+export const ANTECEDENCIA_MIN_AGENDAR_MIN = 5;
+const erroAgenda = (codigo: string, mensagem: string, extra: Record<string, unknown> = {}) => Object.assign(new Error(mensagem), { codigo }, extra);
+
 /** Agenda a publicação de um vídeo que já está no YouTube (privado): `status.publishAt`. Preserva o resto do status. */
 export async function agendarPublicacao({ item, ctx, agora = Date.now() }: any) {
   const quando = new Date(item.quando);
-  if (Number.isNaN(quando.getTime())) throw new Error(`horário inválido: ${item.quando}`);
-  if (quando.getTime() < agora + 5 * 60e3) throw new Error("o horário precisa ser daqui a pelo menos 5 minutos");
+  if (Number.isNaN(quando.getTime())) throw erroAgenda("horario_invalido", `horário inválido: ${item.quando}`);
+  if (quando.getTime() < agora + ANTECEDENCIA_MIN_AGENDAR_MIN * 60e3) throw erroAgenda("horario_muito_cedo", "o horário precisa ser daqui a pelo menos 5 minutos", { minMinutos: ANTECEDENCIA_MIN_AGENDAR_MIN });
   const r0 = await api(ctx, `${API}/videos?part=status&id=${encodeURIComponent(item.videoId)}`);
   if (!r0.ok) throw falha(r0.status, await r0.text());
   const v = (await r0.json()).items?.[0];
-  if (!v) throw new Error(`o vídeo ${item.videoId} não existe neste canal`);
+  if (!v) throw erroAgenda("video_inexistente", `o vídeo ${item.videoId} não existe neste canal`, { status: 404 });
   const st = v.status || {};
   // A doc oficial: status.publishAt só vale se o vídeo é privado e nunca foi publicado. Nunca mexe num vídeo já público (o PUT o esconderia).
-  if (st.privacyStatus && st.privacyStatus !== "private") throw Object.assign(new Error(`o vídeo ${item.videoId} já está ${st.privacyStatus} no YouTube: o horário só muda enquanto ele está privado e agendado`), { videoPublicado: true });
+  if (st.privacyStatus && st.privacyStatus !== "private") throw erroAgenda("video_publicado", `o vídeo ${item.videoId} já está ${st.privacyStatus} no YouTube: o horário só muda enquanto ele está privado e agendado`, { videoPublicado: true });
   const novoPublishAt = quando.toISOString();
   if (st.privacyStatus === "private" && st.publishAt && new Date(st.publishAt).toISOString() === novoPublishAt) return { id: item.videoId, publishAt: novoPublishAt, privacidade: "private", url: `https://youtu.be/${item.videoId}`, alterado: false }; // idempotente: já está nesse horário, nenhuma escrita (50 unidades de cota poupadas)
   const status = { privacyStatus: "private", publishAt: quando.toISOString(), embeddable: st.embeddable ?? true, license: st.license || "youtube", publicStatsViewable: st.publicStatsViewable ?? true, selfDeclaredMadeForKids: st.selfDeclaredMadeForKids ?? false };

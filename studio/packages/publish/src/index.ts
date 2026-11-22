@@ -139,7 +139,7 @@ function buildImagePackage({ brand, publication: p }: { brand: Brand; publicatio
   if (p.ig?.pinnedComment) o.push("**Comment to pin:**", "```", p.ig.pinnedComment, "```");
   o.push("", "## Alt text (accessibility)");
   (p.images || []).forEach((x, i) => o.push(`${isCarousel(p) ? "Slide " : ""}${i + 1}. ${x.alt || "(missing)"}`));
-  o.push("", "Alt text goes to Instagram when it is published through Meta (`via: meta`); through Buffer it is ignored (Praeko warns `alt_ignored`).", "", `YouTube and TikTok do not take ${isCarousel(p) ? "carousel" : "image"} posts yet: this package has only Instagram.`);
+  o.push("", "Alt text goes to Instagram when it is published through Meta.", "", `YouTube and TikTok do not take ${isCarousel(p) ? "carousel" : "image"} posts yet: this package has only Instagram.`);
   if (p.facts?.length) { o.push("", "---", "", "## Checked against the facts"); p.facts.forEach((x) => o.push(`- ${x}`)); }
   return o.join("\n") + "\n";
 }
@@ -190,7 +190,8 @@ export function buildPackage({ brand, publication }: { brand: Brand; publication
   return o.join("\n") + "\n";
 }
 
-export * from "./buffer.ts";
+export * from "./when.ts";
+export * from "./texts.ts";
 export * as hosting from "./hosting.ts";
 export * as coverFrame from "./cover-frame.ts";
 export * from "./queue.ts";

@@ -131,12 +131,12 @@ test("check: needs the alt text (error), warns that the slide is not rendered ye
   assert.match(md, /## Instagram \(photo\): caption/); assert.match(md, /Um PR, uma ideia\. #devbrasil/); assert.match(md, /## Alt text/);
   assert.match(md, /YouTube and TikTok do not take image posts yet/); assert.doesNotMatch(md, /## TikTok|YouTube Shorts/);
 });
-test("schedule and post: an image goes only through `schedule --via praeko`; Buffer's own path and the direct providers refuse it", () => {
+test("schedule and post: an image goes only through `schedule --via praeko`; the direct providers refuse it", () => {
   const root = project();
   studio(["new", "dica", "--title", "Dica", "--image"], root);
   const pj = join(root, "episodes", "dica", "publication.json"), pub = JSON.parse(readFileSync(pj, "utf8")); pub.ig.caption = "Legenda"; writeFileSync(pj, JSON.stringify(pub));
   assert.match(studio(["post", "dica", "--when", "10/12 17:30"], root).stderr, /image posts do not go through the direct providers/);
-  assert.match(studio(["schedule", "dica", "--via", "buffer", "--when", "10/12 17:30"], root).stderr, /image posts are scheduled through Praeko only/);
+  assert.match(studio(["schedule", "dica", "--via", "buffer", "--when", "10/12 17:30"], root).stderr, /Buffer provider was removed/);
   const yt = studio(["schedule", "dica", "--via", "praeko", "--networks", "yt", "--when", "10/12 17:30"], root);
   assert.notEqual(yt.status, 0); assert.match(yt.stderr + yt.stdout, /image and carousel posts go only to Instagram for now/);
 });

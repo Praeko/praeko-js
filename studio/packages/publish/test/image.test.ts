@@ -52,7 +52,7 @@ test("buildImagePost: kind image, media.images [{ media, alt }], ONE Instagram i
     items: [{ network: "instagram", scheduledFor: "2026-11-10T17:30:00-03:00", via: "meta", channel: "IG-1" }],
   });
   const buf = praeko.buildImagePost({ brand: { ...brand, publishing: {} }, publication: pub({ ig: { caption: "x" }, hashtags: {} }), id: "d", images: [{ media: "m1" }], when: { instagram: "2026-11-10T20:30:00.000Z" } });
-  assert.equal(buf.items[0].via, "buffer"); assert.equal(buf.items[0].channel, undefined); assert.deepEqual(buf.media.images, [{ media: "m1" }], "no alt key when there is none");
+  assert.equal(buf.items[0].via, "meta"); assert.equal(buf.items[0].channel, undefined); assert.deepEqual(buf.media.images, [{ media: "m1" }], "no alt key when there is none");
 });
 test("buildImagePost refuses other networks, zero or several images and a missing time", () => {
   const base = { brand, publication: pub(), id: "d", images: [{ media: "m1" }], when: { instagram: "2026-11-10T20:30:00.000Z" } };

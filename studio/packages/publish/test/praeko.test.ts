@@ -71,13 +71,13 @@ test("large media: equal parts (the last one smaller), then complete, type cover
   assert.deepEqual(progress.at(-1), [10, 10]);
 });
 
-test("buildPost: items per network, ISO with the Brazil offset, default modes (YouTube scheduled, Instagram via buffer, TikTok draft)", () => {
+test("buildPost: items per network, ISO with the Brazil offset, default modes (YouTube scheduled, Instagram via meta, TikTok draft)", () => {
   const b = buildPost({ brand, publication, id: "ep-1", media: { video: "mv", cover: "mc" }, networks: ["youtube", "instagram", "tiktok"], when: Q });
   assert.equal(b.id, "ep-1"); assert.equal(b.title, "Title");
   assert.deepEqual(b.media, { video: "mv", cover: "mc" });
   assert.deepEqual(b.items, [
     { network: "youtube", scheduledFor: "2026-11-06T17:30:00-03:00", mode: "scheduled" },
-    { network: "instagram", scheduledFor: "2026-11-06T18:00:00-03:00", via: "buffer" },
+    { network: "instagram", scheduledFor: "2026-11-06T18:00:00-03:00", via: "meta" },
     { network: "tiktok", scheduledFor: "2026-11-06T18:30:00-03:00", mode: "draft" },
   ]);
   assert.deepEqual(b.options, { format: "short" });
@@ -98,6 +98,7 @@ test("buildPost: unknown network, missing time and invalid options give errors",
   assert.throws(() => buildPost({ brand, publication, id: "x", media: { video: "v" }, networks: ["orkut"], when: {} }), /unknown network/);
   assert.throws(() => buildPost({ brand, publication, id: "x", media: { video: "v" }, networks: ["youtube"], when: {} }), /no time set/);
   assert.throws(() => praekoConfig({ publishing: { praeko: { instagram: { via: "x" } } } }), /instagram\.via/);
+  assert.throws(() => praekoConfig({ publishing: { praeko: { instagram: { via: "buffer" } } } }), /instagram\.via/);
   assert.throws(() => praekoConfig({ publishing: { praeko: { tiktok: { mode: "x" } } } }), /tiktok\.mode/);
 });
 test("isoWithOffset", () => {

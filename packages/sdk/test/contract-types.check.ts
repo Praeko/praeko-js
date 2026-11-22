@@ -8,6 +8,7 @@ const ok = <T extends true>(_: T) => _;
 ok<Igual<PathParams<"/v1/posts/:id/items/:item/comment">, "id" | "item">>(true);
 ok<Igual<PathParams<"/v1/posts/:id/items/:item/resend">, "id" | "item">>(true);
 ok<Igual<RouteOf<"posts.itemResend">["scope"], "write">>(true);
+ok<Igual<RouteOf<"posts.itemDismiss">["scope"], "write">>(true);
 ok<Igual<ErrorCodeMap["resend_limit_reached"], "resend_limit_reached">>(true);
 ok<Igual<PathParams<"/v1/health">, never>>(true);
 ok<Igual<RouteOf<"webhooks.test">["path"], "/v1/webhooks/:id/test">>(true);

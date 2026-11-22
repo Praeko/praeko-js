@@ -9,7 +9,6 @@ import { normalizarConfig, acharConfig } from "../src/config.ts";
 import { validarPedido, criarPublicador } from "../src/publicador.ts";
 import { arquivoFila, enfileirar, executar, lerFila, liberarItem, proximaAcao, plistLaunchd } from "../src/fila.ts";
 import * as local from "../src/adaptadores/local.ts";
-import * as bufferAd from "../src/adaptadores/buffer.ts";
 import * as yt from "../src/provedores/youtube.ts";
 import * as ig from "../src/provedores/instagram.ts";
 import * as tt from "../src/provedores/tiktok.ts";
@@ -22,7 +21,7 @@ test("segredos: env, arquivo 600 e prioridade", () => {
   const dir = tmp(), f = join(dir, "s.json");
   process.env.PRAEKO_SECRETS = f; process.env.PRAEKO_NO_KEYCHAIN = "1";
   try {
-    assert.equal(envDe("buffer/principal"), "PRAEKO_KEY_BUFFER_PRINCIPAL");
+    assert.equal(envDe("instagram/token"), "PRAEKO_KEY_INSTAGRAM_TOKEN");
     assert.equal(obter("youtube/token"), null);
     assert.equal(guardar("youtube/token", '{"a":1}'), "arquivo");
     assert.equal(obter("youtube/token"), '{"a":1}');
@@ -33,7 +32,7 @@ test("segredos: env, arquivo 600 e prioridade", () => {
 });
 
 test("config: praeko.json plano; acharConfig sobe pastas e só conhece praeko.json", () => {
-  assert.deepEqual(normalizarConfig({ links: { main: "x" }, buffer: { a: 1 } }), { links: { main: "x" }, buffer: { a: 1 } });
+  assert.deepEqual(normalizarConfig({ links: { main: "x" }, tiktok: { a: 1 } }), { links: { main: "x" }, tiktok: { a: 1 } });
   const dir = tmp(); writeFileSync(join(dir, "marca.json"), JSON.stringify({ links: { main: "y" } }));
   assert.equal(acharConfig(join(dir, "a", "b")), null, "marca.json não é mais lido");
   writeFileSync(join(dir, "arauto.json"), JSON.stringify({ links: { main: "z" } }));
@@ -47,7 +46,7 @@ test("segredos (renomeação): variáveis ARAUTO_* e arquivo antigo valem como r
   const dir = tmp(), novo = join(dir, "novo.json"), velho = join(dir, "velho.json"), ant = { ...process.env };
   process.env.PRAEKO_NO_KEYCHAIN = "1"; process.env.PRAEKO_SECRETS = novo;
   try {
-    assert.equal(envAntigaDe("buffer/principal"), "ARAUTO_KEY_BUFFER_PRINCIPAL"); assert.equal(envAntigaDe("praeko/chave"), "ARAUTO_KEY_ARAUTO_CHAVE"); assert.equal(refAntiga("praeko/chave"), "arauto/chave"); assert.equal(refAntiga("youtube/token"), "youtube/token");
+    assert.equal(envAntigaDe("instagram/token"), "ARAUTO_KEY_INSTAGRAM_TOKEN"); assert.equal(envAntigaDe("praeko/chave"), "ARAUTO_KEY_ARAUTO_CHAVE"); assert.equal(refAntiga("praeko/chave"), "arauto/chave"); assert.equal(refAntiga("youtube/token"), "youtube/token");
     process.env.ARAUTO_KEY_YOUTUBE_TOKEN = "env-antiga"; assert.equal(obter("youtube/token"), "env-antiga", "ARAUTO_KEY_* como reserva");
     process.env.PRAEKO_KEY_YOUTUBE_TOKEN = "env-nova"; assert.equal(obter("youtube/token"), "env-nova", "PRAEKO_KEY_* vence");
     delete process.env.PRAEKO_KEY_YOUTUBE_TOKEN; delete process.env.ARAUTO_KEY_YOUTUBE_TOKEN;
@@ -68,19 +67,19 @@ const chaveiroFalso = (ini = {}) => {
 };
 test("Chaveiro: lê o serviço praeko e cai no arauto (conta arauto/chave); guarda só no praeko; migrar copia sem mostrar segredo", () => {
   const real = { ...chaveiro }, dir = tmp(), ant = { ...process.env };
-  const falso = chaveiroFalso({ arauto: { "arauto/chave": "arauto_ANTIGA_segredo1234567890", "youtube/token": "TOKEN-ANTIGO", "buffer/principal": "BUF-ANTIGO" }, praeko: { "buffer/principal": "BUF-NOVO" } });
+  const falso = chaveiroFalso({ arauto: { "arauto/chave": "arauto_ANTIGA_segredo1234567890", "youtube/token": "TOKEN-ANTIGO", "instagram/token": "BUF-ANTIGO" }, praeko: { "instagram/token": "BUF-NOVO" } });
   Object.assign(chaveiro, falso); delete process.env.PRAEKO_NO_KEYCHAIN; delete process.env.ARAUTO_SEM_CHAVEIRO; process.env.PRAEKO_SECRETS = join(dir, "s.json");
   const platform = Object.getOwnPropertyDescriptor(process, "platform"); Object.defineProperty(process, "platform", { value: "darwin" });
   try {
     assert.equal(obter("praeko/chave"), "arauto_ANTIGA_segredo1234567890", "cai no serviço arauto, conta arauto/chave");
-    assert.equal(obter("buffer/principal"), "BUF-NOVO", "o serviço praeko vence");
+    assert.equal(obter("instagram/token"), "BUF-NOVO", "o serviço praeko vence");
     assert.equal(guardar("youtube/cliente", "X"), "chaveiro"); assert.equal(falso.m.get("praeko|youtube/cliente"), "X"); assert.ok(![...falso.m.keys()].includes("arauto|youtube/cliente"), "a escrita nunca vai para o serviço antigo");
     const antes = new Map(falso.m);
     const r = migrar();
-    assert.deepEqual(r.copiados.sort(), ["praeko/chave", "youtube/token"].sort()); assert.deepEqual(r.jaNoNovo.sort(), ["buffer/principal", "youtube/cliente"].sort());
+    assert.deepEqual(r.copiados.sort(), ["praeko/chave", "youtube/token"].sort()); assert.deepEqual(r.jaNoNovo.sort(), ["instagram/token", "youtube/cliente"].sort());
     assert.ok(r.ausentes.every((x) => REFS_CONHECIDAS.includes(x)) && r.copiados.length + r.jaNoNovo.length + r.ausentes.length === REFS_CONHECIDAS.length);
     assert.equal(falso.m.get("praeko|praeko/chave"), "arauto_ANTIGA_segredo1234567890", "a conta arauto/chave virou praeko/chave"); assert.equal(falso.m.get("praeko|youtube/token"), "TOKEN-ANTIGO");
-    assert.equal(falso.m.get("praeko|buffer/principal"), "BUF-NOVO", "o que já existia no novo não é sobrescrito");
+    assert.equal(falso.m.get("praeko|instagram/token"), "BUF-NOVO", "o que já existia no novo não é sobrescrito");
     for (const [k, v] of antes) assert.equal(falso.m.get(k), v, "nada do que existia foi apagado ou alterado");
     assert.ok(!JSON.stringify(r).includes("segredo1234567890") && !JSON.stringify(r).includes("TOKEN-ANTIGO"), "o resultado só tem nomes");
     assert.deepEqual(migrar().copiados, [], "idempotente");
@@ -123,7 +122,8 @@ test("validarPedido: erros claros, modos por rede, marcador [LINK_X] recusado", 
 test("criarPublicador: escolhe o adaptador; remoto sem url avisa; desconhecido dá erro", async () => {
   const ctx = { raiz: tmp(), segredos: { obter: () => null, guardar() {} }, log };
   assert.equal((await criarPublicador({ config: {}, provedor: "local", ctx })).nome, "local");
-  assert.equal((await criarPublicador({ config: { provedor: "buffer" }, ctx })).nome, "buffer");
+  assert.equal((await criarPublicador({ config: {}, ctx })).nome, "local", "padrão: local");
+  await assert.rejects(criarPublicador({ config: { provedor: "buffer" }, ctx }), /removido/);
   const r = await criarPublicador({ config: {}, provedor: "remoto", ctx });
   await assert.rejects(r.publicar(pedido()), /falta a url do serviço/);
   await assert.rejects(criarPublicador({ config: {}, provedor: "x", ctx }), /desconhecido/);
@@ -223,29 +223,3 @@ test("YouTube: comentário recusado vira erro com orientação (escopo/publicado
   await assert.rejects(yt.publicar({ item: { ...itemY("privado"), acao: "comentar", videoId: "V" }, ctx }), /publicado|force-ssl/);
 });
 
-// ---- adaptador buffer ----
-test("adaptador buffer: horário obrigatório, canais, vídeo hospedado, privacidade pelo modo, registro e cancelar", async () => {
-  const raiz = tmp(), posts = [], apagados = [], hospedados = [], removidos = [];
-  const fetchFn = async (_u, o) => { const { query, variables } = JSON.parse(o.body); let data;
-    if (query.includes("organizations")) data = { account: { organizations: [{ id: "o", name: "Org" }] } };
-    else if (query.includes("channels")) data = { channels: [{ id: "cy", name: "yt", service: "youtube" }, { id: "ci", name: "ig", service: "instagram" }] };
-    else if (query.includes("createPost")) { posts.push(variables.input); data = { createPost: { post: { id: "post" + posts.length, dueAt: variables.input.dueAt } } }; }
-    else if (query.includes("deletePost")) { apagados.push(variables.id); data = { deletePost: { __typename: "DeletePostSuccess" } }; }
-    return { ok: true, status: 200, text: async () => JSON.stringify({ data }) }; };
-  const ctx = { raiz, log, fetchFn, segredos: { obter: (r) => (r === "buffer/principal" ? "KEY" : null), guardar() {} }, hospedar: async (a, s) => { hospedados.push(a); return { url: "https://m/v.mp4", chave: "s/x/v.mp4" }; }, removerHospedado: async (c) => { removidos.push(c); }, deps: { capaQuadro: { sondar: () => ({ largura: 1080, altura: 1920 }), dimensoesImagem: () => ({ largura: 1080, altura: 1920 }), mesmaProporcao: () => true, embutirCapa: ({ saida }) => ({ saida }) } } };
-  const B = bufferAd.criar({ config: { links: { main: "https://e.com/" }, buffer: {} }, ctx });
-  await assert.rejects(B.publicar(pedido({ destinos: [{ rede: "youtube" }] })), /precisa de horário/);
-  const q = "2026-11-06T20:30:00.000Z";
-  const r = await B.publicar(pedido({ destinos: [{ rede: "youtube", quando: q, modo: "privado" }, { rede: "instagram", quando: q }] }));
-  assert.equal(posts.length, 2); assert.equal(posts[0].metadata.youtube.privacy, "private"); assert.equal(posts[0].metadata.youtube.categoryId, "28");
-  assert.equal(posts[1].assets[0].video.metadata.thumbnailOffset, 0, "capa embutida: quadro 0");
-  assert.ok(hospedados[0].endsWith("ped1.capa.mp4"));
-  assert.deepEqual(r.itens.map((i) => i.estado), ["agendado", "agendado"]);
-  assert.equal((await B.status("ped1")).itens.length, 2);
-  assert.equal((await B.canais()).length, 2);
-  const c = await B.cancelar("ped1", { redes: ["youtube"] });
-  assert.deepEqual(c.cancelados, ["post1"]); assert.equal(removidos.length, 0);
-  await B.cancelar("ped1"); assert.deepEqual(apagados, ["post1", "post2"]); assert.deepEqual(removidos, ["s/x/v.mp4"]);
-  await assert.rejects(B.status("ped1"), /não existe/);
-  rmSync(raiz, { recursive: true, force: true });
-});

@@ -140,7 +140,7 @@ export function translateBrand(b: Obj): Result {
     if (isObj(p.hashtags)) p.hashtags = rename(p.hashtags, { permitidas: "allowed", proibidas: "banned" }, r);
     if (isObj(p.limits)) p.limits = rename(p.limits, { youtubeTitulo: "youtubeTitle", youtubeDescricao: "youtubeDescription" }, r);
     if (isObj(p.hosting)) p.hosting = rename(p.hosting, { tipo: "type", urlBase: "baseUrl" }, r);
-    for (const k of ["buffer", "praeko"]) if (isObj(p[k])) {
+    for (const k of ["praeko"]) if (isObj(p[k])) {
       const x = rename(p[k], { canais: "channels", redes: "networks" }, r);
       for (const n of ["youtube", "instagram", "tiktok"]) if (isObj(x[n])) x[n] = rename(x[n], NETWORK_KEYS, r);
       p[k] = x;

@@ -2,6 +2,14 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
+## [0.5.0] - 2026-11-22
+
+Breaking: Buffer is gone.
+- Removed the `buffer` adapter, `--via buffer`, `--reminder`, `--url`, `--no-cover-in-frame`, `schedule --key` (it stored the Buffer key; the Praeko key is `echo $KEY | praeko key store`), the `adopt-buffer` command and the `buffer` section of `praeko.json`. Using `--via buffer`, `--reminder` or `schedule --key` gives a clear error.
+- `praeko schedule` now always goes through the Praeko service (`--server` or `"remote": { "url" }` in `praeko.json`, key in `PRAEKO_KEY`); `--via local` there is an error (use `praeko post`). `--via` accepts `local` or `remote`; `provider: "buffer"` in `praeko.json` is an error.
+- The Buffer aggregate line of `insights` is gone too (the server no longer has it; `adopt-buffer` was already removed by the server change of 2026-11-21).
+- Instagram on the service publishes through Meta, so the cover is no longer pasted into the first frames of a copy of the video.
+
 ## [0.4.0] - 2026-11-08
 
 Breaking: the CLI is English only.

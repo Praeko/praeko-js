@@ -20,7 +20,7 @@ export type VoiceStudio = {
   available(): Promise<VoiceStudioStatus>;
   profiles(): Promise<{ id: string; name: string; language: string }[]>;
   generate(a: { text: string; id: string; model?: string; language?: string; settings?: Record<string, any>; retries?: number; interval?: number; limit?: number }): Promise<Buffer>;
-  transcribe(a: { audio: string; bytes: Uint8Array; language?: string }): Promise<{ words: Word[]; text: string }>;
+  transcribe(a: { audio: string; bytes: Uint8Array; language?: string }): Promise<{ words: Word[]; text: string; language?: string }>;
 };
 
 export function createVoiceStudio({ base = DEFAULT_BASE, wait = sleep }: { base?: string; wait?: (ms: number) => Promise<void> } = {}): VoiceStudio {
@@ -59,13 +59,13 @@ export function createVoiceStudio({ base = DEFAULT_BASE, wait = sleep }: { base?
       const f = new FormData();
       f.append("file", new Blob([bytes as BlobPart]), audio.split("/").pop());
       f.append("model", "whisper-1");
-      f.append("language", language);
+      if (language && language !== "auto") f.append("language", language);
       f.append("response_format", "verbose_json");
       f.append("timestamp_granularities[]", "word");
       const r = await fetch(`${base}/v1/audio/transcriptions`, { method: "POST", body: f, signal: AbortSignal.timeout(600000) });
       if (!r.ok) throw new Error(`VoiceStudio (transcription): HTTP ${r.status} ${(await r.text()).slice(0, 200)}`);
       const d: any = await r.json();
-      return { words: (d.words || []).map((w: any) => ({ t: String(w.word).trim(), a: +w.start.toFixed(2), b: +w.end.toFixed(2) })), text: d.text };
+      return { words: (d.words || []).map((w: any) => ({ t: String(w.word).trim(), a: +w.start.toFixed(2), b: +w.end.toFixed(2) })), text: d.text, language: typeof d.language === "string" ? d.language : undefined };
     },
   };
 }

@@ -1,4 +1,4 @@
-// Capa nos primeiros quadros: as redes (e o Buffer) não aceitam capa enviada à parte, só um quadro do próprio vídeo.
+// Capa nos primeiros quadros: as redes não aceitam capa enviada à parte, só um quadro do próprio vídeo.
 // Cola a imagem da capa sobre os `n` primeiros quadros (sem mudar duração, áudio nem sincronia) e a miniatura passa a ser o quadro 0.
 import { spawnSync } from "node:child_process";
 

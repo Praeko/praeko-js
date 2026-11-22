@@ -1,4 +1,4 @@
-// Estado local do projeto (fila, buffer.json, vídeos gerados, log do executor): pasta `.praeko/`. Antes da renomeação era `.arauto/`.
+// Estado local do projeto (fila, vídeos gerados, log do executor): pasta `.praeko/`. Antes da renomeação era `.arauto/`.
 // LEITURA: `.praeko/<arquivo>` e, se não existir, `.arauto/<arquivo>`. ESCRITA: sempre `.praeko/`. O que está em `.arauto/` não é apagado nem movido.
 import { existsSync } from "node:fs";
 import { join } from "node:path";

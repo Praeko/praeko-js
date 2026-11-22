@@ -1,4 +1,4 @@
-// Hospedagem temporária do vídeo para o Buffer buscar (precisa de URL pública, HTTPS, estável até a hora de publicar; sem link assinado).
+// Hospedagem temporária do vídeo para o Instagram buscar (precisa de URL pública, HTTPS, estável até a hora de publicar; sem link assinado).
 // Provedor "r2": Cloudflare R2 pelo `wrangler`. A chave do objeto leva um sufixo aleatório, então a URL não é adivinhável.
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";

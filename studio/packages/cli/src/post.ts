@@ -1,4 +1,4 @@
-// `praeko studio post` / `praeko studio queue` / `praeko studio account`: direct publishing to the networks (YouTube, Instagram, TikTok), without Buffer.
+// `praeko studio post` / `praeko studio queue` / `praeko studio account`: direct publishing to the networks (YouTube, Instagram, TikTok).
 // `post` puts the video in the queue (and runs right away what is "immediate", like uploading to YouTube as private); `queue run`
 // runs what is due (schedule it on launchd with `queue install`); `account <network> connect` does the authorization once.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -35,7 +35,7 @@ export async function post(a: string[]): Promise<number> {
   const slug = (() => { for (let i = 0; i < a.length; i++) { if (a[i]!.startsWith("--")) { if (WITH_VALUE.has(a[i]!.slice(2))) i++; continue; } return a[i]; } })();
   if (!slug) throw new Error(`usage: ${STUDIO_NPX} post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--yt|--ig|--tt "time"] [--send]`);
   const p = findProject(), ep = episodeOf(p, slug), publication = readPublication(ep);
-  if (isImage(publication)) throw new Error(`image posts do not go through the direct providers: use \`${STUDIO_NPX} schedule <slug> --via praeko --when "…" --send\` (Instagram, through Buffer or Meta)`);
+  if (isImage(publication)) throw new Error(`image posts do not go through the direct providers: use \`${STUDIO_NPX} schedule <slug> --via praeko --when "…" --send\` (Instagram, through Meta)`);
   const v = validate({ brand: p.brand, publication });
   if (v.errors.length) { v.errors.forEach((e) => console.log("  ✗", e)); return 1; }
   const networks = networksOf(a, publication.format === "long" ? ["youtube", "instagram"] : ["youtube", "instagram", "tiktok"]);

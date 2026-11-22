@@ -22,6 +22,7 @@ For other clients, the equivalent JSON block: `{ "command": "npx", "args": ["-y"
 | `studio_new_episode` | creates `episodes/<name>/` |
 | `studio_write_script` | writes `script.txt` or `episode.yaml` (YAML validated) |
 | `studio_compile` / `studio_check` | compile the spec; check the episode |
+| `studio_transcribe` | transcribes an audio or video file of the project on this machine; writes `transcript.json/.srt/.txt` and returns a summary, the paths and a short preview (cloud engine only if the person enabled it) |
 | `studio_voice` | voice as a background job: `draft` (silent, free) or `final` (spends ElevenLabs characters; **two steps**) |
 | `studio_render` / `studio_cover` / `studio_package` | background jobs |
 | `studio_review` | the review package of a rendered video or slides: manifest and `REVIEW.md` as data, the key frames as **images** (at most 24, 6 MB in all, 512 KB each); no AI model is called, nothing is published or uploaded |

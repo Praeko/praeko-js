@@ -23,4 +23,4 @@ The video file never goes through the MCP. In one step: `create_media_upload { t
 Fill `"ai": { "synthetic": true|false }` in `publication.json`. A realistic synthetic voice, or a generated image/video that looks real, needs the altered/synthetic content label: YouTube (the `containsSyntheticMedia` field, sent when Studio publishes directly), "AI info" on Instagram and the AI label on TikTok. Through Praeko, **set the label in each network's app before publishing** (Praeko's public API does not carry this field yet). Drafting a script with AI or cloning **your own** voice to narrate does not require the label on YouTube, but the rules change: check each network's current policy.
 
 ## Advanced
-`post` (direct publishing with your own credentials for each network), `queue` and `account <network>` stay in the package for those who need them; `queue install` uses launchd and only works on macOS. The Buffer provider (`--via buffer`) is legacy.
+`post` (direct publishing with your own credentials for each network), `queue` and `account <network>` stay in the package for those who need them; `queue install` uses launchd and only works on macOS.

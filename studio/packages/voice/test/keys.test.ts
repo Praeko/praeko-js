@@ -14,7 +14,7 @@ const sandbox = () => {
 
 test("knownRefs includes the config accounts and the fixed ones", () => {
   const l = knownRefs({ voices: {}, accounts: { elevenlabs: ["principal", "backup"], disabled: { "principal-ws2": "reason" } } });
-  assert.deepEqual(l.sort(), ["buffer/principal", "elevenlabs/backup", "elevenlabs/principal", "elevenlabs/principal-ws2", "praeko/main"]);
+  assert.deepEqual(l.sort(), ["elevenlabs/backup", "elevenlabs/principal", "elevenlabs/principal-ws2", "praeko/main"]);
 });
 test("default config: nobody's ids, silent draft and an empty user voice", () => {
   sandbox();

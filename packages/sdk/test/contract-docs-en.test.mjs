@@ -85,7 +85,7 @@ test("os exemplos de corpo em inglês continuam válidos e mantêm ids e {{em3di
     assert.deepEqual(validar(corpo.fields, materializar(corpo.example, T0), { fechado: !!corpo.fechado }), [], r.key);
     assert.equal(JSON.stringify(corpo.example).includes("{{em3dias}}"), JSON.stringify(docDe(r).corpo.example).includes("{{em3dias}}"), r.key);
   }
-  assert.ok(n >= 20, `só ${n} exemplos`);
+  assert.ok(n >= 19, `só ${n} exemplos`);
   const post = docEn(ROUTES.find((r) => r.key === "posts.create")).corpo.example;
   assert.equal(post.title, "The test that only failed on Mondays"); assert.equal(post.media.video, docDe(ROUTES.find((r) => r.key === "posts.create")).corpo.example.media.video);
   assert.equal(docEn(ROUTES.find((r) => r.key === "webhooks.create")).corpo.example.url, "https://example.com/hooks/praeko");
@@ -162,7 +162,7 @@ test("ajudantes: resumoEn cai no summary, paramEn, statusDeEn, restricoesEn e ti
   assert.deepEqual(paramEn(video, "id"), { ...paramDe(video, "id"), desc: "YouTube video id." });
   assert.equal(paramEn(reply, "id").desc, "YouTube comment thread id."); assert.equal(paramEn(reply, "id").exemplo, paramDe(reply, "id").exemplo);
   const net = paramEn(ROUTES.find((r) => r.key === "channels.slots.get"), "network");
-  assert.deepEqual([net.enum, net.fixo, net.exemplo], [["youtube", "instagram", "tiktok"], true, "youtube"]);
+  assert.deepEqual([net.enum, net.fixo, net.exemplo], [["youtube", "instagram", "tiktok", "linkedin", "bluesky", "mastodon", "telegram", "tumblr"], true, "youtube"]);
   assert.deepEqual(statusDeEn(ROUTES.find((r) => r.key === "posts.create")), [[201, "Success."]]);
   assert.deepEqual(statusDeEn(ROUTES.find((r) => r.key === "media.content.get")).map(([s]) => s), statusDe(ROUTES.find((r) => r.key === "media.content.get")).map(([s]) => s));
   assert.deepEqual(restricoesEn({ enum: ["a", "b"], default: "a", minLength: 1, maxLength: 200 }), ["values: a, b", "default: a", "1 to 200 characters"]);

@@ -2,9 +2,9 @@
 // Called by schedule.ts; works the same way: it only simulates without `--send`, the same schedule.json (with provider: "praeko" and postId), the same flags.
 // Nothing here prints the key. `env` only exists for tests: { fetchFn, getKey, wait, clientOptions }.
 import { existsSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, relative, resolve } from "node:path";
 import { getKey, resolvePraekoKey } from "@praeko/studio-voice";
-import { NETWORKS, coverFrame, isImage, praeko, textsByNetwork, parseWhen, validate } from "@praeko/studio-publish";
+import { NETWORKS, isImage, praeko, textsByNetwork, parseWhen, validate } from "@praeko/studio-publish";
 import type { Brand } from "@praeko/studio-publish";
 import { NAME, findInFolder, findVideo, flag, has, localTime, readPublication } from "./schedule.ts";
 import type { ScheduleEnv } from "./schedule.ts";
@@ -13,7 +13,6 @@ import { checkJpeg } from "./image.ts";
 import { STUDIO_NPX } from "./version.ts";
 
 const NO_KEY = `no Praeko key: echo $KEY | ${STUDIO_NPX} schedule --via praeko --key   (praeko_… (or arauto_…) key with write scope, created in the dashboard; or the variable PRAEKO_STUDIO_KEY_PRAEKO_MAIN)`;
-const BUFFER_ONLY = "--reminder does not exist on Praeko: it really schedules the post (the \"only notifies\" mode is Buffer's). On TikTok the equivalent is draft mode (publishing.praeko.tiktok.mode = \"draft\", the default). For --reminder use --via buffer.";
 
 const clientOf = (p: Project, env: ScheduleEnv, key: string) => praeko.client({ url: praeko.praekoConfig(p.brand as Brand).url, key, fetchFn: env.fetchFn || fetch, ...(env.wait ? { wait: env.wait } : {}), ...(env.clientOptions || {}) } as any);
 /** The Praeko key: PRAEKO_KEY > the project's profile (.praeko/config.json) > the global key. */
@@ -33,8 +32,6 @@ export async function praekoChannels(_a: string[], { p, env = {} }: { p: Project
 
 export async function schedulePraeko(a: string[], { p, ep, slug, sched, scheduleFile, env = {} }: { p: Project; ep: Episode; slug: string; sched: any; scheduleFile: string; env?: ScheduleEnv }): Promise<number> {
   const cfg: any = praeko.praekoConfig(p.brand as Brand);
-  if (has(a, "reminder")) throw new Error(BUFFER_ONLY);
-  if (has(a, "url")) throw new Error("--url is Buffer's (it fetches the video from a public URL). On Praeko the file is uploaded directly, no URL needed.");
 
   // ----- status
   if (has(a, "status")) {
@@ -103,13 +100,8 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   const mb = (statSync(video).size / 1048576).toFixed(1);
   const coverPath = flag(a, "cover") ? resolve(flag(a, "cover")!) : (findInFolder(p, publication.files?.cover) || (existsSync(ep.png) ? ep.png : null));
   const cover = coverPath && existsSync(coverPath) ? coverPath : null;
-  // Instagram through Buffer: Buffer does not take a separate cover, so the Instagram item carries a copy with the cover pasted into the first 2 frames (as with --via buffer)
-  let coverInFrame: string | null = null; const notes: string[] = [];
-  if (networks.includes("instagram") && cfg.instagram.via === "buffer" && !has(a, "no-cover-frame")) {
-    if (!cover) notes.push("no cover: the Instagram thumbnail will be a frame of the video");
-    else if (publication.format === "long") notes.push("Instagram: cover not pasted into the long video (the 16:9 cover is no use as a Reel thumbnail)");
-    else try { const vi = coverFrame.probe(video), ci = coverFrame.imageSize(cover); if (coverFrame.sameAspect(ci, vi)) coverInFrame = cover; else notes.push(`cover ${ci.width}x${ci.height} does not have the video's aspect ratio ${vi.width}x${vi.height}: I did not paste it into the Instagram video`); } catch (e: any) { notes.push(`could not read the cover or the video (${e.message})`); }
-  } else if (!cover) notes.push("cover not found: the post goes up with the video only");
+  const notes: string[] = [];
+  if (!cover) notes.push("cover not found: the post goes up with the video only");
   const send = has(a, "send");
   if (sched && send && !has(a, "redo")) throw new Error("a schedule already exists (schedule.json). Check it with --status, cancel it with --cancel or use --redo");
   const repeated = networks.filter((r) => (sched?.posts || []).some((x: any) => x.network === r));
@@ -124,7 +116,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
       for (const r of networks) {
         const mine = cs.filter((c: any) => c.network === r), chosen = cfg.channels?.[r] ? mine.find((c: any) => c.id === cfg.channels[r]) : (mine.find((c: any) => c.default) || mine[0]);
         if (!chosen || !chosen.connected) problems.push(`${NAME[r]}: ${cfg.channels?.[r] && !chosen ? `channel ${cfg.channels[r]} not found on Praeko (${STUDIO_NPX} schedule --channels --via praeko)` : "is not connected on Praeko (Channels in the dashboard)"}`);
-        else if (r === "instagram" && cfg.instagram.via === "meta" && !chosen.meta?.connected) problems.push('Instagram: via "meta", but the Meta API is not connected on Praeko (use publishing.praeko.instagram.via = "buffer")');
+        else if (r === "instagram" && !chosen.meta?.connected) problems.push("Instagram: the Meta API is not connected on Praeko (connect it under Channels in the dashboard)");
       }
     } catch (e: any) { if (send) throw e; console.log(`⚠ I could not read the Praeko channels (${e.message})`); }
   }
@@ -133,11 +125,10 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   const texts = textsByNetwork({ brand: p.brand, publication }) as Record<string, { title?: string; text: string; pinnedComment?: string }>;
   console.log(`${send ? "SCHEDULING ON PRAEKO" : "SIMULATION ON PRAEKO (nothing will be sent; use --send)"}: ${publication.title}`);
   console.log(`video: ${relative(process.cwd(), video)} (${mb} MB)${cover ? `  cover: ${basename(cover)}` : ""}`);
-  const how: Record<string, string> = { youtube: "scheduled (Praeko uploads it private and schedules it)", instagram: `via ${cfg.instagram.via}`, tiktok: cfg.tiktok.mode === "direct" ? `direct (${cfg.tiktok.privacy || "SELF_ONLY"})` : "draft (lands in the app inbox)" };
+  const how: Record<string, string> = { youtube: "scheduled (Praeko uploads it private and schedules it)", instagram: "published through the Meta API", tiktok: cfg.tiktok.mode === "direct" ? `direct (${cfg.tiktok.privacy || "SELF_ONLY"})` : "draft (lands in the app inbox)" };
   for (const r of networks) console.log(`  ${NAME[r]!.padEnd(10)} ${localTime(when[r]!)}  ${how[r]}  text ${texts[r]!.text.length} chars`);
   const placeholders = [...new Set(networks.map((r) => texts[r]!).flatMap((t) => `${t.title || ""}\n${t.text}\n${t.pinnedComment || ""}`.match(/\[[A-Z][A-Z_]{3,}\]/g) || []))];
   if (placeholders.length) { console.log(`  ✗ text with an unfilled placeholder: ${placeholders.join(", ")}`); if (send) throw new Error("fill in the placeholders in publication.json before scheduling"); }
-  if (coverInFrame) console.log(`  Instagram: cover in the first 2 frames (${basename(coverInFrame)}); the copy is made on --send`);
   if (networks.includes("tiktok") && cfg.tiktok.mode === "draft") console.log("  TikTok: the draft carries no caption or cover; at the set time the video reaches the app and you paste the caption and pick the cover.");
   if (networks.includes("tiktok") && cfg.tiktok.mode === "direct") console.log("  ⚠ TikTok direct: without the app audit TikTok only accepts private (SELF_ONLY); use a private/test account.");
   [...notes, ...problems, ...v.warnings].forEach((x) => console.log("  ⚠", x));
@@ -158,15 +149,8 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   try {
     const media: { video: string; cover?: string } = { video: await upload(video, "video", "the video") };
     if (cover) media.cover = await upload(cover, "cover", "the cover");
-    const networkMedia: Record<string, unknown> = {};
-    if (coverInFrame) {
-      const output = join(p.root, "out", `${slug}.cover.mp4`);
-      coverFrame.embedCover({ video, cover: coverInFrame, output });
-      console.log(`✓ cover pasted into the first 2 frames: ${relative(process.cwd(), output)}`);
-      networkMedia.instagram = { video: await upload(output, "video", "the Instagram video (with the cover in the frames)") };
-    }
     for (let n = 1; ; ) { // deterministic id (the slug); if a cancelled/other-network post already exists, use slug-2, slug-3…
-      try { r = await c.createPost(praeko.buildPost({ brand: p.brand, publication, id, media, networkMedia, networks, when, offset })); break; }
+      try { r = await c.createPost(praeko.buildPost({ brand: p.brand, publication, id, media, networks, when, offset })); break; }
       catch (e: any) {
         if (e.code !== "id_exists") throw e;
         const alive = ((await c.status(id)).items || []).filter((i: any) => networks.includes(i.network) && i.state !== "canceled");
@@ -191,7 +175,7 @@ export async function schedulePraeko(a: string[], { p, ep, slug, sched, schedule
   return failed ? 1 : 0;
 }
 
-/** `schedule --via praeko` for an IMAGE piece or a CAROUSEL: one photo (`kind: "image"`) or 2 to 20 slides (`kind: "carousel"`) on Instagram (through Buffer or Meta), each file uploaded as `type: image` IN ORDER. */
+/** `schedule --via praeko` for an IMAGE piece or a CAROUSEL: one photo (`kind: "image"`) or 2 to 20 slides (`kind: "carousel"`) on Instagram (through Meta), each file uploaded as `type: image` IN ORDER. */
 async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, env, cfg, publication, warnings }: { p: Project; ep: Episode; slug: string; sched: any; scheduleFile: string; env: ScheduleEnv; cfg: any; publication: any; warnings: string[] }): Promise<number> {
   const networks: string[] = flag(a, "networks") ? flag(a, "networks")!.split(",").map((x) => NETWORKS[x.trim()] || (() => { throw new Error(`unknown network: ${x}`); })()) : ["instagram"];
   const other = networks.filter((r) => r !== "instagram");
@@ -214,10 +198,8 @@ async function scheduleImage(a: string[], { p, ep, slug, sched, scheduleFile, en
   console.log(`${send ? "SCHEDULING ON PRAEKO" : "SIMULATION ON PRAEKO (nothing will be sent; use --send)"}: ${publication.title} (${carousel ? `carousel, ${images.length} slides` : "image post"})`);
   if (carousel) files.forEach((f, i) => console.log(`slide ${i + 1}: ${relative(process.cwd(), f)} (${jpegs[i]!.width}x${jpegs[i]!.height}, ${(jpegs[i]!.bytes / 1024).toFixed(0)} KB)`));
   else console.log(`image: ${relative(process.cwd(), file)} (${jpeg.width}x${jpeg.height}, ${(jpeg.bytes / 1024).toFixed(0)} KB)`);
-  console.log(`  ${"Instagram".padEnd(10)} ${localTime(at)}  via ${cfg.instagram.via}  caption ${texts.instagram!.text.length} chars`);
+  console.log(`  ${"Instagram".padEnd(10)} ${localTime(at)}  caption ${texts.instagram!.text.length} chars`);
   const notes = [...warnings];
-  if (images.some((im) => im.alt) && cfg.instagram.via !== "meta") notes.push('the alt text is ignored when Instagram goes through Buffer (Praeko warns alt_ignored); set publishing.praeko.instagram.via = "meta" to send it');
-  if (carousel && cfg.instagram.via !== "meta") notes.push("a carousel through Buffer was NOT tested live (Buffer has no official API example for it): check the first one in Buffer; Praeko warns buffer_carousel_unverified");
   notes.forEach((x) => console.log("  ⚠", x));
   (publication.beforePublishing || []).forEach((x: string) => console.log("  ☐", x));
   if (!send) { console.log(`\nThe ${carousel ? `${images.length} slides go` : "image goes"} straight to ${cfg.url} (media type image${carousel ? ` ×${images.length}, ${totalKB.toFixed(0)} KB in total` : ""}, then a post with kind ${carousel ? "carousel" : "image"}).`); return 0; }

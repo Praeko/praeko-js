@@ -1,4 +1,4 @@
-// Cover on the first frames: the networks (and Buffer) do not take a separately uploaded cover, only a frame of the video itself.
+// Cover on the first frames: the networks do not take a separately uploaded cover, only a frame of the video itself.
 // Pastes the cover image over the first `n` frames (without changing duration, audio or sync), so the thumbnail becomes frame 0.
 import { spawnSync } from "node:child_process";
 

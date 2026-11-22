@@ -17,7 +17,7 @@ const injected = (extra: any) => extra?.praeko;
 
 const BIN = resolve(fileURLToPath(import.meta.url), "..", "..", "bin", "praeko.mjs");
 const NAMES: Record<string, any> = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok" };
-const VALUE_FLAGS = new Set(["type", "sort", "direction", "limit", "when", "networks", "yt", "ig", "tt", "yt-mode", "tt-mode", "video", "cover", "meta", "instagram", "instagram-id", "id", "url", "via", "config", "minutes", "key", "server", "scope", "name", "timezone", "from", "to", "state", "tag", "channel", "max", "page", "title", "description-file", "swap-hashtags", "text", "buffer-id", "cover-media", "days", "day", "tt-privacy", "tt-frame", "code", "route", "method", "cursor", "key-id", "events", "idempotency-key"]);
+const VALUE_FLAGS = new Set(["type", "sort", "direction", "limit", "when", "networks", "yt", "ig", "tt", "yt-mode", "tt-mode", "video", "cover", "meta", "instagram", "instagram-id", "id", "url", "via", "config", "minutes", "key", "server", "scope", "name", "timezone", "from", "to", "state", "tag", "channel", "max", "page", "title", "description-file", "swap-hashtags", "text", "cover-media", "days", "day", "tt-privacy", "tt-frame", "code", "route", "method", "cursor", "key-id", "events", "idempotency-key"]);
 
 // The publisher request (core) is internal and uses its own mode/scope spellings.
 const YT_MODE: Record<string, any> = { private: "privado", scheduled: "agendado", public: "publico" }, TT_MODE: Record<string, any> = { draft: "rascunho", direct: "direto" };
@@ -29,14 +29,13 @@ const stateLabel = (e: any) => STATE_EN[e] ?? e;
 export const HELP = `Praeko CLI: personal publisher (YouTube, Instagram, TikTok)
 
   post <folder|name> --when "06/11 17:30" [--networks yt,ig,tt] [--yt|--ig|--tt "time"]
-       [--yt-mode private|scheduled|public] [--tt-mode draft|direct] [--via local|buffer] [--send]
+       [--yt-mode private|scheduled|public] [--tt-mode draft|direct] [--via local|remote] [--send]
        [--tt-privacy SELF_ONLY|PUBLIC_TO_EVERYONE|…] [--tt-frame 1500]   (only with --server; direct public TikTok needs the app audit)
                                   publishes through Praeko (queue + direct providers); without --send it only simulates
-  schedule <folder|name> …        the same, through Buffer (--via buffer); schedule <name> --status | --cancel [--networks yt]
-                                  schedule --key: stores the Buffer key (echo $KEY | praeko schedule --key)
+  schedule <folder|name> …        the same, always through the Praeko service (--server or "remote": { "url" }); schedule <name> --status | --cancel [--networks yt]
   queue [list|run [--dry-run]|cancel <id>|comment <id>|install [--minutes N]|remove]     the local queue
   account <youtube|instagram|tiktok> [connect|status]
-  channels [--via local|buffer]   what is connected
+  channels [--via local|remote]   what is connected
 
 Praeko service (Cloudflare), with --server https://praeko.app (or PRAEKO_SERVER, or "remote": { "url" } in praeko.json) and the key in PRAEKO_KEY:
   post <package> --server URL [--queue | --when … | --draft] [--tag a,b] [--yt-mode …] [--send]
@@ -50,7 +49,6 @@ Praeko service (Cloudflare), with --server https://praeko.app (or PRAEKO_SERVER,
   youtube comments [--video id] [--unanswered] [--max 20]                  comments still without your reply
   youtube resolve|reopen <thread>                                          hides/restores a thread in the pending box (Praeko only)
   youtube reply <thread> --text "…" [--send]                               replies to a comment (simulates; --send writes)
-  adopt-buffer --id name --title "…" --when "07/11 10:00" --buffer-id <Buffer post>   shows a Reel already scheduled in Buffer (does not call Buffer)
   insights [--days 30] [--channel yt|ig] [--type reel|short|long] [--tag x] [--compare] [--sort views] [--posts] [--json]
   insights 48h [--days 30]                                                 48 h reading per post, as a table for product-marketing.md
   import [youtube|instagram|tiktok] [--dry-run]                            (admin) brings the history into Insights
@@ -114,7 +112,6 @@ export async function runCli(argv: any, { log = console.log, error = console.err
     if (cmd === "slots") return await remoteSlots(f, log, ctxExtra);
     if (cmd === "publish-now") return await remotePublishNow(f, log, ctxExtra);
     if (cmd === "youtube-schedule") return await remoteYoutubeSchedule(f, log, ctxExtra);
-    if (cmd === "adopt-buffer") return await remoteAdoptBuffer(f, log, ctxExtra);
     if (cmd === "youtube") return await youtubeCmd(f, log, ctxExtra);
     if (cmd === "tiktok") return await tiktokCmd(f, log, ctxExtra);
     if (cmd === "insights") return await insightsCmd(f, log, ctxExtra);
@@ -128,16 +125,19 @@ export async function runCli(argv: any, { log = console.log, error = console.err
   } catch (e) { error("error: " + e.message); return 1; }
 }
 
+function checkVia(f: any) {
+  if (f.via === "buffer") throw new Error("--via buffer no longer exists: Buffer was removed. Use --via local (queue on this machine) or the Praeko service (--server)");
+  if (f.via !== undefined && !["local", "remote"].includes(f.via)) throw new Error(`--via ${f.via} is unknown (use local or remote)`);
+}
+
 async function postCmd(cmd: any, f: any, log: any, extra: any) {
-  if (cmd === "schedule" && f.key !== undefined) {
-    let k = typeof f.key === "string" ? f.key : "";
-    if (!k) { const ch = []; for await (const c of process.stdin) ch.push(c); k = Buffer.concat(ch).toString().trim(); }
-    if (!k) throw new Error("usage: echo $KEY | praeko schedule --key   (publish.buffer.com/settings/api)");
-    log(`Buffer key stored (${segredos.guardar("buffer/principal", k)})`); return 0;
-  }
+  if (cmd === "schedule" && f.key !== undefined) throw new Error("`schedule --key` stored the Buffer key and no longer exists. The Praeko key is stored with: echo $KEY | praeko key store");
+  if (f.reminder !== undefined) throw new Error("--reminder no longer exists: it was the \"only notifies\" mode of Buffer, which was removed");
+  checkVia(f);
+  if (cmd === "schedule" && f.via === "local") throw new Error("`schedule` always goes through the Praeko service; for the local queue use `praeko post`");
   const { raiz: root, config: config0 } = loadConfig(f);
   const config = f.server ? { ...config0, remoto: { ...(config0.remoto || {}), url: f.server } } : config0, ctx = criarContexto({ config, raiz: root, log, ...extra });
-  const provider = f.server ? "remoto" : (f.via === "remote" ? "remoto" : f.via) || (cmd === "schedule" ? "buffer" : config.provedor && config.provedor !== "buffer" ? config.provedor : "local");
+  const provider = f.server || f.via === "remote" || cmd === "schedule" ? "remoto" : f.via || config.provedor || "local";
   const arg = f._[0];
   const pub = await criarPublicador({ config, provedor: provider, ctx: provider === "remoto" && injected(extra) ? { ...ctx, praeko: injected(extra) } : ctx });
   if (f.status || f.cancel) {
@@ -156,10 +156,9 @@ async function postCmd(cmd: any, f: any, log: any, extra: any) {
     const q = f[networkFlag[r]] || f.when;
     const modo = r === "youtube" ? f["yt-mode"] : r === "tiktok" ? f["tt-mode"] : undefined;
     const quando = q ? parseQuando(q, { tz }) : null;
-    if (quando && Date.parse(quando) < Date.now() + 5 * 60e3 && provider === "buffer") throw new Error(`${NAMES[r]}: ${localTime(quando)} is less than 5 minutes from now or already past`);
     return { rede: r, quando, ...(modo ? { modo } : {}), ...(f.queue && !quando ? { fila: true } : {}), ...(f.draft ? { rascunho: true } : {}) };
   });
-  const { request, errors, warnings } = buildRequest({ pkg, config, targets, options: { lembrete: !!f.reminder, ...(f["no-cover-in-frame"] ? { capaNoQuadro: false } : {}), ...(f.url ? { videoUrl: f.url } : {}) } });
+  const { request, errors, warnings } = buildRequest({ pkg, config, targets, options: {} });
   if (provider === "remoto" && targets.some((d: any) => d.rede === "tiktok")) {
     const o = { ...(config.tiktok?.privacidade ? { privacidade: config.tiktok.privacidade } : {}), ...(config.tiktok?.capaMs != null ? { miniaturaMs: config.tiktok.capaMs } : {}), ...(f["tt-privacy"] ? { privacidade: f["tt-privacy"] } : {}), ...(f["tt-frame"] ? { miniaturaMs: Number(f["tt-frame"]) } : {}) };
     if (Object.keys(o).length) request.opcoes!.tiktok = o;
@@ -171,7 +170,6 @@ async function postCmd(cmd: any, f: any, log: any, extra: any) {
   errors.forEach((e) => log("  ✗ " + e)); if (errors.length) return 1;
   const requestErrors = validarPedido(request); if (requestErrors.length) { requestErrors.forEach((e) => log("  ✗ " + e)); return 1; }
   const send = !!f.send;
-  if (provider === "remoto") await coverInInstagramFrames({ request, pkg, f, root, send, log, warnings });
   log(`${send ? "PUBLISHING" : "SIMULATION (nothing will be sent; use --send)"} [${provider === "remoto" ? "remote" : provider}]: ${request.titulo}`);
   log(`package: ${pkg.dir}\nvideo: ${basename(pkg.video)}${pkg.capa ? `  cover: ${basename(pkg.capa)}` : "  (no cover)"}`);
   for (const d of request.destinos) log(`  ${NAMES[d.rede].padEnd(10)} ${d.fila ? "next queue slot" : d.rascunho ? "draft" : !d.quando || (provider === "local" && d.rede === "youtube" && (d.modo || config.youtube?.modo || "privado") !== "agendado") ? "now" : localTime(d.quando)}${d.modo ? `  mode ${stateLabel(d.modo)}` : ""}  text ${request.textos[d.rede]!.texto.length} chars`);
@@ -185,26 +183,6 @@ async function postCmd(cmd: any, f: any, log: any, extra: any) {
   const r = await pub.publicar(request);
   for (const i of r.itens) log(`${i.estado === "erro" ? "✗" : "✓"} ${NAMES[i.rede]} ${stateLabel(i.estado)}${i.quando && i.estado === "agendado" ? " for " + localTime(i.quando) : ""}${i.url ? "  " + i.url : ""}${i.studio ? "  (" + i.studio + ")" : ""}${i.aviso ? "  " + i.aviso : ""}`);
   return r.itens.some((i) => i.estado === "erro") ? 1 : 0;
-}
-
-/**
- * Instagram through Buffer: Buffer does not accept a separate cover, so the Instagram target gets a COPY of the video with the cover pasted on the first 2
- * frames (thumbnail = frame 0), sent as extra media of the target. Only for a video and cover of the same aspect ratio; --no-cover-in-frame turns it off.
- */
-async function coverInInstagramFrames({ request, pkg, f, root, send, log, warnings }: any) {
-  const d = request.destinos.find((x: any) => x.rede === "instagram");
-  if (!d || f["no-cover-in-frame"] || d.midia) return;
-  if (!pkg.capa) { warnings.push("Instagram: no cover, the thumbnail will be a video frame"); return; }
-  if (request.opcoes?.formato === "longo") { warnings.push("Instagram: cover not pasted on the long video (a 16:9 cover is no Reel thumbnail)"); return; }
-  let v, c;
-  try { v = capaQuadro.sondar(pkg.video); c = capaQuadro.dimensoesImagem(pkg.capa); } catch (e) { warnings.push(`Instagram: could not check the cover (${e.message}); no cover in the frames`); return; }
-  if (!capaQuadro.mesmaProporcao(c, v)) { warnings.push(`Instagram: the cover ${c.largura}x${c.altura} does not have the video aspect ratio ${v.largura}x${v.altura}; not pasted on the frames`); return; }
-  if (!send) { log(`  Instagram: cover on the first 2 frames (${basename(pkg.capa)}); the copy is generated with --send`); return; }
-  const dir = pastaEstado(root); mkdirSync(dir, { recursive: true });
-  const saida = join(dir, `${request.id}-instagram.mp4`);
-  capaQuadro.embutirCapa({ video: pkg.video, capa: pkg.capa, saida });
-  d.midia = { video: saida };
-  log(`  ✓ cover pasted on the first 2 frames of the Instagram video: ${basename(saida)}`);
 }
 
 async function queueCmd(f: any, log: any, extra: any) {
@@ -267,8 +245,9 @@ async function accountCmd(f: any, log: any, extra: any, resto: string[] = []) {
 }
 
 async function channelsCmd(f: any, log: any, extra: any) {
+  checkVia(f);
   const { raiz: root, config } = loadConfig(f), ctx = criarContexto({ config, raiz: root, log, ...extra });
-  const pub = await criarPublicador({ config, provedor: f.via || "local", ctx });
+  const pub = await criarPublicador({ config, provedor: f.via === "remote" ? "remoto" : f.via || "local", ctx });
   for (const c of await pub.canais()) log(`${(NAMES[c.rede] || c.rede).padEnd(10)} ${c.conectado ? "connected " : "NOT connected"} ${c.id ? c.id + "  " : ""}${c.detalhe || ""}`);
   return 0;
 }
@@ -378,7 +357,6 @@ async function insightsCmd(f: any, log: any, extra: any) {
   log(`  posts ${n(k.posts)} · views ${n(k.views)} · reactions ${n(k.reactions)} · comments ${n(k.comments)} · engagement ${pct(k.engagement)} · followers ${n(k.followers)}${k.followersChange != null ? ` (${k.followersChange > 0 ? "+" : ""}${k.followersChange})` : ""}`);
   const moreCards = ([["shares", "shares"], ["saves", "saves"], ["reach", "reach"], ["watchTimeMin", "watch min"], ["avgWatchTimeSec", "avg watch s"], ["followersGained", "followers gained"]] as [string, string][]).filter(([x]) => k[x] != null).map(([x, t]) => `${t} ${k[x]}${k.change?.[x]?.pct != null ? ` (${k.change[x].pct > 0 ? "+" : ""}${String(k.change[x].pct).replace(".", ",")}%)` : ""}`);
   if (moreCards.length) log(`  ${moreCards.join(" · ")}`);
-  if (r.sources?.bufferAggregate) log("  (numbers from the Buffer aggregate: " + Object.keys(r.sources.current).join(", ") + ")");
   if (f.posts && r.posts?.items?.length) { log(`Posts in the period (${r.posts.total}, order ${r.posts.sort} ${r.posts.direction}):`); r.posts.items.forEach((p: any, i: any) => log(`  ${String(i + 1).padStart(2)}. ${short(p.title, 55)}  [${NAMES[p.network] || p.network}${p.type ? ` · ${p.type}` : ""}]  ${p.reactions} reactions · ${p.comments} comments · ${p.views} views · ${p.engagement == null ? "—" : String(p.engagement) + "%"}`)); }
   if (r.topPosts.length) { log("Top posts (reactions):"); r.topPosts.forEach((p: any, i: any) => log(`  ${i + 1}. ${short(p.title, 60)}  [${NAMES[p.network] || p.network}]  ${p.reactions} reactions · ${p.comments} comments · ${p.views} views${p.noMetrics ? "  (no metrics yet)" : ""}`)); }
   for (const c of r.channels) log(`  ${(NAMES[c.network] || c.network).padEnd(10)} posts ${String(c.posts).padStart(3)} · reactions ${String(c.reactions).padStart(5)} · comments ${String(c.comments).padStart(4)} · engagement ${pct(c.engagement)}`);
@@ -476,14 +454,6 @@ async function youtubeCmd(f: any, log: any, extra: any) {
     log(`✓ replied (${r.id})`); return 0;
   }
   throw new Error("usage: praeko youtube videos | video <id> | edit <id> … | comments … | resolve|reopen <thread> | reply <thread> --text …");
-}
-async function remoteAdoptBuffer(f: any, log: any, extra: any) {
-  if (!f.title || !f.when || !f["buffer-id"]) throw new Error('usage: praeko adopt-buffer --id <name> --title "…" --when "07/11 10:00" --buffer-id <Buffer post id> [--text "caption"] [--cover-media <id>]  (registers in the dashboard a Reel already scheduled in Buffer; it does not call Buffer)');
-  const quando = parseQuando(f.when, { fuso: loadConfigIfAny(f).config?.fusoOffset || "-03:00" });
-  const a = remoteClient(f, loadConfigIfAny(f).config, extra);
-  const p = await a.posts.adopt({ ...(f.id ? { id: f.id } : {}), title: f.title, network: "instagram", scheduledFor: quando, external: { provider: "buffer", id: f["buffer-id"] }, ...(f.text ? { texts: { instagram: { text: f.text } } } : {}), ...(f["cover-media"] ? { media: { cover: f["cover-media"] } } : {}) });
-  log(`✓ adopted: ${p.id} (Instagram, ${stateLabel(p.items[0]?.state)}, ${p.items[0]?.scheduledFor})`);
-  return 0;
 }
 async function remoteYoutubeSchedule(f: any, log: any, extra: any) {
   if (!f._[0] || !f.when) throw new Error('usage: praeko youtube-schedule <post> --when "07/11 10:00" (the video is already on YouTube, private)');

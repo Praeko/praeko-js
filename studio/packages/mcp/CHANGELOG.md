@@ -2,6 +2,11 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- `studio_transcribe` description: says it never downloads a model (the person runs `praeko studio transcribe --download-model` after their own yes) and asks the agent to read the files in pieces instead of pasting the whole text.
+
 ## [0.1.4] - 2026-11-12
 
 ### Added

@@ -20,6 +20,8 @@ test("posts.cancel: sem opções não manda query; dismiss e deleteVideo viram ?
   assert.deepEqual(chamadas.map((c) => c.init.method), ["DELETE", "DELETE", "DELETE"]);
   assert.deepEqual(chamadas.map((c) => c.url.search), ["", "?dismiss=true", "?dismiss=true&delete_video=true"]);
   assert.equal(chamadas[2].init.headers["idempotency-key"], "k1");
+  await praeko.posts.cancel("p4", { deleteRemote: true });
+  assert.equal(chamadas[3].url.search, "?delete_remote=true");
 });
 
 test("instagram.comments aceita page (token da próxima página) e o manda na query", async () => {
@@ -30,6 +32,6 @@ test("instagram.comments aceita page (token da próxima página) e o manda na qu
 
 test("as docs por rota listam esses params (a doc pública gerada deles sai do mesmo lugar)", () => {
   const consulta = (k) => (docDe(ROUTES.find((r) => r.key === k)).consulta || []).map((c) => c.name);
-  assert.deepEqual(consulta("posts.cancel"), ["dismiss", "delete_video"]);
+  assert.deepEqual(consulta("posts.cancel"), ["dismiss", "delete_video", "delete_remote"]);
   assert.ok(consulta("instagram.comments").includes("page"));
 });

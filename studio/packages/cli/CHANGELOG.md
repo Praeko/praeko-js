@@ -2,6 +2,21 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/). In the 0.x series a breaking change may ship in a minor version, always recorded here.
 
+## [0.3.3] - 2026-11-22
+
+### Removed
+- The Buffer provider: `schedule --via buffer`, the Buffer key (`schedule --key` now only stores the Praeko key), `--reminder`, `--url`, `publishing.buffer.*` and the `buffer.ts` module of the internal publish package. Praeko is the only scheduling provider. `--via praeko` and `publishing.provider: "praeko"` still work; `--via buffer`, `--reminder` and `--url` give a clear error, and so does a leftover `schedule.json` from Buffer (cancel those posts in the Buffer app and delete the file).
+- Instagram on Praeko now only goes through the Meta API: `publishing.praeko.instagram.via` accepts only `"meta"` (the default, it was `"buffer"`), the cover is no longer pasted into the first frames of a copy (`--no-cover-frame` is ignored), and the Instagram minimum lead time is always 25 minutes.
+
+
+### Added
+- `transcribe` (pilot): `transcribe <file>` writes `transcript.json`, `.srt` and `.txt` on your machine (VoiceStudio, then local Whisper; the cloud engine only with `--cloud`).
+- `transcribe --download-model [--yes]`: downloads the local Whisper model `large-v3-turbo-q5_0` (about 547 MB, from Hugging Face ggerganov/whisper.cpp) to `~/.config/praeko/models` only after your explicit yes (prompt or `--yes`; without a terminal and without `--yes` it refuses). Shows size and source, checks SHA-256 and refuses (and deletes) a file with another hash, writes to a `.part` file and renames at the end, resumes an interrupted download.
+- The agent skill teaches the transcription: when to use it, read only what is needed, cloud only if asked, nothing goes up to Praeko.
+
+### Changed
+- The default local Whisper model is now `large-v3-turbo-q5_0` (was `small`). With a `small` model already in place, set `"transcription": { "model": "small" }` in `voices.json`.
+
 ## [0.3.2] - 2026-11-13
 
 ### Added

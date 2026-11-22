@@ -1,4 +1,4 @@
-// Temporary hosting of the video for Buffer/Instagram to fetch (needs a public HTTPS URL that stays stable until publishing time; no signed link).
+// Temporary hosting of the video for Instagram to fetch (needs a public HTTPS URL that stays stable until publishing time; no signed link).
 // Provider "r2": Cloudflare R2 through `wrangler`. The object key carries a random suffix, so the URL cannot be guessed.
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";

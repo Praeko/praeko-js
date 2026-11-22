@@ -14,7 +14,6 @@ export function toCoreConfig(c: any = {}) {
   if (o.limites) o.limites = mapKeys(o.limites, { youtubeTitle: "youtubeTitulo", youtubeDescription: "youtubeDescricao", hashtagsInstagram: "hashtagsInstagram" });
   if (o.hashtags) o.hashtags = mapKeys(o.hashtags, { allowed: "permitidas", banned: "proibidas" });
   if (o.hospedagem) o.hospedagem = mapKeys(o.hospedagem, { type: "tipo", baseUrl: "urlBase" });
-  if (o.buffer) { o.buffer = mapKeys(o.buffer, { channels: "canais", networks: "redes" }); }
   if (o.youtube) { o.youtube = mapKeys(o.youtube, { mode: "modo", categoryId: "categoriaId", notifySubscribers: "avisarInscritos", privacy: "privacidade" }); if (YT_MODE[o.youtube.modo]) o.youtube.modo = YT_MODE[o.youtube.modo]; }
   if (o.instagram) o.instagram = mapKeys(o.instagram, { version: "versao", comment: "comentar" });
   if (o.tiktok) { o.tiktok = mapKeys(o.tiktok, { mode: "modo", privacy: "privacidade", coverMs: "capaMs", audited: "auditado" }); if (TT_MODE[o.tiktok.modo]) o.tiktok.modo = TT_MODE[o.tiktok.modo]; }

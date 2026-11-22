@@ -21,6 +21,10 @@ export { createVoiceStudio, prepareText } from "./providers/voicestudio.ts";
 export { estimateWords, silentAudio } from "./estimated.ts";
 export type { Word } from "./estimated.ts";
 export { readBlocks, narrateBlocks, joinAudios, blockCacheKey, blockHash, hookHash } from "./blocks.ts";
+export { transcribe, TranscribeError, InputError, qualityGate, toSrt, toTxt, writeTranscript } from "./transcribe.ts";
+export { downloadModel, MANAGED_MODEL, modelPathFor, humanSize, ModelError, sha256File } from "./model.ts";
+export type { ModelSpec } from "./model.ts";
+export type { TranscriptResult, TranscribeEngine } from "./transcribe.ts";
 export { alignToScript, scriptWords, joinNumbers } from "./alignment.ts";
 
 const ensureDir = (file: string) => mkdirSync(dirname(file), { recursive: true });
@@ -99,7 +103,7 @@ export async function align({ audio, aligner = "scribe", language = "por", scrip
     const ref = (Array.isArray(el) ? el : []).map((c) => `elevenlabs/${c}`).find((r) => getKey(r));
     if (!ref) throw new Error("align: no ElevenLabs key found (system keychain, ~/.config/praeko or ELEVENLABS_API_KEY)");
     const client = new ElevenLabsClient({ apiKey: getKey(ref) as string });
-    const r: any = await client.speechToText.convert({ file: createReadStream(audio), modelId: "scribe_v1", languageCode: language, timestampsGranularity: "word", tagAudioEvents: true });
+    const r: any = await client.speechToText.convert({ file: createReadStream(audio), modelId: "scribe_v1", languageCode: language === "auto" ? undefined : language, timestampsGranularity: "word", tagAudioEvents: true });
     words = r.words.filter((w: any) => w.type === "word").map((w: any) => ({ t: w.text, a: +w.start.toFixed(2), b: +w.end.toFixed(2) }));
     events = r.words.filter((w: any) => w.type === "audio_event").map((w: any) => ({ t: w.text, a: +w.start.toFixed(2) }));
     text = r.text;

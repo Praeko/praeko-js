@@ -42,6 +42,10 @@ export const help = (version: string): string => `npx @praeko/studio@${version} 
   voice <slug> [--quality draft|final|local] [--voice alias] [--aligner scribe|voicestudio] [--no-failover]
                                            makes the voice and the word timings. draft = silent and estimated (free, no network);
                                            final = ElevenLabs (your key); local = VoiceStudio (must be running)
+  transcribe <file> [--lang pt|en|auto] [--cloud] [--engine voicestudio|whisper-local|scribe] [--out <folder>]
+                                           transcribes any audio or video file (ffmpeg → 16 kHz) into transcript.json (words with times), .srt and .txt
+                                           next to the file. Tries VoiceStudio, then local Whisper; ElevenLabs Scribe only with --cloud (audio leaves this machine)
+  transcribe --download-model [--yes]      downloads the local Whisper model (large-v3-turbo-q5_0, ~547 MB) only after your yes; SHA-256 checked
   voice balance | voices | account <list|add> | config key <ref>
                                            accounts and voices (ElevenLabs, VoiceStudio)
   compile <slug>                           reads episode.yaml, checks anchors and overlap, writes episode.spec.json
@@ -61,7 +65,7 @@ export const help = (version: string): string => `npx @praeko/studio@${version} 
                                            measured facts and findings, REVIEW.md with the instructions for the reviewing agent; a video, or the slides of an image piece or carousel.
                                            No AI model is called: it measures and extracts, your agent looks and judges. Exit 0 when the package is made (even with findings)
   package <slug>                           writes texts.md (YouTube, Instagram, TikTok, UTM) from publication.json
-  schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--via praeko|buffer] [--send]   (an image piece or carousel goes only to Instagram, --via praeko; a carousel uploads its slides in order)
+  schedule <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--via praeko] [--send]   (an image piece or carousel goes only to Instagram, --via praeko; a carousel uploads its slides in order)
                                            schedules through Praeko (default); without --send it only simulates. schedule --channels lists the channels;
                                            echo $KEY | npx @praeko/studio@${version} schedule --via praeko --key stores the Praeko key
   post <slug> --when "06/11 17:30" [--networks yt,ig,tt] [--send]   direct publishing to the networks (advanced)

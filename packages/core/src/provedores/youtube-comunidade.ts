@@ -22,10 +22,15 @@ const resumoVideo = (v: any) => ({
 
 /** Vídeos do canal (inclusive privados e agendados), do mais novo para o mais antigo. 1 unidade de cota por chamada. */
 export async function listarVideos({ ctx, max = 20, pagina }: any) {
-  const cid = await canalId(ctx);
-  const c = await lerJson(await api(ctx, `${API}/channels?part=contentDetails&id=${cid}`));
-  const uploads = c.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploads) throw new Error("o canal não tem playlist de uploads");
+  // T8: o id do canal e a playlist de uploads ficam guardados (ctx.canalYt): depois da primeira vez, a listagem custa 2 unidades (playlistItems + videos) em vez de 4.
+  let uploads = (await ctx.canalYt?.ler?.())?.uploadsPlaylistId;
+  if (!uploads) {
+    const cid = await canalId(ctx);
+    const c = await lerJson(await api(ctx, `${API}/channels?part=contentDetails&id=${cid}`));
+    uploads = c.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploads) throw new Error("o canal não tem playlist de uploads");
+    await ctx.canalYt?.guardar?.({ uploadsPlaylistId: uploads });
+  }
   const p = await lerJson(await api(ctx, `${API}/playlistItems?part=contentDetails&playlistId=${uploads}&maxResults=${ate(max, 50)}${pagina ? `&pageToken=${encodeURIComponent(pagina)}` : ""}`));
   const ids = (p.items || []).map((i: any) => i.contentDetails?.videoId).filter(Boolean);
   if (!ids.length) return { videos: [], proxima: p.nextPageToken || null };
