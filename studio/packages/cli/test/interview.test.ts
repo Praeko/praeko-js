@@ -89,8 +89,8 @@ test("lineAsk reads lines from a stream: Enter takes the default, closed input t
 });
 test("interview: fake stdin end to end; a question answered by flag is not asked again; invalid hex asks again", async () => {
   const input = new PassThrough(), { ask, close } = lineAsk(input, new PassThrough());
-  // lang, handle (name comes by flag), agents, about, audience, tone, accent (bad, then good), background, font, ref1, note1, ref2 (end), voice alias, provider
-  input.write(["pt", "", "claude,gemini", "canal de dev", "iniciantes", "direto e calmo", "azul", "#ABCDEF", "", "Inter", "https://x.test/1", "a abertura", "", "voz1", "voicestudio"].join("\n") + "\n");
+  // lang, handle (name comes by flag), agents, source, about, audience, tone, format, style, edit (pace, captions, effects, sound, face), accent (bad, then good), background, font, ref1, note1, ref2 (end), voice alias, provider
+  input.write(["pt", "", "claude,gemini", "", "canal de dev", "iniciantes", "direto e calmo", "", "", "", "", "", "", "", "azul", "#ABCDEF", "", "Inter", "https://x.test/1", "a abertura", "", "voz1", "voicestudio"].join("\n") + "\n");
   const msgs: string[] = [];
   const r = await interview(ask, { name: "Cana" }, { lang: "en", say: (s) => msgs.push(s), defaults: { name: "dir", lang: "en" }, agentsDefault: ["codex"] });
   close();

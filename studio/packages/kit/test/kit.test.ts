@@ -13,8 +13,12 @@ test("resolveColor maps theme names, passes #hex through and keeps unknown names
 
 test("the published kit exposes the English API only", async () => {
   const kit = await import("../dist/index.js");
-  for (const name of ["Panel", "Box", "Line", "Big", "Bubble", "Code", "Window", "Phone", "Mascot", "Frame", "EpisodeDecl", "episodeDataFromSpec", "LongDecl", "longDataFromSpec", "CodeL", "CardL", "ChipL", "TextL", "appearL", "LongCovers", "resolveColor"]) {
+  for (const name of ["Panel", "Box", "Line", "Big", "Bubble", "Code", "Window", "Phone", "Mascot", "Frame", "EpisodeDecl", "episodeDataFromSpec", "LongDecl", "longDataFromSpec", "CodeL", "CardL", "ChipL", "TextL", "appearL", "LongCovers", "resolveColor", "HandBorder", "SlabStage", "sceneWindows", "skinAndTheme"]) {
     assert.equal(typeof (kit as Record<string, unknown>)[name], "function", name);
   }
+  // three.js stays out of the bundle: only a dynamic import, used by 3D skins
+  const { readFileSync } = await import("node:fs");
+  const dist = readFileSync(new URL("../dist/index.js", import.meta.url), "utf8");
+  assert.ok(dist.includes('import("three")') && !/from\s*"three"/.test(dist), "three is loaded on demand");
   for (const old of ["PainelD", "Caixa", "Gato", "Moldura", "EpisodioDecl", "LongoDecl", "CodigoL"]) assert.equal((kit as Record<string, unknown>)[old], undefined, old);
 });

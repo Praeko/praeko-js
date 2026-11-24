@@ -6,7 +6,7 @@
 // Errors become PraekoError (status, code, message, details). GET and part uploads retry on network failure, 429 and 5xx. A mutating call (POST/PATCH/DELETE) retries too, but ONLY when it carries an `idempotencyKey`
 // (the server then replays the first response instead of repeating the work; docs/idempotencia.md); without one it never retries.
 import { addLegacy } from "./legacy.ts";
-import type { ApiKeysApi, CalendarResponse, Network, CallOptions, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, LegacyCanaisApi, LegacyChavesApi, LegacyComunidadeApi, LegacyConteudoApi, LegacyInsights, LegacyInstagram, LegacyMidiaApi, LegacyPosts, LegacyYoutube, MediaApi, NotificationsApi, PostsApi, PreferencesApi, Source, SourceReader, TiktokApi, UsageApi, WebhooksApi, YoutubeApi } from "./types.ts";
+import type { ApiKeysApi, BootstrapApi, CalendarResponse, Network, CallOptions, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, LegacyCanaisApi, LegacyChavesApi, LegacyComunidadeApi, LegacyConteudoApi, LegacyInsights, LegacyInstagram, LegacyMidiaApi, LegacyPosts, LegacyYoutube, MediaApi, NotificationsApi, PostsApi, PreferencesApi, Source, SourceReader, TiktokApi, UsageApi, WebhooksApi, YoutubeApi } from "./types.ts";
 
 export type * from "./types.ts";
 /** Login por código (RFC 8628): pedir o código, consultar e esperar a chave de escrita, sem chave (docs/device-login.md). */
@@ -77,6 +77,8 @@ export class Praeko {
   /** Everything already published (Praeko + imported), newest first: { total, items }. */
   content: ContentApi;
   apiKeys: ApiKeysApi;
+  /** One snapshot to open the dashboard (session, workspaces, channels, notifications, preferences, billing, onboarding, counters). */
+  bootstrap: BootstrapApi;
   /** API usage of this workspace and the request log (30 days, metadata only). */
   usage: UsageApi;
   /** Panel preferences (theme, language, notifications per event). `put` is partial and strict; it returns the full preferences. */
@@ -198,6 +200,8 @@ export class Praeko {
       create: (name, scope = "write", expiresInDays, o) => a._req("POST", "/v1/api-keys", { body: { name, scope, ...(expiresInDays ? { expiresInDays } : {}) }, ...idem(o) }),
       revoke: (id) => a._req("DELETE", `/v1/api-keys/${ref(id)}`),
     };
+    /** One snapshot to open the dashboard (session, workspaces, channels, notifications, preferences, billing, onboarding, counters). */
+    this.bootstrap = { get: () => a._req("GET", "/v1/bootstrap") };
     /** API usage of this workspace and the request log (30 days, metadata only). */
     this.usage = {
       /** Totals of the last `days` (1-30, default 7): { total, succeeded, errors, p95Ms, peakPerMinute, limitPerMinute, byDay, byHour (days=1), byKey }. */

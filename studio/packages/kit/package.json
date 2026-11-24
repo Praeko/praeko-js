@@ -1,6 +1,6 @@
 {
   "name": "@praeko/studio-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "Praeko Studio scene parts (panel, box, line, bubble, code, window, phone, frame) and the declarative episode that reads the compiled episode.yaml. A library for projects created with `praeko studio init`.",
   "license": "MIT",
@@ -38,6 +38,13 @@
     "LICENSES.md"
   ],
   "sideEffects": false,
+  "praekoStudio": {
+    "features": [
+      "skins",
+      "base",
+      "optional-outro"
+    ]
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -48,18 +55,22 @@
     "test": "node --test test/*.test.ts"
   },
   "peerDependencies": {
-    "@praeko/studio-core": "^0.3.0",
+    "@praeko/studio-core": "^0.4.0",
     "react": "^19.0.0",
     "remotion": "^4.0.539"
   },
   "devDependencies": {
     "@praeko/studio-core": "*",
     "@types/react": "19.2.7",
+    "@types/three": "0.170.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.539"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "three": "0.170.0"
   }
 }

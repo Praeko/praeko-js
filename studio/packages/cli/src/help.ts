@@ -25,26 +25,35 @@ export const help = (version: string): string => `npx @praeko/studio@${version} 
   licenses [--accept] [--lang en|pt]       license notice (Remotion is not MIT); --accept records that you read it
   skill install [--agent claude|codex|gemini|cursor|opencode|cline|windsurf|all] [--lang en|pt]
                                            writes Studio's instructions in your coding agent's format
-  docs [topic]                             documentation of the installed version (first-video, episode-yaml, long-yaml, voice, publish, hyperframes, review, licenses)
+  docs [topic]                             documentation of the installed version (first-video, episode-yaml, long-yaml, style, from-video, transcription, voice, publish,
+                                           hyperframes, review, licenses)
   init <folder> [--yes] [--name N] [--handle @x] [--agent …] [--lang en|pt] [--brand <brand folder>] [--dev <studio>] [--no-install]
-       [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"]
+       [--source script,video] [--about "…"] [--audience "…"] [--tone "…"] [--format short,long,carousel,image]
+       [--style flat,minimal,neon,comic,chalkboard,pixel,8bit,retro-crt,clay-3d,blocks-3d,retro-3d,cinema-3d] [--style-other "…"]
+       [--pace calm|fast] [--captions word|phrase|none] [--effects shake,zoom,flash|none] [--sound sfx|none] [--face face|mascot|none]
+       [--accent #hex] [--background #hex] [--font "Name"]
        [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio]
                                            creates a new project (brand, Root, sfx, instructions for the agent). In a terminal it interviews you
-                                           (brand, tone, references: Enter skips, flags answer ahead); --yes or no terminal = no questions.
-                                           Writes brand.json, brief.md and a draft playbook.md. Ends with the two lines that install the
+                                           (source, brand, tone, formats, visual style, editing style, references: Enter skips, flags answer ahead;
+                                           lists take numbers or names separated by commas); --yes or no terminal = no questions.
+                                           Writes brand.json (with the style block), brief.md and a draft playbook.md. Ends with the two lines that install the
                                            local MCP server (@praeko/studio-mcp) for this project (Claude Code command and generic JSON)
-  brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [same answer flags]
-                                           reopens the interview in an existing project; rewrites brief.md (backup .bak) and keeps an edited playbook.md (also prints the MCP install lines)
+  brief [--only about,audience,tone,source,format,style,edit,colors,font,references,voice,name,handle,lang] [same answer flags]
+                                           reopens the interview in an existing project; rewrites brief.md (backup .bak) and keeps an edited playbook.md (also prints the MCP install lines).
+                                           --only style reopens format, visual style and editing style; a new visual style moves only the colors still at the old style's value
   new <slug> [--title "T"] [--long | --image | --carousel]
+  new <slug> --from-video <file.mp4> [--lang pt|en|auto] [--cloud] [--transcript <transcript.json>] [--title "T"]
                                            creates an episode (script, scene, cover, publication.json) and registers it in Root;
+                                           --from-video = an episode over your own video: copies it to public/video/ (the original is never changed), transcribes it
+                                           on this machine (cloud only with --cloud) into words.json, and episode.yaml plays it as the base layer (no voice, no outro);
                                            --image = a photo post (format: image, one slide, no voice or video; Instagram only for now)
                                            --carousel = a carousel (format: carousel, 2 to 20 slides in the order of the slides: list, no voice or video; Instagram only for now)
   voice <slug> [--quality draft|final|local] [--voice alias] [--aligner scribe|voicestudio] [--no-failover]
                                            makes the voice and the word timings. draft = silent and estimated (free, no network);
                                            final = ElevenLabs (your key); local = VoiceStudio (must be running)
-  transcribe <file> [--lang pt|en|auto] [--cloud] [--engine voicestudio|whisper-local|scribe] [--out <folder>]
+  transcribe <file> [--lang pt|en|auto] [--cloud] [--engine voicestudio|whisper-local|scribe] [--out <folder>|<name>.json]
                                            transcribes any audio or video file (ffmpeg → 16 kHz) into transcript.json (words with times), .srt and .txt
-                                           next to the file. Tries VoiceStudio, then local Whisper; ElevenLabs Scribe only with --cloud (audio leaves this machine)
+                                           next to the file (or in --out; --out <name>.json names the three files). Tries VoiceStudio, then local Whisper; ElevenLabs Scribe only with --cloud (audio leaves this machine)
   transcribe --download-model [--yes]      downloads the local Whisper model (large-v3-turbo-q5_0, ~547 MB) only after your yes; SHA-256 checked
   voice balance | voices | account <list|add> | config key <ref>
                                            accounts and voices (ElevenLabs, VoiceStudio)
@@ -52,14 +61,16 @@ export const help = (version: string): string => `npx @praeko/studio@${version} 
   cut <long> <slug> --from <ref> --to <ref> [--hook "phrase" [--quality …]]
                                            vertical Short sliced from a long video's voice (ref: seconds, block:N or "phrase")
   preview [slug] [--engine hyperframes]    opens Remotion Studio (or the HyperFrames preview, with a slug)
-  render <slug> [--scale 0.5] [--engine remotion|hyperframes]
-                                           renders the video (out/<slug>.mp4; HyperFrames: out/<slug>.hf.mp4); --engine hyperframes needs no Remotion
+  render <slug> [--scale 0.5] [--seconds <n>] [--engine remotion|hyperframes]
+                                           renders the video (out/<slug>.mp4; HyperFrames: out/<slug>.hf.mp4); --engine hyperframes needs no Remotion;
+                                           --seconds 10 renders only the first 10 s to out/<slug>-first-10s.mp4 (a quick look; Remotion only)
   cover <slug> [--engine remotion|hyperframes]
                                            renders the cover (out/<slug>-cover.png; long video: -cover-1280x720.png and -cover-vertical-1080x1920.png)
   slides <slug> [--timeout 180]            renders an image piece or a carousel: out/<slug>-slide-01.jpg, -02.jpg… (one per slide, 1080x1350, 4:5, sRGB JPEG; Remotion only),
                                            then checks each one; --timeout = seconds allowed per slide (default 180)
   contact-sheet <slug|file.mp4> [--n 12]   frame mosaic to check by eye
-  check <slug>                             script, voice, publication, AI disclosure and (with a video) duration, loudness and empty frames
+  check <slug>                             script, voice, publication, AI disclosure and (with a video) duration, loudness and empty frames;
+                                           over your own video (base) it counts the words of words.json, not of script.txt
   review <slug> [--every <seconds>] [--max-frames N] [--engine remotion|hyperframes] [--json]
                                            review package for your agent in out/<slug>-review/: frames (opening, one per scene, one every N s, the last), manifest.json with
                                            measured facts and findings, REVIEW.md with the instructions for the reviewing agent; a video, or the slides of an image piece or carousel.

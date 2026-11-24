@@ -7,7 +7,7 @@
 // HTML, imagem ou bytes (uma Response pronta), nunca JSON.
 import type { PathParams, RequestFieldMap, ResponseFieldMap, RouteKey, RouteOf, SCOPED_KEYS } from "./contract.ts";
 import type {
-  ApiKeysApi, CalendarResponse, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, MediaApi, NotificationsApi, PostsApi, PreferencesApi,
+  ApiKeysApi, BootstrapApi, CalendarResponse, ChannelsApi, CommunityApi, ContentApi, IdeasApi, InsightsApi, InstagramApi, MediaApi, NotificationsApi, PostsApi, PreferencesApi,
   RetentionItemResponse, RetentionResponse, TiktokApi, UsageApi, WebhooksApi, YoutubeApi, Network,
 } from "./types.ts";
 
@@ -91,6 +91,7 @@ export interface RouteTypesTable {
   "apiKeys.list": { response: Res<ApiKeysApi["list"]> };
   "apiKeys.create": { body: { name: string; scope?: string; expiresInDays?: number }; response: Res<ApiKeysApi["create"]> };
   "apiKeys.revoke": { response: Res<ApiKeysApi["revoke"]> };
+  "bootstrap.get": { response: Res<BootstrapApi["get"]> };
   "usage.get": { query: Q<Arg<UsageApi["get"], 0>>; response: Res<UsageApi["get"]> };
   "usage.log": { query: Q<Arg<UsageApi["log"], 0>>; response: Res<UsageApi["log"]> };
   "preferences.get": { response: Res<PreferencesApi["get"]> };

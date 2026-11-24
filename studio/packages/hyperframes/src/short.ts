@@ -150,10 +150,11 @@ function hitsJs(hits: any[] | undefined, a: number, dur: number, { target, flash
 
 export function generateShort({ spec, words, T, F, slug }: { spec: Spec; words: Word[]; brand?: Brand; T: Theme; F: Fonts; slug: string }): Generated {
   requireNoComponents(slug, spec);
-  const P = words, D = spec.durS, outroAt = spec.outro.a;
+  // outro and voice are optional (a Short over the person's own `base` video); without an outro the scenes run to the end
+  const P = words, D = spec.durS, outro = spec.outro as { a: number; cta: string } | undefined, outroAt = outro?.a ?? D, base = spec.base as { src: string; volume?: number; fit?: string } | undefined;
   const S = spec.scenes.map((c: any) => c.start);
   const endOf = (i: any) => spec.scenes[i].end ?? (i + 1 < S.length ? S[i + 1] : outroAt);
-  const files: Files = {}, assets: string[] = [spec.voice, "sfx/whoosh.wav", "sfx/pop.wav", "sfx/ding.wav", T.avatar];
+  const files: Files = {}, assets: string[] = [...(spec.voice ? [spec.voice] : []), ...(base ? [base.src] : []), "sfx/whoosh.wav", "sfx/pop.wav", ...(outro ? ["sfx/ding.wav", T.avatar] : [])];
   const atGlobal = (fr: any, n = 0) => { const t = findPhrase(P, fr, n, 0); return t < 0 ? null : t; };
   const cssBase = `${F.faces}\n#root{position:absolute;inset:0;font-family:${F.title};font-weight:${F.weight};color:${T.text}}`;
 
@@ -161,7 +162,8 @@ export function generateShort({ spec, words, T, F, slug }: { spec: Spec; words: 
   const timings: { a: number; dur: number }[] = [];
   const sounds = [{ f: "whoosh", at: 0, v: SOUND_VOL.whoosh }];
   spec.scenes.forEach((scene: any, i: any) => {
-    const a = scene.start, b = f2((i + 1 < S.length ? S[i + 1] : endOf(i)) - 0.1), dur = f2(b - a), panelDur = f2(endOf(i) - a);
+    // with a base video nothing unmounts between scenes (same rule as the kit's sceneWindows)
+    const a = scene.start, b = f2((i + 1 < S.length ? S[i + 1] : endOf(i)) - (base ? 0 : 0.1)), dur = f2(b - a), panelDur = f2(endOf(i) - a);
     const where = `${slug} › scene ${i + 1}${scene.title ? ` (${scene.title})` : ""}`;
     const at = (fr: any, n = 0) => { const t = atGlobal(fr, n); return t === null ? null : t - a; };
     const ctx = { T, F, k: i + 1, uid: 0, where, c: { dur, panelDur } };
@@ -187,7 +189,7 @@ window.__timelines["s${i + 1}"] = tl;
 </script>
 </template>`;
     sounds.push({ f: "pop", at: a, v: SOUND_VOL.pop });
-    (scene.sounds ?? []).forEach((s: any) => { sounds.push({ f: s.f, at: f2(a + s.at), v: s.v ?? SOUND_VOL[s.f] }); assets.push(`sfx/${s.f}.wav`); });
+    (scene.sounds ?? []).forEach((s: any) => { const name = s.sound ?? s.f; sounds.push({ f: name, at: f2(a + s.at), v: s.v ?? SOUND_VOL[name] }); assets.push(`sfx/${name}.wav`); });
     timings.push({ a, dur });
   });
 
@@ -259,9 +261,9 @@ window.__timelines["chrome"]=tl;</script></template>`;
 ${captionJs.join("\n")}
 window.__timelines["captions"]=tl;</script></template>`;
 
-  // ---- outro ----
-  const cta = spec.outro.cta;
-  files["compositions/endcard.html"] = `<template><style>${F.faces}#root{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%, ${T.box} 0%, ${T.background} 72%);display:flex;flex-direction:column;justify-content:center;align-items:center;font-family:${F.title};font-weight:900;text-align:center}</style>
+  // ---- outro (optional) ----
+  const cta = outro?.cta ?? "";
+  if (outro) files["compositions/endcard.html"] = `<template><style>${F.faces}#root{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%, ${T.box} 0%, ${T.background} 72%);display:flex;flex-direction:column;justify-content:center;align-items:center;font-family:${F.title};font-weight:900;text-align:center}</style>
 <div id="root" data-composition-id="endcard" data-width="${W}" data-height="${H}">
 <div id="fa" style="width:420px;height:420px;border-radius:210px;overflow:hidden;border:12px solid ${T.accent};box-shadow:0 0 80px ${rgba(T.accent, 0.45)};opacity:0"><img src="assets/${T.avatar}" alt="" style="width:420px;height:420px;image-rendering:pixelated;display:block"></div>
 <div id="fn" style="margin-top:46px;font-size:92px;font-weight:900;color:${T.accent};opacity:0">${esc(T.handle)}</div>
@@ -274,18 +276,20 @@ window.__timelines["endcard"]=tl;</script></template>`;
 
   // ---- index ----
   const host = (id: any, begin: any, dur: any, z: any, track: any, tipo = "graphics") => `  <div id="${id}" data-composition-id="${id}" data-composition-src="compositions/${id}.html" data-start="${f2(begin)}" data-duration="${f2(dur)}" data-track-index="${track}" data-track-kind="${tipo}" data-width="${W}" data-height="${H}" style="z-index:${z}"></div>`;
+  // the person's own video (`base`): full screen under the scenes, audible (its own audio, `volume`), no frame and no loop
+  const baseTag = base ? `  <video id="base" class="clip" src="assets/${base.src}" playsinline data-start="0" data-duration="${f2(D)}" data-track-index="7" data-volume="${f2(base.volume ?? 1)}"${(base.volume ?? 1) > 0 ? ` data-has-audio="true"` : " muted"} style="position:absolute;inset:0;width:${W}px;height:${H}px;object-fit:${base.fit === "contain" ? "contain" : "cover"};z-index:1;background:#000"></video>` : "";
   const hostTags = [
-    host("bg", 0, D, 0, 0),
+    ...(base ? [baseTag] : [host("bg", 0, D, 0, 0)]),
     ...spec.scenes.map((_: any, i: any) => host(`s${i + 1}`, (timings[i] as { a: number; dur: number }).a, (timings[i] as { a: number; dur: number }).dur, 10 + i, 1)),
     ...(hasFlash ? [host("fx", 0, D, 35, 2)] : []),
-    host("endcard", outroAt, D - outroAt, 40, 3),
+    ...(outro ? [host("endcard", outroAt, D - outroAt, 40, 3)] : []),
     host("captions", 0, D, 50, 4, "captions"),
     host("chrome", 0, D, 60, 5),
   ];
   const speechEnd = P.at(-1)?.b ?? D;
-  const audioTags = [`  <audio id="voz" src="assets/${spec.voice}" data-start="0" data-duration="${f2(Math.min(D, speechEnd + 0.3))}" data-volume="1" data-track-index="9"></audio>`];
+  const audioTags = spec.voice ? [`  <audio id="voz" src="assets/${spec.voice}" data-start="0" data-duration="${f2(Math.min(D, speechEnd + 0.3))}" data-volume="1" data-track-index="9"></audio>`] : [];
   sounds.forEach((s, n) => audioTags.push(`  <audio id="sfx${n}" src="assets/sfx/${s.f}.wav" data-start="${f2(s.at)}" data-duration="${SOUND_DUR[s.f]}" data-volume="${s.v}" data-track-index="${10 + (n % 3)}"></audio>`));
-  audioTags.push(`  <audio id="sfxd" src="assets/sfx/ding.wav" data-start="${f2(outroAt)}" data-duration="${SOUND_DUR.ding}" data-volume="0.22" data-track-index="14"></audio>`);
+  if (outro) audioTags.push(`  <audio id="sfxd" src="assets/sfx/ding.wav" data-start="${f2(outroAt)}" data-duration="${SOUND_DUR.ding}" data-volume="0.22" data-track-index="14"></audio>`);
   files["index.html"] = `<!doctype html>
 <html lang="pt-BR">
 <head>

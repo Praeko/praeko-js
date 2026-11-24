@@ -18,6 +18,8 @@ export type Theme = {
   avatar: string;          // path under public/
   /** Mascot image path template under public/; `{name}` is replaced. Default `mascots/{name}.png`. */
   mascotPath?: string;
+  /** Font files the project ships under public/ (brand.json `fonts.files`), loaded before the first frame. */
+  fontFiles?: { family: string; src: string }[];
 };
 
 const BASE: Theme = {
@@ -29,13 +31,14 @@ const BASE: Theme = {
 export const DEFAULT_THEME: Theme = BASE;
 
 type BrandLike = {
-  colors?: Partial<Theme>; fonts?: { title?: string; mono?: string }; handle?: string; avatar?: string; mascotPath?: string;
+  colors?: Partial<Theme>; fonts?: { title?: string; mono?: string; files?: { family: string; src: string }[] }; handle?: string; avatar?: string; mascotPath?: string;
 };
 /** Reads a project's `brand.json` (missing fields use the default theme). */
 export const themeFromBrand = (m: BrandLike): Theme => ({
   ...DEFAULT_THEME, ...(m.colors ?? {}),
   ...(m.fonts?.title ? { font: m.fonts.title } : {}), ...(m.fonts?.mono ? { mono: m.fonts.mono } : {}),
   ...(m.handle ? { handle: m.handle } : {}), ...(m.avatar ? { avatar: m.avatar } : {}), ...(m.mascotPath ? { mascotPath: m.mascotPath } : {}),
+  ...(Array.isArray(m.fonts?.files) && m.fonts.files.length ? { fontFiles: m.fonts.files } : {}),
 });
 
 /** "#f4b942" + 0.16 -> "rgba(244,185,66,0.16)". */

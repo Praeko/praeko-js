@@ -2,7 +2,7 @@
 // `hyperframes snapshot`. Same layout as the Remotion engine's `Frame` and long-video covers; covers that use `component:` (TSX) cannot render here.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { HF_VERSION, HfError, color, copyAssets, esc, fonts, hfFiles, mascotFile, themeFromBrand } from "./common.ts";
+import { HF_VERSION, HfError, color, copyAssets, esc, fonts, hfFiles, isLongSpec, mascotFile, themeForSpec } from "./common.ts";
 import type { Brand, Files, Fonts, Spec, Theme } from "./common.ts";
 import { renderItem } from "./short.ts";
 
@@ -59,10 +59,10 @@ export function generateCovers({ root, slug, brand }: { root: string; slug: stri
   if (!existsSync(specFile)) throw new HfError(`missing ${specFile}: run \`praeko studio compile ${slug}\``);
   const spec = JSON.parse(readFileSync(specFile, "utf8")) as Spec;
   const b: Brand = brand ?? (existsSync(join(root, "brand.json")) ? JSON.parse(readFileSync(join(root, "brand.json"), "utf8")) : {});
-  const T = themeFromBrand(b), F = fonts(b, T), publicDir = resolve(root, b.publicDir || "public");
+  const T = themeForSpec(b, spec), F = fonts(b, T), publicDir = resolve(root, b.publicDir || "public");
   const cv = spec.cover;
   if (!cv) throw new HfError(`"${slug}" has no \`cover\` in episode.yaml`);
-  const isLong = !spec.outro;
+  const isLong = isLongSpec(spec);
   if (!isLong && cv.component) throw new HfError(`the cover of "${slug}" uses \`component: ${cv.component}\` (TSX), which HyperFrames cannot render. Describe the cover with title/items in episode.yaml or run \`praeko studio cover ${slug} --engine remotion\``);
   const out: { name: string; dir: string; W: number; H: number; html: string; png: string; label: string; assets: string[] }[] = [];
   const dirOf = (suffix: string) => resolve(root, ".hf", `${slug}-cover${suffix}`);

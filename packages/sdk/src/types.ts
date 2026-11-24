@@ -38,7 +38,7 @@ export interface Post { id: string; title: string; state: PostState; type: strin
 export interface Slot { weekday: number; day: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat"; time: string; active: boolean }
 /** A network shown in `channels.list` but not usable yet (`supported: false`, `comingSoon: true`): it cannot be connected or published to. Today: `facebook` (Facebook Pages). */
 export type ComingSoonNetwork = "facebook";
-export interface Channel { network: Network | ComingSoonNetwork; supported: boolean; connected: boolean; comingSoon?: boolean; id?: string; default?: boolean; /** `null` when the account has no display name. */ detail?: string | null; timezone?: string; slots?: number; /** `null` when the account has no display name. */ name?: string | null; avatar?: string; /** YouTube: Google stopped authorizing the channel (revoked in the Google account or expired); `connected` is false. */ revokedAt?: string; /** YouTube: deadline to delete the channel's YouTube data (absent once deleted). */ purgeAt?: string; /** LinkedIn: when the access token expires (ISO); `null` without a token. */ tokenExpiresAt?: string | null; /** LinkedIn: whether LinkedIn handed over a refresh token (automatic renewal); without it the channel must be reconnected before `tokenExpiresAt`. */ refreshAvailable?: boolean; /** Tumblr: the blog the channel posts to and the blogs of the account (`PUT /v1/connections/tumblr/blog` changes it). */ tumblr?: { blog: string | null; blogs: { name: string; title?: string; primary?: boolean; url?: string }[] }; meta?: { connected: boolean; username?: string | null; source?: "meta_login" /* absent = system token */; expiresAt?: string; daysLeft?: number; expired?: boolean; reason?: string } }
+export interface Channel { network: Network | ComingSoonNetwork; supported: boolean; connected: boolean; comingSoon?: boolean; id?: string; default?: boolean; /** `null` when the account has no display name. */ detail?: string | null; timezone?: string; slots?: number; /** `null` when the account has no display name. */ name?: string | null; avatar?: string; /** YouTube: Google stopped authorizing the channel (revoked in the Google account or expired); `connected` is false. */ revokedAt?: string; /** YouTube: deadline to delete the channel's YouTube data (absent once deleted). */ purgeAt?: string; /** LinkedIn: when the access token expires (ISO); `null` without a token. */ tokenExpiresAt?: string | null; /** LinkedIn: whether LinkedIn handed over a refresh token (automatic renewal); without it the channel must be reconnected before `tokenExpiresAt`. */ refreshAvailable?: boolean; /** TikTok: snapshot of the creator (`creator_info`) kept by the background sync (every 6 h and on connect); absent until the first sync, once it is older than 30 days or after disconnecting. Only for display: before posting, ask `GET /v1/tiktok/creator`, which queries TikTok live. */ creator?: { username: string | null; privacyLevels: string[]; allowedPrivacyLevels: string[]; appAudited: boolean; directAvailable: boolean; queriedAt: string }; /** Tumblr: the blog the channel posts to and the blogs of the account (`PUT /v1/connections/tumblr/blog` changes it). */ tumblr?: { blog: string | null; blogs: { name: string; title?: string; primary?: boolean; url?: string }[] }; meta?: { connected: boolean; username?: string | null; source?: "meta_login" /* absent = system token */; expiresAt?: string; daysLeft?: number; expired?: boolean; reason?: string } }
 export interface Page<K extends string, T> { total: number }
 
 export type IdeaGroup = "idea" | "scripting" | "ready" | "posted";
@@ -180,7 +180,7 @@ export interface InstagramApi {
   reopen(id: string): Promise<CommentResolved>;
 }
 /** `comments`/`mediaItems` mix YouTube threads and Instagram comments (each with its `network`); `errors` holds the networks that failed, by network or channel. */
-export interface CommunityApi { comments(o?: { network?: "all" | Network; unanswered?: boolean; sort?: string; max?: number }): Promise<{ comments: (YoutubeThread | InstagramThread | Record<string, unknown>)[]; mediaItems: Record<string, unknown>[]; errors: Record<string, CommunityError>; pending: number; pendingByNetwork: Record<string, number>; pendingByChannel: Record<string, number> }> }
+export interface CommunityApi { comments(o?: { network?: "all" | Network; unanswered?: boolean; sort?: string; max?: number; refresh?: boolean }): Promise<{ comments: (YoutubeThread | InstagramThread | Record<string, unknown>)[]; mediaItems: Record<string, unknown>[]; errors: Record<string, CommunityError>; pending: number; pendingByNetwork: Record<string, number>; pendingByChannel: Record<string, number> }> }
 export interface YoutubeApi {
   listVideos(o?: { max?: number; page?: string }): Promise<{ videos: YoutubeVideo[]; next?: string | null }>;
   getVideo(id: string): Promise<{ video: YoutubeVideo }>;
@@ -201,7 +201,7 @@ export interface ApiKeysApi {
   revoke(id: string): Promise<{ revoked: string }>;
 }
 export interface UsageApi {
-  get(o?: { days?: number }): Promise<{ days: number; period: { from: string; to: string }; total: number; succeeded: number; errors: number; p95Ms: number | null; peakPerMinute: number; limitPerMinute: number; byDay: { day: string; total: number; errors: number }[]; byHour?: { start: string; total: number; errors: number }[]; byKey: { id: string; name: string; total: number; errors: number; lastAt: string }[]; youtubeQuota: { plan: string; day: string; resetsInSeconds: number; units: { used: number; limit: number | null; remaining: number | null }; uploads: { limitPerChannel: number | null }; byChannel: { channelId: string; units: number; uploads: number }[] } }>;
+  get(o?: { days?: number }): Promise<{ days: number; period: { from: string; to: string }; total: number; succeeded: number; errors: number; p95Ms: number | null; peakPerMinute: number; limitPerMinute: number; byDay: { day: string; total: number; errors: number }[]; byHour?: { start: string; total: number; errors: number }[]; byKey: { id: string; name: string; total: number; errors: number; lastAt: string }[]; youtubeQuota: { plan: string; day: string; resetsInSeconds: number; units: { used: number; limit: number | null; remaining: number | null }; uploads: { limitPerChannel: number | null }; byChannel: { channelId: string; units: number; uploads: number }[]; bySource: { origin: "usuario" | "publicar" | "sync" | "verificar"; units: number; byChannel: { channelId: string; units: number }[] }[]; userReserve: { limit: number | null; remaining: number | null } } }>;
   log(o?: { key?: string; status?: string | number; route?: string; method?: string; days?: number; limit?: number; cursor?: string }): Promise<{ records: { id: string; method: string; route: string; status: number; durationMs: number; key: string; keyName: string; createdAt: string }[]; next: string | null }>;
 }
 export interface PreferencesApi {
@@ -211,6 +211,37 @@ export interface PreferencesApi {
 export interface NotificationsApi {
   list(o?: { unread?: boolean; limit?: number; cursor?: string }): Promise<{ notifications: PanelNotification[]; unreadCount: number; next?: string }>;
   markRead(o: { ids?: string[]; all?: boolean }): Promise<{ marked: number; unreadCount: number }>;
+}
+/** Counters by network (`byNetwork`, keyed by network) and by channel (`byChannel`, keyed by channel id). */
+export interface BootstrapCount { total?: number; unanswered?: number; byNetwork: Record<string, number>; byChannel: Record<string, number> }
+/** GET /v1/bootstrap: one snapshot to open the dashboard. Each section is the body of its own route; `version` is the ETag without `W/""`. */
+export interface BootstrapResponse {
+  /** `null` while the server has no version counter (migration 0062 not applied): no ETag, always a full answer. */
+  version: string | null;
+  /** The body of GET /v1/session; `null` with an API key. */
+  session: { email: string; name: string | null; avatar: string | null; role: string; scope: string; workspace: { id: string; name: string }; platformAdmin: boolean; expiresAt: string; language: { saved: PreferenceLanguage | null; waitlist: PreferenceLanguage | null }; reviewAccount?: { expiresAt: string | null; platform: string | null } } | null;
+  /** The body of GET /v1/workspaces; `null` with an API key. */
+  workspaces: { workspaces: { id: string; name: string; role: string; current: boolean }[] } | null;
+  /** The body of GET /v1/channels (read from the stored profile, never from the network). */
+  channels: { channels: Channel[] };
+  /** The first page (20) of GET /v1/notifications. */
+  notifications: { notifications: PanelNotification[]; unreadCount: number; next?: string };
+  preferences: Preferences;
+  /** The plan summary of GET /v1/billing (without usage, slots and the plan catalog). */
+  billing: Record<string, unknown>;
+  /** The security summary of the signed-in person: the body of GET /v1/account plus `sessions` (only `current`, `createdAt` and `lastUsedAt`; the full list stays in GET /v1/account/sessions). Optional: absent on servers before phase 6b; `null` with an API key. */
+  account?: { email: string; name: string | null; avatar: string | null; role: string; workspace: { id: string; name: string }; platformAdmin: boolean; createdAt: string; deletionRequestedAt: string | null; reviewAccount?: { expiresAt: string | null; platform: string | null }; mfa: { totp: boolean; required: boolean; recoveryCodesLeft: number }; passkeys: number; sessions: { current: boolean; createdAt: string; lastUsedAt: string | null }[] } | null;
+  /** The body of GET /v1/account/onboarding; `null` with an API key. */
+  onboarding: { publishTo: string[] | null; updatedAt: string | null; guide: Record<string, unknown> | null } | null;
+  counters: {
+    /** Unanswered comments from the stored copy; `null` while the comment copy is switched off. */
+    comments: { unanswered: number; byNetwork: Record<string, number>; byChannel: Record<string, number> } | null;
+    /** Destinations scheduled, running or failed (the dashboard queue). */
+    queue: { total: number; byNetwork: Record<string, number>; byChannel: Record<string, number> };
+  };
+}
+export interface BootstrapApi {
+  get(): Promise<BootstrapResponse>;
 }
 export interface WebhooksApi {
   list(): Promise<{ webhooks: Webhook[]; events: WebhookEvent[] }>;

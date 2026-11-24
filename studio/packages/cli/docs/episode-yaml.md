@@ -12,8 +12,17 @@ background: ["lines that float in the background", "…"]
 hits: [{ at: 31.5, type: flash }, { at: 44.9, type: zoom }]   # shake | zoom | flash | all
 outro: { start: 52.4, cta: ARTICLE ON THE DEVLOG }
 cover: { id: CoverComment, component: CoverComment }          # TSX in scenes.tsx; or title/color/glow/size/items
+style: flat                      # optional: the skin of this episode (default: brand.json style.visual[0]); see style.md
 scenes: [ … ]
 ```
+
+`outro` is optional: leave it out (or `outro: false`) for no end card; the last scene then runs to `duration`.
+
+### Your own video under the scenes (`base`)
+```yaml
+base: { src: video/my-take.mp4, volume: 1, fit: cover }   # file under public/; volume 0–2; fit cover (crops to 9:16) | contain
+```
+The video plays full screen under every scene, with its own audio, no frame and no loop. With `base`, `voice:` is optional (the audio is the video's; setting both warns that the audio may double, unless `volume: 0`), the terminal background is not drawn, and a scene change no longer clears the screen for 0.1 s: only the scene's panel enters and leaves. Without `base` nothing changes. Works in both engines.
 
 ## Times by phrase (they follow the voice)
 In `duration`, `outro.start`, `hits[].at` and in the `start`/`end` of scenes you can use: a number (s) · `"phrase"` (start of the phrase in the voice) · `{ when: "phrase", nth: 1, after: 20, plus: -0.1 }` · `{ voice: 2.5 }` (2.5 s after the end of the voice; negative = before). Resolved by `npx @praeko/studio@<version> compile` with the current `words.json`, so just recompile (`render` already does) after a new voice or after `npx @praeko/studio@<version> cut --redo`. Example: `duration: { voice: 2.5 }`, `outro: { start: { voice: -2 }, cta: … }`, `start: { when: "Now a real bug", plus: -0.1 }`.
@@ -25,7 +34,7 @@ In `duration`, `outro.start`, `hits[].at` and in the `start`/`end` of scenes you
   title: I WENT TO CHECK # strip of the kit's Panel (default layout: panel)
   layout: panel | free  # free = loose items on the screen (absolute position, videos)
   label: I WENT TO CHECK # short tag of the scene
-  sounds: [{ at: 0.2, sound: pop }]   # local s; pop | ding | thump | whoosh
+  sounds: [{ at: 0.2, sound: pop }, { when: "the bug", sound: ding }]   # local s, or a phrase of the voice (+ offset); pop | ding | thump | whoosh; v = volume
   items: [ … ]          # or `component: NameInScenes` (one of the two)
 ```
 

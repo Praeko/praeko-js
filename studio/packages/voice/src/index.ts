@@ -21,7 +21,7 @@ export { createVoiceStudio, prepareText } from "./providers/voicestudio.ts";
 export { estimateWords, silentAudio } from "./estimated.ts";
 export type { Word } from "./estimated.ts";
 export { readBlocks, narrateBlocks, joinAudios, blockCacheKey, blockHash, hookHash } from "./blocks.ts";
-export { transcribe, TranscribeError, InputError, qualityGate, toSrt, toTxt, writeTranscript } from "./transcribe.ts";
+export { transcribe, TranscribeError, InputError, qualityGate, toSrt, toTxt, writeTranscript, whisperLocalEngine } from "./transcribe.ts";
 export { downloadModel, MANAGED_MODEL, modelPathFor, humanSize, ModelError, sha256File } from "./model.ts";
 export type { ModelSpec } from "./model.ts";
 export type { TranscriptResult, TranscribeEngine } from "./transcribe.ts";

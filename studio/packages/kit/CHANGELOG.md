@@ -2,6 +2,29 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+## [0.4.0] - 2026-11-24
+
+Additive: without `style`/`base` the parts render exactly as in 0.3.0.
+
+### Changed
+- Peer dependency: `@praeko/studio-core` `^0.4.0` (was `^0.3.0`); the parts read the skins and `base` that only core 0.4.0 has. `react` and `remotion` peers are unchanged.
+
+### Added
+- Every declarative item (`text`, `big`, `box`, `line`, `bubble`, `code`, `card`, `bar`, `bars`, `stack`, `row`) and `Panel` read the skin tokens; the fixed bar color `#b9453a` became a token.
+- `EpisodeDecl` picks the skin from `spec.style` (written by `praeko studio compile`), or a `skin` prop; `id` overrides the composition id. `skinAndTheme` exposes the rule.
+- `HandBorder` (chalk outline that draws itself, deterministic) and the comic speech balloon (`bubble.kind: comic`).
+- `SlabStage`: the 3D stage of the 3D skins (path A': the panel DOM rasterized into a texture on a lit slab; floor, props, studio light, one camera shot per scene; fonts embedded). `three` is a dependency loaded with a dynamic import, only by 3D skins.
+- `base` video and optional `outro` in `EpisodeSpec`; `sceneWindows`: with `base` nothing unmounts between scenes (no 0.1 s gap), only the panel enters and leaves.
+- Text that does not fit: `box`, `line`, `big`, `code` and a centered `row` shrink until they fit their width (`useFitText`, `useFitRow`, `FIT_MIN` 45%, at most 4 steps). Measured from the layout before the frame is drawn and only ever shrinking, so it is deterministic; an item that already fits is untouched.
+- 3D stage: `window`/`phone` videos (and any image) show on the slab: the panel's images are waited for and inlined before rasterizing; the face is re-rasterized after every commit, so self-adjusting parts are drawn in their final state; `stage.faceLight`.
+
+### Fixed
+- `text` in a `layout: free` scene without `font` fell back to the browser's serif font; free scenes now inherit the theme font. Only frames that show such text change (PNG-still comparison against 0.3.0).
+- Comic speech balloon (`bubble`): the tail no longer leaves a seam where it meets the balloon outline.
+- Chalk outline (`HandBorder`): the stroke stays inside the box (it used to spill out), and text fitting stops after 4 steps (it could shrink without end, React error #185 in the `chalkboard` gallery).
+
 ## [0.3.0] - 2026-11-12
 
 Published together with `@praeko/studio` 0.3.0 (new projects pin the three packages to the same version); no change to the library API.

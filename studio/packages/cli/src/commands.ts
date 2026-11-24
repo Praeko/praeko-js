@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { InputError, MANAGED_MODEL, ModelError, TranscribeError, downloadModel, humanSize, modelPathFor, hookHash, joinAudios, narrate, narratePiece, transcribe, writeTranscript } from "@praeko/studio-voice";
 import { buildPackage, validate } from "@praeko/studio-publish";
@@ -8,16 +8,22 @@ import { checkEpisode, contactSheet } from "@praeko/studio-review";
 import { episodeOf, findProject, pascal } from "./project.ts";
 import type { Episode, Project } from "./project.ts";
 import * as T from "./templates.ts";
+import YAML from "yaml";
 import { compileEpisode, imageEngine, imageFormat, isImagePiece } from "./compile.ts";
 import { IMAGE_LIMITS, SLIDE_TIMEOUT_S, checkJpeg, slideFile } from "./image.ts";
 import { cutAudio, readJson, resolvePoint, sliceWords } from "./cut.ts";
-import { coverHyperframes, engineOf, hyperframesWarnings, previewHyperframes, renderHyperframes } from "./engine.ts";
+import { coverHyperframes, engineOf, hyperframesMp4, hyperframesWarnings, previewHyperframes, renderHyperframes } from "./engine.ts";
+import { applySkinPost } from "./postprocess.ts";
+import { styleWarnings } from "./style-check.ts";
 import { STUDIO_NPX, HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
 import { noticeText, shortNotice } from "./licenses.ts";
 import { lang } from "./i18n.ts";
 import { detectAgents, installSkill } from "./skill.ts";
-import { GROUPS, agentsOnPath, applyBrand, hasBrief, interview, lineAsk, parseAnswers, readBriefAnswers, readBrandTokens, readTokensIn, writeBriefFiles } from "./interview.ts";
+import { GROUPS, STYLE_GROUPS, agentsOnPath, applyBrand, checkCombination, hasBrief, interview, lineAsk, mergeAnswers, parseAnswers, readBriefAnswers, readBrandTokens, readTokensIn, styleWarning, videoOnly, writeBriefFiles } from "./interview.ts";
 import type { Answers, Ask, Group, Tokens } from "./interview.ts";
+import { newFromVideo } from "./from-video.ts";
+import type { FromVideoIO } from "./from-video.ts";
+import { videoSourceItems } from "./doctor.ts";
 
 // Voice subcommands (balance, voices, account, config) are their own scripts: in development they live in packages/voice/bin; in the published package, in dist/voice-<name>.mjs (one bundle per script).
 const VOICE_BIN = (n: string): string => { const bundled = join(HERE, "voice-" + n + ".mjs"); return existsSync(bundled) ? bundled : join(HERE, "..", "..", "voice", "bin", n + ".ts"); };
@@ -42,19 +48,25 @@ const runRemotion = (p: Project, args: string[], timeoutMs?: number): Promise<nu
 const npmInstall = (cwd: string): Promise<number> => process.platform === "win32" ? run(process.execPath, [join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"), "install", "--loglevel=error"], cwd) : run("npm", ["install", "--loglevel=error"], cwd);
 const ICON = { ok: "✓", warning: "⚠", error: "✗" } as const;
 
-export type InitIO = { interactive?: boolean; ask?: Ask; say?: (s: string) => void };
+export type InitIO = { interactive?: boolean; ask?: Ask; say?: (s: string) => void; whisper?: { available(): Promise<string | null> } };
 const isTTY = (): boolean => !!process.stdin.isTTY && !!process.stdout.isTTY;
 /** Question source: the injected one (tests) or readline over stdin/stdout. */
 const openAsk = (io: InitIO): { ask: Ask; close: () => void } => io.ask ? { ask: io.ask, close: () => {} } : lineAsk(process.stdin, process.stdout);
 
+/** Real path (symlinks resolved): `relative()` between a logical path under /var and a real one under /private/var (macOS tmp) pointed `file:` links at nothing. */
+const realOf = (p: string): string => {
+  const abs = resolve(p);
+  try { return realpathSync(abs); } catch { const up = dirname(abs); return up === abs ? abs : join(realOf(up), basename(abs)); } // the folder may not exist yet: resolve the nearest existing ancestor
+};
 export async function init(a: string[], io: InitIO = {}): Promise<number> {
-  const usage = `usage: ${STUDIO_NPX} init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--brand <brand folder>] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]`;
+  const usage = `usage: ${STUDIO_NPX} init <folder> [--yes] [--name "My Channel"] [--handle @mychannel] [--agent claude,codex|all] [--lang en|pt] [--source script,video] [--about "…"] [--audience "…"] [--tone "…"] [--format short,long,carousel,image] [--style <slug,…>] [--style-other "…"] [--pace calm|fast] [--captions word|phrase|none] [--effects shake,zoom,flash|none] [--sound sfx|none] [--face face|mascot|none] [--accent #hex] [--background #hex] [--font "Name"] [--brand <brand folder>] [--reference <url|text>]… [--reference-note "…"]… [--voice-alias A] [--voice-provider draft|elevenlabs|voicestudio] [--dev <path of the Studio repository>] [--no-install]`;
   if (!a[0] || a[0].startsWith("--")) throw new Error(usage);
   const dir = resolve(a[0]);
   if (existsSync(dir) && readdirSync(dir).length) throw new Error(`${dir} already exists and is not empty`);
   const dev = flag(a, "dev") ? resolve(flag(a, "dev")!) : null;
   if (dev && !existsSync(join(dev, "packages", "core", "package.json"))) throw new Error(`--dev ${dev}: I did not find packages/core (point at the studio/ folder of the Praeko repository)`);
   const given = parseAnswers(a), interactive = !has(a, "yes") && (io.interactive ?? isTTY());
+  checkCombination(given);
   let ans: Answers = given;
   const brandFlag = flag(a, "brand");
   let tokens: Tokens | null = null;
@@ -78,7 +90,7 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   }
   const name = ans.name || basename(dir), handle = ans.handle || "@" + (name.toLowerCase().replace(/[^a-z0-9]+/g, "") || "mychannel");
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "my-channel";
-  write(join(dir, "package.json"), T.projectPackage({ name: slug, dev: dev ? relative(dir, dev).split("\\").join("/") : null, studioVersion: VERSION }));
+  write(join(dir, "package.json"), T.projectPackage({ name: slug, dev: dev ? relative(realOf(dir), realOf(dev)).split("\\").join("/") : null, studioVersion: VERSION }));
   write(join(dir, "brand.json"), applyBrand(T.initialBrand({ name, handle }), { ...ans, name, handle }));
   write(join(dir, "remotion.config.ts"), dev ? T.remotionConfigDev : T.remotionConfigBase);
   write(join(dir, "tsconfig.json"), T.tsconfig);
@@ -97,9 +109,14 @@ export async function init(a: string[], io: InitIO = {}): Promise<number> {
   if (imported) console.log(imported);
   for (const f of done) console.log(`  instructions for ${f.agent}: ${f.file}`);
   if (hasBrief(ans)) for (const m of writeBriefFiles(dir, { ...ans, name, handle, lang: ans.lang || lang() }, null)) console.log(m);
+  if (!interactive && styleWarning(ans)) console.log(`⚠ ${styleWarning(ans)}`);
+  // own video as a source: the local Whisper that transcribes it (checked only; never downloaded here)
+  if (ans.source?.includes("video")) for (const i of await videoSourceItems({ force: true, engine: io.whisper })) console.log(`${i.level === "ok" ? "✓" : "⚠"} ${i.msg}${i.fix ? `\n    → ${i.fix}` : ""}`);
   console.log("\n" + noticeText());
   if (!has(a, "no-install")) { const c = await npmInstall(dir); if (c) throw new Error("npm install failed"); }
-  console.log(`\nnext step: cd ${dir} && ${STUDIO_NPX} new my-first --title "My first video"`);
+  const vt = T.VIDEO_TEXT[ans.lang || lang()], main = ans.format?.[0];
+  const first = videoOnly(ans) ? `new ${vt.firstSlug} --from-video <your-video.mp4>${ans.lang ? ` --lang ${ans.lang}` : ""}` : `new ${vt.firstSlug} --title "${vt.firstTitle}"${main && main !== "short" ? ` --${main}` : ""}`;
+  console.log(`\nnext step: cd ${dir} && ${STUDIO_NPX} ${first}`);
   console.log("\n" + mcpInstallLines(dir).join("\n"));
   return 0;
 }
@@ -118,38 +135,59 @@ export function mcpInstallLines(dir: string): string[] {
 export async function brief(a: string[], io: InitIO = {}): Promise<number> {
   const proj = findProject(), given = parseAnswers(a), prevBrief = readBriefAnswers(proj.root);
   const onlyFlag = flag(a, "only"), allowed = GROUPS.filter((g) => g !== "agents");
+  // `style` stands for the three questions of how the videos look and are edited (format, style, edit)
+  const groupsOf = (l: string[]): Set<Group> => new Set(l.flatMap((x) => (x === "style" ? [...STYLE_GROUPS] : [x])) as Group[]);
   let only: Set<Group> | undefined;
   if (onlyFlag) {
     const l = onlyFlag.split(",").map((x) => x.trim()).filter(Boolean);
     const bad = l.filter((x) => !(allowed as readonly string[]).includes(x));
-    if (bad.length) throw new Error(`--only ${bad.join(",")}: use ${allowed.join(", ")}`);
-    only = new Set(l as Group[]);
+    if (bad.length) throw new Error(`--only ${bad.join(",")}: use ${allowed.join(", ")} (style = format, style and edit)`);
+    only = groupsOf(l);
   }
   const interactive = !has(a, "yes") && (io.interactive ?? isTTY());
   const b = proj.brand as any;
-  const defaults: Answers = { name: b.name, handle: b.handle, accent: b.colors?.accent, background: b.colors?.background, ...(prevBrief ?? {}) };
+  // answers kept in brand.json come first (a project made before the brief, or whose brief.md was lost), then brief.md
+  const st = b.style && typeof b.style === "object" ? b.style : {};
+  const fromBrand: Answers = { name: b.name, handle: b.handle, accent: b.colors?.accent, background: b.colors?.background, ...(Array.isArray(st.visual) ? { style: st.visual } : {}), ...(Array.isArray(st.format) ? { format: st.format } : {}), ...(Array.isArray(st.source) ? { source: st.source } : {}), ...(st.edit && typeof st.edit === "object" && Object.keys(st.edit).length ? { edit: st.edit } : {}) };
+  const defaults: Answers = mergeAnswers(fromBrand, prevBrief ?? {});
   if (!defaults.lang) defaults.lang = lang();
-  let ans: Answers = { ...defaults, ...given };
+  let ans: Answers = mergeAnswers(defaults, given);
   if (interactive) {
     const q = openAsk(io), say = io.say ?? console.log;
     try {
       if (!only && !Object.keys(given).length) {
-        const v = await q.ask(`Which answers to redo? (${allowed.join(", ")}; Enter = all)`);
-        if (v) { const l = v.split(",").map((x) => x.trim()).filter((x) => (allowed as readonly string[]).includes(x)); if (l.length) only = new Set(l as Group[]); }
+        const v = await q.ask(`Which answers to redo? (${allowed.join(", ")}; style = format, style and edit; Enter = all)`);
+        if (v) { const l = v.split(",").map((x) => x.trim()).filter((x) => (allowed as readonly string[]).includes(x)); if (l.length) only = groupsOf(l); }
       }
       ans = await interview(q.ask, given, { lang: given.lang ?? defaults.lang!, say, defaults, tokens: readBrandTokens(proj.root), only: only ?? new Set(allowed) });
     } finally { q.close(); }
-  } else if (!Object.keys(given).length) throw new Error(`usage: ${STUDIO_NPX} brief [--only about,audience,tone,colors,font,references,voice,name,handle,lang] [--about "…"] [--audience "…"] [--tone "…"] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]…  (without answer flags it asks, in a terminal)`);
+  } else if (!Object.keys(given).length) throw new Error(`usage: ${STUDIO_NPX} brief [--only about,audience,tone,source,format,style,edit,colors,font,references,voice,name,handle,lang] [--about "…"] [--audience "…"] [--tone "…"] [--source script,video] [--format short,long,carousel,image] [--style <slug,…>] [--style-other "…"] [--pace calm|fast] [--captions word|phrase|none] [--effects shake,zoom,flash|none] [--sound sfx|none] [--face face|mascot|none] [--accent #hex] [--background #hex] [--font "Name"] [--reference <url|text>]… [--reference-note "…"]…  (without answer flags it asks, in a terminal)`);
+  checkCombination(ans);
+  if (!interactive && styleWarning(given)) console.log(`⚠ ${styleWarning(given)}`);
   const file = join(proj.root, "brand.json"), cur = readFileSync(file, "utf8"), next = applyBrand(cur, ans, prevBrief?.font);
   if (next !== cur) { writeFileSync(file, next); console.log("brief: updated brand.json"); }
+  // brief.md shows the colors brand.json ended with (a new visual style may have moved the ones still at the old style's value)
+  { const nb = JSON.parse(next); if (!given.accent && ans.accent && nb.colors?.accent) ans.accent = nb.colors.accent; if (!given.background && ans.background && nb.colors?.background) ans.background = nb.colors.background; }
   for (const m of writeBriefFiles(proj.root, ans, prevBrief)) console.log(m);
   console.log("\n" + mcpInstallLines(proj.root).join("\n"));
   return 0;
 }
 
-export function newEpisode(a: string[]): number {
+/** Registers an episode in src/Root.tsx (between the "praeko-studio:" comments). */
+export function registerInRoot(proj: Project, id: string, slug: string): void {
+  const root = join(proj.root, "src", "Root.tsx");
+  let s = readFileSync(root, "utf8");
+  if (!s.includes(`// ${T.MARKER_IMPORTS}`) || !s.includes(`{/* ${T.MARKER_COMPOSITIONS} */}`)) throw new Error(`src/Root.tsx has no \`${T.MARKER_IMPORTS}\` and \`${T.MARKER_COMPOSITIONS}\` markers: register the episode by hand`);
+  s = s.replace(`// ${T.MARKER_IMPORTS_END}`, `import { ${id}Composition } from "../episodes/${slug}/episode";\n// ${T.MARKER_IMPORTS_END}`).replace(`{/* ${T.MARKER_COMPOSITIONS_END} */}`, `<${id}Composition />\n    {/* ${T.MARKER_COMPOSITIONS_END} */}`);
+  writeFileSync(root, s);
+}
+/** Language of the texts that go into a new episode's video: --lang, then the project's brief, then PRAEKO_LANG. */
+const projectLang = (a: string[], root: string): "en" | "pt" => { const f = flag(a, "lang"); return f === "pt" || f === "en" ? f : (readBriefAnswers(root)?.lang ?? lang()); };
+
+export function newEpisode(a: string[], io: FromVideoIO = {}): number | Promise<number> {
+  if (has(a, "from-video")) return newFromVideo(a, io, registerInRoot);
   const proj = findProject(), slug = a[0];
-  if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error(`usage: ${STUDIO_NPX} new <slug-in-lowercase-with-hyphens> [--title "Video title"] [--long | --image | --carousel]`);
+  if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw new Error(`usage: ${STUDIO_NPX} new <slug-in-lowercase-with-hyphens> [--title "Video title"] [--long | --image | --carousel | --from-video <file.mp4>]`);
   const folder = join(proj.root, "episodes", slug);
   if (existsSync(folder)) throw new Error(`${folder} already exists`);
   const id = pascal(slug), cover = `Cover${id}`, title = flag(a, "title") || slug.replace(/-/g, " ");
@@ -174,19 +212,14 @@ export function newEpisode(a: string[]): number {
     write(join(folder, "scenes.tsx"), T.longScenesTsx);
     write(join(folder, "episode.tsx"), T.longTsx({ id, slug }));
   } else {
-    write(join(folder, "episode.yaml"), T.episodeYaml({ id, cover, title }));
+    write(join(folder, "episode.yaml"), T.episodeYaml({ id, cover, title, cta: T.VIDEO_TEXT[projectLang(a, proj.root)].follow }));
     write(join(folder, "scenes.tsx"), T.scenesTsx({ cover, lines }));
     write(join(folder, "episode.tsx"), T.episodeTsx({ id, slug }));
   }
   }
   const r0 = compileEpisode(folder);
   if (r0.errors.length) throw new Error("the initial episode did not compile: " + r0.errors.join("; "));
-  // registers it in Root.tsx (between the "praeko-studio:" comments)
-  const root = join(proj.root, "src", "Root.tsx");
-  let s = readFileSync(root, "utf8");
-  if (!s.includes(`// ${T.MARKER_IMPORTS}`) || !s.includes(`{/* ${T.MARKER_COMPOSITIONS} */}`)) throw new Error(`src/Root.tsx has no \`${T.MARKER_IMPORTS}\` and \`${T.MARKER_COMPOSITIONS}\` markers: register the episode by hand`);
-  s = s.replace(`// ${T.MARKER_IMPORTS_END}`, `import { ${id}Composition } from "../episodes/${slug}/episode";\n// ${T.MARKER_IMPORTS_END}`).replace(`{/* ${T.MARKER_COMPOSITIONS_END} */}`, `<${id}Composition />\n    {/* ${T.MARKER_COMPOSITIONS_END} */}`);
-  writeFileSync(root, s);
+  registerInRoot(proj, id, slug);
   if (imageForm) console.log(`${carouselForm ? "carousel" : "image post"} created: episodes/${slug}/ (id ${id}). Next: edit the ${carouselForm ? "slides" : "slide"} in episode.yaml (each with its alt text), the caption in publication.json, then \`${STUDIO_NPX} slides ${slug}\``);
   else console.log(`episode created: episodes/${slug}/ (id ${id}). Next: write script.txt and run \`${STUDIO_NPX} voice ${slug} --quality draft\``);
   return 0;
@@ -218,16 +251,18 @@ async function downloadModelCommand(a: string[], io: InitIO & { fetchImpl?: type
 export async function transcribeCommand(a: string[], io: InitIO & { fetchImpl?: typeof fetch; spec?: typeof MANAGED_MODEL; dest?: string } = {}): Promise<number> {
   if (has(a, "download-model")) return downloadModelCommand(a, io);
   const file = a[0] && !a[0].startsWith("--") ? a[0] : undefined;
-  const usage = `usage: ${STUDIO_NPX} transcribe <file> [--lang pt|en|auto] [--cloud] [--engine voicestudio|whisper-local|scribe] [--out <folder>] [--json]\n       ${STUDIO_NPX} transcribe --download-model [--yes]`;
+  const usage = `usage: ${STUDIO_NPX} transcribe <file> [--lang pt|en|auto] [--cloud] [--engine voicestudio|whisper-local|scribe] [--out <folder>|<name>.json] [--json]\n       ${STUDIO_NPX} transcribe --download-model [--yes]`;
   if (!file) throw new Error(usage);
   const engine = flag(a, "engine");
   if (engine && !["voicestudio", "whisper-local", "scribe"].includes(engine)) throw new Error(`unknown engine "${engine}" (voicestudio, whisper-local or scribe)`);
   const l = flag(a, "lang") ?? "auto"; // --lang pt|en also sets the language of these messages
-  const out = resolve(flag(a, "out") ?? dirname(resolve(file)));
+  // --out <folder> (transcript.json/.srt/.txt inside it) or --out <name>.json (that name for the three files, next to each other)
+  const outFlag = flag(a, "out"), outFile = outFlag && /\.json$/i.test(outFlag) ? resolve(outFlag) : null;
+  const out = outFile ? dirname(outFile) : resolve(outFlag ?? dirname(resolve(file)));
   const json = has(a, "json");
   try {
     const r = await transcribe({ file: resolve(file), language: l, engines: engine ? [engine] : undefined, allowCloud: has(a, "cloud") ? true : undefined, log: json ? () => {} : (m) => console.log(m) });
-    const f = writeTranscript(r, out);
+    const f = writeTranscript(r, out, outFile ? basename(outFile).replace(/\.json$/i, "") : undefined);
     if (json) console.log(JSON.stringify({ engine: r.engine, engineVersion: r.engineVersion, language: r.language, durationSec: r.durationSec, wordCount: r.words.length, attempts: r.attempts, files: f, preview: r.text.slice(0, 240) }));
     else {
       for (const t of r.attempts.filter((x) => !x.ok)) console.log(`· ${t.engine}: ${t.reason}`);
@@ -325,7 +360,7 @@ export async function cut(a: string[]): Promise<number> {
   if (!redo) { // fits the initial YAML to the duration and the package to the "full video"
     const y = join(ep.folder, "episode.yaml");
     let t = readFileSync(y, "utf8");
-    t = t.replace(/^duration: .*$/m, "duration: { voice: 2.5 }          # 2.5 s after the end of the voice (follows the voice)").replace(/^outro: .*$/m, "outro: { start: { voice: -2 }, cta: FULL VIDEO ON YOUTUBE }");
+    t = t.replace(/^duration: .*$/m, "duration: { voice: 2.5 }          # 2.5 s after the end of the voice (follows the voice)").replace(/^outro: .*$/m, `outro: { start: { voice: -2 }, cta: ${T.VIDEO_TEXT[projectLang(a, proj.root)].fullVideo} }`);
     writeFileSync(y, t);
     const pj = join(ep.folder, "publication.json"), meta = JSON.parse(readFileSync(pj, "utf8"));
     meta.fullVideo = "[LONG_VIDEO_LINK]"; meta.beforePublishing = ["Watch it with sound.", "Fill in [LONG_VIDEO_LINK] (only publish after the long video)."];
@@ -359,16 +394,31 @@ export function preview(a: string[] = []): Promise<number> | number {
   if (slug && engineOf(p, episodeOf(p, slug), flag(a, "engine")) === "hyperframes") return compileIfPresent(episodeOf(p, slug)) || previewHyperframes(p, episodeOf(p, slug));
   return runRemotion(p, ["studio", "src/index.ts"]);
 }
+/** Frames per second of every Studio composition (core and kit render at 30 fps). */
+const FPS = 30;
+/** `render --seconds <n>`: the frame range of the first n seconds, for a quick look at the camera, the captions or a scene. */
+export function secondsRange(v: string | undefined): string | null {
+  if (v === undefined) return null;
+  const n = Number(v);
+  if (!(n > 0) || !Number.isFinite(n)) throw new Error(`--seconds ${v}: a number of seconds above 0 (e.g. --seconds 10)`);
+  return `0-${Math.max(0, Math.round(n * FPS) - 1)}`;
+}
 export async function render(a: string[]): Promise<number> {
-  const p = findProject(), ep = episodeOf(p, a[0]), scale = flag(a, "scale");
+  const p = findProject(), ep = episodeOf(p, a[0]), scale = flag(a, "scale"), frames = secondsRange(has(a, "seconds") ? (flag(a, "seconds") ?? "") : undefined);
   notForImage(ep, "video");
   if (compileIfPresent(ep)) return 1;
-  if (engineOf(p, ep, flag(a, "engine")) === "hyperframes") return renderHyperframes(p, ep);
+  if (engineOf(p, ep, flag(a, "engine")) === "hyperframes") {
+    if (frames) throw new Error("--seconds works with the remotion engine only (HyperFrames renders the whole video): drop --seconds or use --engine remotion");
+    const h = await renderHyperframes(p, ep);
+    return h || applySkinPost(ep.folder, hyperframesMp4(p, ep));
+  }
   shortNotice();
   mkdirSync(join(p.root, "out"), { recursive: true });
-  const c = await runRemotion(p, ["render", "src/index.ts", ep.id, ep.mp4, ...(scale ? ["--scale", scale] : [])]);
-  if (!c) console.log(`rendered: ${relative(process.cwd(), ep.mp4)}`);
-  return c;
+  // a partial render goes to its own file, so it never stands in for the full video
+  const out = frames ? ep.mp4.replace(/\.mp4$/, `-first-${flag(a, "seconds")}s.mp4`) : ep.mp4;
+  const c = await runRemotion(p, ["render", "src/index.ts", ep.id, out, ...(scale ? ["--scale", scale] : []), ...(frames ? [`--frames=${frames}`] : [])]);
+  if (!c) console.log(`rendered: ${relative(process.cwd(), out)}${frames ? ` (only the first ${flag(a, "seconds")} s: a preview, not the video to publish)` : ""}`);
+  return c || applySkinPost(ep.folder, out);
 }
 export async function cover(a: string[]): Promise<number> {
   const p = findProject(), ep = episodeOf(p, a[0]);
@@ -379,7 +429,7 @@ export async function cover(a: string[]): Promise<number> {
   mkdirSync(join(p.root, "out"), { recursive: true });
   const specFile = join(ep.folder, "episode.spec.json");
   const spec = existsSync(specFile) ? JSON.parse(readFileSync(specFile, "utf8")) : null;
-  if (spec && !spec.outro && spec.cover) { // long video: 16:9 cover (YouTube) and vertical (Instagram)
+  if (spec && spec.format !== "short" && !spec.outro && spec.cover) { // long video: 16:9 cover (YouTube) and vertical (Instagram); a Short may have no outro
     const wide = join(p.root, "out", `${ep.slug}-cover-1280x720.png`), vertical = join(p.root, "out", `${ep.slug}-cover-vertical-1080x1920.png`);
     const c1 = await runRemotion(p, ["still", "src/index.ts", spec.cover.id, wide]);
     const c2 = c1 ? c1 : await runRemotion(p, ["still", "src/index.ts", `${spec.cover.id}Vertical`, vertical]);
@@ -457,12 +507,34 @@ export function contactSheetCommand(a: string[]): number {
   console.log(`mosaic of ${r.count} frames: ${relative(process.cwd(), r.output)}`);
   return 0;
 }
+/** True when episode.yaml has a `base` video layer (the person's own video): the speech is the video's, not a voice made from script.txt. */
+export function hasBaseVideo(folder: string): boolean {
+  const f = join(folder, "episode.yaml");
+  if (!existsSync(f)) return false;
+  try { const y = YAML.parse(readFileSync(f, "utf8")); return !!y && typeof y === "object" && y.base !== undefined && y.base !== null && y.base !== false; } catch { return false; }
+}
+type Finding = { level: "ok" | "warning" | "error"; msg: string };
+/**
+ * For an episode over the person's own video, the script checks describe a voice that does not exist: the word count and speech time come from words.json
+ * (the transcript), and digits are what the transcription wrote (the captions show them as they are). Other episodes are returned unchanged.
+ */
+export function ownVideoFindings(folder: string, found: Finding[]): Finding[] {
+  if (!hasBaseVideo(folder)) return found;
+  const words = readJson<{ t: string; a: number; b: number }[]>(join(folder, "words.json"), []);
+  const out = found.filter((x) => !/^\d+ words, ~\d+ s of speech \(190 words\/min\)$/.test(x.msg) && !/^digits in the spoken text/.test(x.msg));
+  out.unshift(words.length
+    ? { level: "ok", msg: `own video (base): ${words.length} words spoken in ${(words[words.length - 1]!.b - words[0]!.a).toFixed(1)} s (from words.json, not from script.txt)` }
+    : { level: "warning", msg: `own video (base) without words.json: the captions have no words (run \`${STUDIO_NPX} new <slug> --from-video\` or \`${STUDIO_NPX} transcribe\`)` });
+  const digits = [...new Set(words.filter((w) => /\d/.test(w.t)).map((w) => w.t))];
+  if (digits.length) out.push({ level: "warning", msg: `the captions show digits as the transcription wrote them: ${digits.slice(0, 6).join(", ")} (spell them out with captionFixes in brand.json if you prefer)` });
+  return out;
+}
 export function check(a: string[]): number {
   const p = findProject(), ep = episodeOf(p, a[0]);
   if (isImagePiece(ep.folder)) return checkImage(p, ep);
   const estimated = existsSync(join(ep.folder, "voice.estimated")) ? [{ level: "warning" as const, msg: `the voice is ESTIMATED (silent draft): make the final one before publishing (${STUDIO_NPX} voice ` + ep.slug + " --quality final)" }] : [];
   const extra = existsSync(join(ep.folder, "episode.yaml")) ? compileEpisode(ep.folder, { write: false }) : null;
-  const res = [...estimated, ...(extra ? [...extra.errors.map((msg) => ({ level: "error" as const, msg })), ...extra.warnings.map((msg) => ({ level: "warning" as const, msg }))] : []), ...checkEpisode({ folder: ep.folder, brand: p.brand as any, video: existsSync(ep.mp4) ? ep.mp4 : undefined })];
+  const res = [...estimated, ...(extra ? [...extra.errors.map((msg) => ({ level: "error" as const, msg })), ...extra.warnings.map((msg) => ({ level: "warning" as const, msg })), ...styleWarnings(extra.spec, p.brand).map((msg) => ({ level: "warning" as const, msg }))] : []), ...ownVideoFindings(ep.folder, checkEpisode({ folder: ep.folder, brand: p.brand as any, video: existsSync(ep.mp4) ? ep.mp4 : undefined }))];
   for (const x of res) console.log(`${ICON[x.level]} ${x.msg}`);
   const errors = res.filter((x) => x.level === "error").length, warnings = res.filter((x) => x.level === "warning").length;
   console.log(`\n${errors} error(s), ${warnings} warning(s)`);

@@ -1,8 +1,12 @@
-import { AbsoluteFill, Audio, Img, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { useLayoutEffect, useState } from "react";
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, continueRender, delayRender, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Word } from "./word.ts";
 import { rgba } from "./theme.ts";
 import { useTheme } from "./theme-context.tsx";
 import { FPS } from "./util.ts";
+import { tok } from "./skin.ts";
+import { useSkin } from "./skin-context.tsx";
+import { fontFilesOf, fs, sfxFile } from "./skin-style.ts";
 
 /**
  * PRAEKO STUDIO ENGINE.
@@ -23,13 +27,20 @@ export type EpisodeScene = {
   sounds?: Sound[];
 };
 
+/** The person's own video, playing under every scene with its own audio (no frame, no loop). */
+export type BaseVideo = { src: string; volume?: number; fit?: "cover" | "contain" };
+
 export type EpisodeData = {
   id: string;
   durS: number;
-  voice: string;
+  /** narration audio under public/; optional when `base` brings its own audio */
+  voice?: string;
   words: Word[];
   scenes: EpisodeScene[];
-  outro: { a: number; cta: string };
+  /** end card; optional (an episode over the person's own video often has none) */
+  outro?: { a: number; cta: string };
+  /** the person's own video under the scenes */
+  base?: BaseVideo;
   /** blurred "terminal" lines in the background */
   backgroundLines?: string[];
   /** caption size (default 90) */
@@ -45,7 +56,7 @@ const VOL_SOM: Record<Sound["sound"], number> = { pop: 0.22, ding: 0.26, thump: 
 
 
 export const Label: React.FC<{ text: string }> = ({ text }) => {
-  const { accent: LAMP, background: BG, text: INK, font: FONT, ok: OK, box: BOX } = useTheme();
+  const T = useTheme(), S = useSkin(), L = S.label;
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const pop = spring({ frame: frame - 3, fps, config: { damping: 11, stiffness: 200 } });
@@ -64,19 +75,22 @@ export const Label: React.FC<{ text: string }> = ({ text }) => {
     >
       <div
         style={{
-          background: LAMP,
-          color: BG,
-          fontFamily: FONT,
-          fontSize: 62,
+          background: tok(T, L.fill),
+          color: tok(T, L.text),
+          fontFamily: T.font,
+          fontSize: fs(S, 62),
           fontWeight: 900,
           letterSpacing: 1,
           padding: "14px 36px",
-          borderRadius: 22,
-          boxShadow: "0 10px 30px rgba(0,0,0,.55)",
+          borderRadius: L.radius,
+          boxShadow: L.shadow,
           whiteSpace: "nowrap",
+          ...(L.border ? { border: L.border } : {}),
+          ...(L.underline ? { borderBottom: L.underline, paddingBottom: 6 } : {}),
+          ...(L.skew ? { transform: `skewX(${L.skew}deg)` } : {}),
         }}
       >
-        {text}
+        {L.prefix ? L.prefix + text : text}
       </div>
     </div>
   );
@@ -178,7 +192,7 @@ const TerminalBackground: React.FC<{ lines: string[] }> = ({ lines }) => {
 };
 
 const CaptionEp: React.FC<{ words: Word[]; bottom: number; px?: number }> = ({ words, bottom, px = 90 }) => {
-  const { accent: LAMP, background: BG, text: INK, font: FONT, ok: OK, box: BOX } = useTheme();
+  const T = useTheme(), S = useSkin(), C = S.caption;
   const frame = useCurrentFrame();
   const t = frame / FPS;
   const groups = groupWords(words);
@@ -203,8 +217,10 @@ const CaptionEp: React.FC<{ words: Word[]; bottom: number; px?: number }> = ({ w
         flexWrap: "wrap",
         opacity: enter,
         transform: `translateY(${(1 - enter) * 24}px)`,
+        ...(C.box ? { background: C.box.fill, borderRadius: C.box.radius, padding: "18px 34px", left: 110, right: 110, gap: 26, ...(C.box.border ? { border: C.box.border } : {}), ...(C.box.shadow ? { boxShadow: C.box.shadow } : {}) } : {}),
       }}
     >
+      {C.box?.tail ? <CaptionTail fill={C.box.fill} border={C.box.border} /> : null}
       {g.words.map((p, i) => {
         const active = t >= p.a && t < p.b + 0.05;
         const spoken = t >= p.a;
@@ -212,14 +228,14 @@ const CaptionEp: React.FC<{ words: Word[]; bottom: number; px?: number }> = ({ w
           <span
             key={i}
             style={{
-              fontFamily: FONT,
+              fontFamily: T.font,
               fontWeight: 900,
-              fontSize: px,
-              lineHeight: 1.05,
-              textTransform: "uppercase",
-              color: active ? LAMP : spoken ? INK : rgba(INK, 0.55),
+              fontSize: fs(S, px),
+              lineHeight: S.lineHeight ?? 1.05,
+              textTransform: C.uppercase ? "uppercase" : "none",
+              color: active ? tok(T, C.active) : spoken ? tok(T, C.spoken) : tok(T, C.unspoken),
               transform: `scale(${active ? 1.12 : 1})`,
-              textShadow: "0 6px 0 #000, 0 0 24px rgba(0,0,0,.85), 4px 0 0 #000, -4px 0 0 #000",
+              textShadow: C.shadow,
             }}
           >
             {p.t}
@@ -227,6 +243,21 @@ const CaptionEp: React.FC<{ words: Word[]; bottom: number; px?: number }> = ({ w
         );
       })}
     </div>
+  );
+};
+
+/**
+ * The tail of a comic speech balloon around the caption (points up, to the scene). Its base sits on the inner edge of the top border
+ * (`top: -90` of the padding box), near the middle where the oval is flat, and a patch in the balloon color hides the border between its two
+ * sides, so the outline runs on without a seam.
+ */
+const CaptionTail: React.FC<{ fill: string; border?: string }> = ({ fill, border }) => {
+  const w = Number(/(\d+)px/.exec(border ?? "")?.[1] ?? 0), ink = /#[0-9a-f]{3,8}|rgba?\([^)]*\)/i.exec(border ?? "")?.[0] ?? "#111111";
+  return (
+    <svg width={110} height={90} viewBox="0 0 110 90" style={{ position: "absolute", left: "38%", top: -90, overflow: "visible" }}>
+      <path d="M20 90 L70 0 L80 90" fill={fill} stroke={ink} strokeWidth={w} strokeLinejoin="round" />
+      <rect x={20 + w * 0.6} y={90 - w - 1} width={60 - w * 1.2} height={w + 3} fill={fill} />
+    </svg>
   );
 };
 
@@ -294,12 +325,12 @@ const OutroEp: React.FC<{ cta: string }> = ({ cta }) => {
 };
 
 const ProgressBar: React.FC<{ durS: number }> = ({ durS }) => {
-  const { accent: LAMP, background: BG, text: INK, font: FONT, ok: OK, box: BOX } = useTheme();
+  const T = useTheme(), P = useSkin().progress;
   const frame = useCurrentFrame();
   const w = Math.min(100, (frame / f(durS)) * 100);
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 10, background: "rgba(0,0,0,.4)" }}>
-      <div style={{ width: `${w}%`, height: "100%", background: LAMP }} />
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: P.height, background: P.track }}>
+      <div style={{ width: `${w}%`, height: "100%", background: tok(T, P.fill), ...(P.glow ? { boxShadow: P.glow } : {}) }} />
     </div>
   );
 };
@@ -324,32 +355,71 @@ const Hits: React.FC<{ hits: Hit[]; children: React.ReactNode }> = ({ hits, chil
   );
 };
 
-export const Episode: React.FC<{ d: EpisodeData }> = ({ d }) => {
-  const { background: BG } = useTheme();
-  return (
-  <AbsoluteFill style={{ backgroundColor: BG }}>
-    <Audio src={staticFile(d.voice)} />
-    <Hits hits={d.hits ?? []}>
-    <TerminalBackground lines={d.backgroundLines ?? ["✓ ok"]} />
+/** Loads the skin's and the brand's font files (public/) before the first frame. */
+const SkinFonts: React.FC = () => {
+  const S = useSkin(), T = useTheme();
+  const [files] = useState(() => fontFilesOf(S, T));
+  const [h] = useState(() => (files.length ? delayRender("skin fonts") : null));
+  useLayoutEffect(() => {
+    if (h === null) return;
+    Promise.all(files.map((x) => new FontFace(x.family, `url(${staticFile(x.src)})`).load().then((ff) => { (document.fonts as unknown as { add: (f: FontFace) => void }).add(ff); })))
+      .then(() => continueRender(h)).catch((e) => { console.error("[skin fonts]", e); continueRender(h); });
+  }, [h, files]);
+  return null;
+};
 
-    {/* sounds: whoosh at the start, pop in every scene and each scene's own sounds */}
-    <Sequence from={0} durationInFrames={f(DUR_SOM.whoosh) + 2}>
-      <Audio src={staticFile("sfx/whoosh.wav")} volume={VOL_SOM.whoosh} />
-    </Sequence>
-    {d.scenes.flatMap((c, i) => {
-      const sounds: Sound[] = [{ at: 0, sound: "pop" }, ...(c.sounds ?? [])];
-      return sounds.map((s, k) => (
-        <Sequence key={`s${i}-${k}`} from={f(c.a + s.at)} durationInFrames={f(DUR_SOM[s.sound]) + 2}>
-          <Audio src={staticFile(`sfx/${s.sound}.wav`)} volume={s.v ?? VOL_SOM[s.sound]} />
-        </Sequence>
-      ));
-    })}
+/** The background of a 2D skin: the terminal (default), the plain theme background, or the skin's CSS. */
+const SkinBackground: React.FC<{ lines: string[] }> = ({ lines }) => {
+  const S = useSkin(), T = useTheme();
+  if (S.background.kind === "terminal") return <TerminalBackground lines={lines} />;
+  return <AbsoluteFill style={{ background: S.background.kind === "css" && S.background.css ? S.background.css : T.background }} />;
+};
 
+/** The person's own video, full screen under the scenes, with its own audio (no frame, no loop). */
+const BaseLayer: React.FC<{ base: BaseVideo }> = ({ base }) => (
+  <AbsoluteFill>
+    <OffthreadVideo src={staticFile(base.src)} volume={base.volume ?? 1} style={{ width: "100%", height: "100%", objectFit: base.fit ?? "cover" }} />
+  </AbsoluteFill>
+);
+
+/** What draws the background and the scenes. Default: the skin background (or the base video) and each scene in its own Sequence. A 3D skin passes its stage. */
+export type SceneStage = React.FC<{ d: EpisodeData }>;
+export const FlatScenes: SceneStage = ({ d }) => (
+  <>
+    {d.base ? <BaseLayer base={d.base} /> : <SkinBackground lines={d.backgroundLines ?? ["✓ ok"]} />}
     {d.scenes.map((c, i) => (
       <Sequence key={"c" + i} from={f(c.a)} durationInFrames={f(c.b - c.a)} premountFor={10}>
         <c.C dur={c.b - c.a} />
       </Sequence>
     ))}
+  </>
+);
+
+/** The episode. `stage` replaces the flat background and scenes (3D skins); with a `base` video the flat scenes are always used. */
+export const Episode: React.FC<{ d: EpisodeData; stage?: SceneStage }> = ({ d, stage }) => {
+  const { background: BG } = useTheme();
+  const S = useSkin();
+  const Stage = stage && !d.base ? stage : FlatScenes;
+  return (
+  <AbsoluteFill style={{ backgroundColor: BG }}>
+    <SkinFonts />
+    {d.voice ? <Audio src={staticFile(d.voice)} /> : null}
+    <Hits hits={d.hits ?? []}>
+    <Stage d={d} />
+
+    {/* sounds: whoosh at the start, pop in every scene and each scene's own sounds */}
+    <Sequence from={0} durationInFrames={f(DUR_SOM.whoosh) + 2}>
+      <Audio src={staticFile(sfxFile(S, "whoosh"))} volume={VOL_SOM.whoosh} />
+    </Sequence>
+    {d.scenes.flatMap((c, i) => {
+      const sounds: Sound[] = [{ at: 0, sound: "pop" }, ...(c.sounds ?? [])];
+      return sounds.map((s, k) => (
+        <Sequence key={`s${i}-${k}`} from={f(c.a + s.at)} durationInFrames={f(DUR_SOM[s.sound]) + 2}>
+          <Audio src={staticFile(sfxFile(S, s.sound))} volume={s.v ?? VOL_SOM[s.sound]} />
+        </Sequence>
+      ));
+    })}
+
     {d.scenes.map((c, i) =>
       c.label ? (
         <Sequence key={"r" + i} from={f(c.a)} durationInFrames={f(c.b - c.a)}>
@@ -359,15 +429,19 @@ export const Episode: React.FC<{ d: EpisodeData }> = ({ d }) => {
     )}
 
     </Hits>
-    <Sequence from={f(d.outro.a)} durationInFrames={f(d.durS - d.outro.a)}>
-      <OutroEp cta={d.outro.cta} />
-    </Sequence>
+    {d.outro ? (
+      <Sequence from={f(d.outro.a)} durationInFrames={f(d.durS - d.outro.a)}>
+        <OutroEp cta={d.outro.cta} />
+      </Sequence>
+    ) : null}
     <Sequence from={0} durationInFrames={f(d.durS)}>
       <CaptionEp words={d.words} bottom={190} px={d.captionPx} />
     </Sequence>
-    <Sequence from={f(d.outro.a)} durationInFrames={2}>
-      <Audio src={staticFile("sfx/ding.wav")} volume={0.22} />
-    </Sequence>
+    {d.outro ? (
+      <Sequence from={f(d.outro.a)} durationInFrames={2}>
+        <Audio src={staticFile(sfxFile(S, "ding"))} volume={0.22} />
+      </Sequence>
+    ) : null}
     <ProgressBar durS={d.durS} />
   </AbsoluteFill>
 );

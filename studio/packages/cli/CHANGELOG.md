@@ -2,6 +2,47 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/). In the 0.x series a breaking change may ship in a minor version, always recorded here.
 
+## [Unreleased]
+
+## [0.4.0] - 2026-11-24
+
+New projects get `@praeko/studio-core` and `@praeko/studio-kit` `^0.4.0` (skins, `base` and the optional outro need them; `doctor` warns when an older core/kit is installed).
+
+### Added
+- `style` in `episode.yaml` and `style.visual` in `brand.json` (the first slug is the channel skin): `compile` validates the slug against the skin registry (an unknown slug is an error; free text marked `other` is ignored) and writes `style`/`channelStyle` to the spec. See `docs/style.md`.
+- `base: { src, volume, fit }` in `episode.yaml` (the person's own video under the scenes, with its audio): validated; `voice` becomes optional with a `base`; warning when both play (doubled audio). HyperFrames renders `base` as an audible `<video>` (no compile warning).
+- `outro` is optional (absent or `outro: false`).
+- `sounds` accept `when: "phrase"` (or `[phrase, n]`, plus `offset`) besides `at`, resolved against `words.json`; sound names and keys are validated.
+- `render` runs the skin post-process (`postprocess.ts`, ffmpeg) after either engine: pixel palette without dithering + nearest-neighbor upscale (`pixel`, `8bit`), CRT (`retro-crt`).
+- `check` warns about text/background contrast of the episode's skin and about text a pixel post-process makes unreadable.
+- `doctor` warns when episodes use skins, `base` or no outro and the project's `@praeko/studio-core`/`-kit` do not declare support (`praekoStudio.features`).
+- `compile --engine hyperframes` says that HyperFrames applies only a skin's palette and fonts.
+- `studio/scripts/style-gallery.mjs`: the gallery episode in every skin, with contact sheets and the PSNR regression of `default`.
+- Brand interview (`init`, `brief`): new questions, all skippable and all with a flag for `--yes`. **Source** (`--source script,video`; video only skips the voice questions), **formats** (`--format short,long,carousel,image`, the first one is the main one and decides the suggested first episode), **visual style** (`--style`, any number, 1 or 2 advised with a soft warning above 2; 2D `flat`, `minimal`, `neon`, `comic`, `chalkboard`, `pixel`, `8bit`, `retro-crt`; 3D `clay-3d`, `blocks-3d`, `retro-3d`, `cinema-3d`; `--style-other "…"` for another style in your words) and **editing style** (`--pace calm|fast`, `--captions word|phrase|none`, `--effects shake,zoom,flash|none`, `--sound sfx|none`, `--face face|mascot|none`; `face` needs `--source video`). Lists are numbered in the terminal (answer with numbers or names); each option says whether Studio applies it or the agent follows it. Order: language, name, handle, agents, source, about, audience, tone, formats, visual style, editing style, colors, font, references, voice.
+- References come after the style, and "what did you like" is a guided answer (pace, opening, look, captions, by number or name; free text still works).
+- `brief.md`: sections Format, Visual style and Editing style; the hidden `praeko-brief:` line carries `source`, `format`, `style`, `edit`. `playbook.md`: Pace, Opening and Captions come from the editing style when there is one; a Visual section with the style's look and what never to do in it.
+- `brand.json`: a `style` block `{ visual, format, edit, source }` (`visual[0]` is the channel's skin). A visual style suggests colors (accent, background, text, muted, box, code, cover background) and, for some styles, a system font stack; changing the style later only moves the values still at the previous style's (a color or font you changed stays). Projects without `style` are unchanged.
+- `brief --only style` reopens formats, visual style and editing style.
+- `new <slug> --from-video <file.mp4> [--lang pt|en|auto] [--cloud] [--transcript <file.json>]`: an episode over your own video. Copies it to `public/video/` (the original is never changed), transcribes it on this machine (cloud only with `--cloud`; `--transcript` reuses a transcript), writes `words.json`/`words.ts`, `script.txt` (the transcript), `publication.json` with `ai.synthetic: false`, and `episode.yaml` with `base: { src, volume: 1, fit: cover }`, no `voice:` and no `outro`; warns about words with zero duration and numbers in digits. Needs a `core`/`kit` that know `base`.
+- `render <slug> --seconds <n>`: renders only the first n seconds to `out/<slug>-first-<n>s.mp4` (Remotion).
+- `transcribe --out <name>.json`: names the three output files.
+- `doctor`, and `init` with `--source video`, check the local Whisper used for your own videos and say how to get the model (`transcribe --download-model`, only after your yes).
+- Docs topics `from-video` and `transcription` (the transcription page was not listed by `docs`).
+
+### Changed
+- The Short spec carries `format: "short"` (a Short without outro is no longer mistaken for a long video by `cover` and HyperFrames).
+- The `.gitignore` of a new project ignores `public/video/` (your own videos are heavy).
+- `init` pins `@praeko/studio-core` and `@praeko/studio-kit` to `^0.4.0` (was `^0.3.0`).
+- In a pt project (`--lang pt` or the brief's language), `new` writes the outro as `SIGA PARA MAIS` (and `cut`, `VÍDEO COMPLETO NO YOUTUBE`), and `init` suggests `new meu-primeiro --title "Meu primeiro vídeo"`.
+- `check` on an episode with `base` counts the words of `words.json` (the real speech) instead of the template `script.txt`, and reports the digits of the transcript as a caption note.
+- `check` estimates one-line text in the skin's font (`fontAspect`): warns when an item shrinks below ~75% to fit, when it does not fit even at 45%, and when a pixel skin leaves it under ~9 real pixels; warns about `layout: free` scenes in 3D skins (drawn on the 940x1000 slab face).
+- Style gallery: the regression of `default` is measured on PNG stills (identical or ≥ 80 dB, `--every`, `--allow`); the MP4 PSNR is informative only. The CRT post-process uses less noise and CRF 21 (about 20 MB for 43 s instead of 118 MB), and its screen curvature is softer (the label at the top is no longer cut).
+
+### Fixed
+- HyperFrames: scene sounds were read from a `f` key instead of `sound` (custom sounds played nothing).
+- HyperFrames: the `base` video declares `data-has-audio` (required by the HyperFrames 0.9.13 check), so its audio plays.
+
+
 ## [0.3.3] - 2026-11-22
 
 ### Removed

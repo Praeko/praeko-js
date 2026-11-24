@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { TOOL_NAMES } from "../src/server.ts";
 import { FAKE_BIN, REAL_BIN, SECRETS, connect, fakeProject, noSecret, realProject, tmp } from "./helpers.ts";
 
-const EXPECTED = ["studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_review", "studio_status", "studio_transcribe", "studio_upload", "studio_voice", "studio_write_script"];
+const EXPECTED = ["studio_brief_answers", "studio_brief_read", "studio_brief_write", "studio_check", "studio_compile", "studio_cover", "studio_docs", "studio_job", "studio_new_episode", "studio_package", "studio_render", "studio_review", "studio_status", "studio_transcribe", "studio_upload", "studio_voice", "studio_write_script"];
 
-test("the tool list is exactly the 16 expected ones and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
+test("the tool list is exactly the 17 expected ones and nothing publishes, schedules, queues, connects an account or holds a key", async () => {
   const c = await connect({ project: fakeProject(), studioBin: FAKE_BIN });
   const { tools } = await c.client.listTools();
   assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
   assert.deepEqual([...TOOL_NAMES].sort(), EXPECTED);
-  assert.equal(tools.length, 16);
+  assert.equal(tools.length, 17);
   for (const t of tools) assert.doesNotMatch(t.name, /post|schedule|queue|account|connect|publish|login|key/i, t.name);
   await c.close();
 });

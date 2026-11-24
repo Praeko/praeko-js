@@ -225,9 +225,10 @@ export function toSrt(words: Word[]): string {
 export const toTxt = (r: Pick<TranscriptResult, "text">): string => r.text.trim() + "\n";
 
 /** Writes transcript.json, transcript.srt and transcript.txt in `dir`. Returns the file names. */
-export function writeTranscript(r: TranscriptResult, dir: string): { json: string; srt: string; txt: string } {
+/** Writes <name>.json, <name>.srt and <name>.txt in `dir` (`name` defaults to "transcript"). */
+export function writeTranscript(r: TranscriptResult, dir: string, name = "transcript"): { json: string; srt: string; txt: string } {
   mkdirSync(dir, { recursive: true });
-  const f = { json: resolve(dir, "transcript.json"), srt: resolve(dir, "transcript.srt"), txt: resolve(dir, "transcript.txt") };
+  const f = { json: resolve(dir, `${name}.json`), srt: resolve(dir, `${name}.srt`), txt: resolve(dir, `${name}.txt`) };
   writeFileSync(f.json, JSON.stringify(r, null, 2) + "\n"); writeFileSync(f.srt, toSrt(r.words)); writeFileSync(f.txt, toTxt(r));
   return f;
 }

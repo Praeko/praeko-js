@@ -1,94 +1,148 @@
 import { Loop, OffthreadVideo, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig, Img, AbsoluteFill } from "remotion";
-import { FPS, appear, pop, ramp, rgba, useTheme } from "@praeko/studio-core";
+import { useFitText } from "./fit.ts";
+import { FPS, appear, fs, glowText, panelTexture, ramp, rgba, surfaceStyle, tok, useMotion, useSkin, useTheme } from "@praeko/studio-core";
 
-/* ============ Praeko Studio kit: visual parts that read the brand theme ============ */
+/* ============ Praeko Studio kit: visual parts that read the brand theme and the skin (tokens) ============ */
 
-/** Central panel of a Short: always the same size and place (70 px margin, clear of the label and the captions). */
+/** Central panel of a Short: always the same size and place (70 px margin, clear of the label and the captions).
+ *  Skin: fill, stroke, radius, shadow and title from `skin.panel`; in a 3D skin it fills its container (the slab face) and the slab animates. */
 export const Panel: React.FC<{ title: string; dur: number; children: React.ReactNode }> = ({ title, dur, children }) => {
-  const { accent: LAMP, text: INK, font: FONT } = useTheme();
+  const T = useTheme(), S = useSkin();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pop = spring({ frame, fps, config: { damping: 13, stiffness: 190 } });
-  const out = interpolate(frame, [dur * FPS - 6, dur * FPS], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const pop = S.panel.pop ? spring({ frame, fps, config: { damping: 13, stiffness: 190 } }) : 1;
+  const out = S.panel.pop ? interpolate(frame, [dur * FPS - 6, dur * FPS], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 1;
+  const stroke = tok(T, S.panel.strokeColor) ?? T.accent;
   return (
     <div
       style={{
         position: "absolute",
-        left: 70,
-        right: 70,
-        top: 330,
-        height: 1000,
+        ...(S.dimension === "3d" ? { inset: 0 } : { left: 70, right: 70, top: 330, height: 1000 }),
         display: "flex",
         flexDirection: "column",
-        background: "rgba(20,17,15,.94)",
-        border: `4px solid ${LAMP}`,
-        borderRadius: 36,
-        boxShadow: "0 24px 60px rgba(0,0,0,.6)",
+        background: S.panel.fill,
+        ...panelTexture(S),
+        border: S.panel.stroke ? `${S.panel.stroke}px solid ${stroke}` : "none",
+        borderRadius: S.panel.radius,
+        boxShadow: S.panel.shadow,
         padding: "40px 48px",
-        fontFamily: FONT,
-        color: INK,
+        fontFamily: T.font,
+        color: T.text,
         transform: `scale(${0.82 + 0.18 * pop}) translateY(${(1 - pop) * 60}px)`,
         opacity: Math.min(1, pop * 1.6) * out,
         overflow: "hidden",
         boxSizing: "border-box",
       }}
     >
-      <div style={{ fontSize: 38, letterSpacing: 5, color: LAMP, whiteSpace: "nowrap" }}>{title}</div>
+      <div style={{ fontSize: fs(S, S.panel.titleSize), letterSpacing: S.panel.letterSpacing, color: tok(T, S.panel.titleColor) ?? T.accent, whiteSpace: "nowrap", ...(S.glow ? { textShadow: `0 0 ${S.glow}px ${stroke}` } : {}) }}>{title}</div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 40, minHeight: 0 }}>{children}</div>
     </div>
   );
 };
 
-export const Box: React.FC<{ t: number; q: number; color: string; children: React.ReactNode; mono?: boolean; size?: number; dim?: boolean; dash?: boolean }> = ({ t, q, color, children, mono, size = 48, dim, dash }) => {
-  const { box: BOX, text: INK, font: FONT, mono: MONO } = useTheme();
+const hash = (s: string): number => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return (h >>> 0) / 4294967295; };
+/**
+ * Chalk outline drawn by hand: two rough passes around the box that draw themselves in when the item appears (`progress` 0..1).
+ * Deterministic: the wobble comes from `seed`, never from Math.random.
+ */
+export const HandBorder: React.FC<{ color: string; width: number; progress: number; seed: string }> = ({ color, width, progress, seed }) => {
+  const r = (n: number) => hash(seed + ":" + n) - 0.5;
+  const pass = (k: number) => {
+    const j = (n: number, a: number) => (r(k * 31 + n) * a).toFixed(2);
+    // corners in % of the box, with wobble; a slight overshoot at the end like a real stroke
+    return `M ${j(1, 1.6)} ${j(2, 3)} L ${100 + +j(3, 1.6)} ${j(4, 3)} L ${100 + +j(5, 1.6)} ${100 + +j(6, 3)} L ${j(7, 1.6)} ${100 + +j(8, 3)} Z M ${j(9, 1.6)} ${j(10, 3)} L ${6 + +j(11, 2)} ${j(12, 3)}`;
+  };
   return (
-    <div style={{ background: BOX, border: `4px ${dash ? "dashed" : "solid"} ${color}`, borderRadius: 22, padding: "18px 28px", fontFamily: mono ? MONO : FONT, fontSize: size, textAlign: "center", whiteSpace: "nowrap", color: INK, opacity: appear(t, q) * (dim ? 0.55 : 1), translate: `0px ${(1 - appear(t, q)) * 30}px` }}>{children}</div>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", pointerEvents: "none" }}>
+      {[0, 1].map((k) => (
+        <path key={k} d={pass(k)} fill="none" stroke={color} strokeWidth={k ? width * 0.55 : width} strokeOpacity={k ? 0.55 : 0.9} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+          pathLength={1} strokeDasharray="1 1" strokeDashoffset={1 - Math.max(0, Math.min(1, progress * (k ? 1.4 : 1.15)))} />
+      ))}
+    </svg>
+  );
+};
+/** The hand-drawn outline of a surface when the skin asks for it (chalkboard). */
+const Outline: React.FC<{ color: string; a: number; seed: string }> = ({ color, a, seed }) => {
+  const T = useTheme(), S = useSkin();
+  return S.surface.strokeStyle === "hand" ? <HandBorder color={tok(T, S.surface.strokeColor) ?? color} width={S.surface.stroke || 4} progress={a} seed={seed} /> : null;
+};
+
+export const Box: React.FC<{ t: number; q: number; color: string; children: React.ReactNode; mono?: boolean; size?: number; dim?: boolean; dash?: boolean }> = ({ t, q, color, children, mono, size = 48, dim, dash }) => {
+  const T = useTheme(), S = useSkin(), M = useMotion();
+  const a = M.appear(t, q), [ref, k] = useFitText<HTMLDivElement>();
+  return (
+    <div ref={ref} style={{ ...surfaceStyle(S, T, color, 22, dash), padding: "18px 28px", fontFamily: mono ? T.mono : T.font, fontSize: fs(S, size) * k, textAlign: "center", whiteSpace: "nowrap", opacity: a * (dim ? 0.55 : 1), translate: `0px ${(1 - a) * 30 * M.slide}px` }}>
+      {children}
+      <Outline color={color} a={a} seed={`box${color}${size}${q}`} />
+    </div>
   );
 };
 
 export const Line: React.FC<{ t: number; q: number; color?: string; size?: number; children: React.ReactNode }> = ({ t, q, color, size = 46, children }) => {
-  const { box: BOX, text: INK, font: FONT, accent: LAMP } = useTheme();
+  const T = useTheme(), S = useSkin(), M = useMotion();
+  const a = M.appear(t, q), c = color ?? T.accent, [ref, k] = useFitText<HTMLDivElement>();
   return (
-    <div style={{ background: BOX, border: `4px solid ${color ?? LAMP}`, borderRadius: 24, padding: "22px 30px", fontSize: size, opacity: appear(t, q), translate: `${(1 - appear(t, q)) * 70}px 0px`, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 22, fontFamily: FONT, color: INK }}>{children}</div>
+    <div ref={ref} style={{ ...surfaceStyle(S, T, c, 24), padding: "22px 30px", fontSize: fs(S, size) * k, opacity: a, translate: `${(1 - a) * 70 * M.slide}px 0px`, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 22, fontFamily: T.font }}>
+      {children}
+      <Outline color={c} a={a} seed={`line${c}${size}${q}`} />
+    </div>
   );
 };
 
 export const Big: React.FC<{ t: number; q: number; color?: string; size: number; mono?: boolean; children: React.ReactNode }> = ({ t, q, color, size, mono, children }) => {
-  const { text: INK, font: FONT, mono: MONO } = useTheme();
+  const T = useTheme(), S = useSkin(), M = useMotion(), [ref, k] = useFitText<HTMLDivElement>();
   return (
-    <div style={{ fontFamily: mono ? MONO : FONT, fontSize: size, fontWeight: 900, color: color ?? INK, textAlign: "center", lineHeight: 1.05, opacity: appear(t, q, 0.25), scale: String(pop(t, q)), whiteSpace: "nowrap" }}>{children}</div>
+    <div ref={ref} style={{ fontFamily: mono ? T.mono : T.font, fontSize: fs(S, size) * k, fontWeight: 900, color: color ?? T.text, textAlign: "center", lineHeight: 1.05, opacity: M.appear(t, q, 0.25), scale: String(M.pop(t, q)), whiteSpace: "nowrap", ...glowText(S, color ?? T.text) }}>{children}</div>
   );
 };
 
+/** A quote (the kit's bubble) or, in the comic skin, a speech balloon with a tail. */
 export const Bubble: React.FC<{ t: number; q: number; color: string; children: React.ReactNode; author?: string }> = ({ t, q, color, children, author = "— someone, in the chat" }) => {
-  const { box: BOX, text: INK, font: FONT, mono: MONO, muted: MUTED } = useTheme();
+  const T = useTheme(), S = useSkin(), M = useMotion();
+  const a = M.appear(t, q);
+  const comic = S.bubble.kind === "comic";
+  const surface = surfaceStyle(S, T, color, 28);
   return (
-    <div style={{ position: "relative", background: BOX, border: `4px solid ${color}`, borderRadius: 28, padding: "28px 34px", fontFamily: FONT, fontSize: 46, lineHeight: 1.25, color: INK, textAlign: "center", opacity: appear(t, q), translate: `0px ${(1 - appear(t, q)) * 30}px` }}>
-      <span style={{ position: "absolute", left: 24, top: -34, fontSize: 90, color: color, lineHeight: 1 }}>“</span>
+    <div style={{ position: "relative", ...surface, ...(comic ? { borderRadius: "48% / 42%", padding: "44px 60px", marginBottom: 40 } : { padding: "28px 34px" }), fontFamily: T.font, fontSize: fs(S, 46), lineHeight: 1.25, textAlign: "center", opacity: a, translate: `0px ${(1 - a) * 30 * M.slide}px` }}>
+      {comic ? <BalloonTail fill={String(surface.backgroundColor ?? surface.background)} ink={tok(T, S.surface.strokeColor) ?? color} width={S.surface.stroke} /> : <span style={{ position: "absolute", left: 24, top: -34, fontSize: 90, color, lineHeight: 1, ...glowText(S, color) }}>“</span>}
       {children}
-      <div style={{ fontFamily: MONO, fontSize: 26, color: MUTED, marginTop: 16 }}>{author}</div>
+      <div style={{ fontFamily: T.mono, fontSize: fs(S, 26), color: comic ? tok(T, S.surface.ink) ?? T.muted : T.muted, marginTop: 16, ...(comic ? { opacity: 0.75 } : {}) }}>{author}</div>
+      <Outline color={color} a={a} seed={`bubble${color}${q}`} />
     </div>
   );
 };
+/**
+ * Tail of a comic speech balloon, under the balloon. It starts at the inner edge of the bottom border (`top: 100%` of the padding box), near
+ * the middle where the oval is flat, and a patch in the balloon color hides the border between the two sides: one continuous outline.
+ */
+const BalloonTail: React.FC<{ fill: string; ink: string; width: number }> = ({ fill, ink, width: w }) => (
+  <svg width={70} height={70} viewBox="0 0 70 70" style={{ position: "absolute", left: "42%", top: "100%", overflow: "visible" }}>
+    <path d="M6 0 L20 66 L64 0" fill={fill} stroke={ink} strokeWidth={w} strokeLinejoin="round" />
+    <rect x={6 + w * 0.6} y={-1} width={58 - w * 1.2} height={w + 3} fill={fill} />
+  </svg>
+);
 
 /** Code block with marked lines (the marked line color comes in `color`). */
 export const Code: React.FC<{ t: number; q: number; title: string; color: string; lines: { s: string; color?: string; mark?: boolean }[] }> = ({ t, q, title, color, lines }) => {
-  const { box: BOX, text: INK, mono: MONO } = useTheme();
+  const T = useTheme(), S = useSkin(), M = useMotion();
+  const a = M.appear(t, q), [ref, k] = useFitText<HTMLDivElement>();
   return (
-    <div style={{ background: BOX, borderRadius: 24, overflow: "hidden", border: `4px solid ${color}`, opacity: appear(t, q), translate: `0px ${(1 - appear(t, q)) * 30}px` }}>
-      <div style={{ background: "#1c1830", padding: "12px 26px", fontFamily: MONO, fontSize: 26, color: "#8b86a8", whiteSpace: "nowrap" }}>{title}</div>
-      <div style={{ fontFamily: MONO, fontSize: 30, lineHeight: 1.6, padding: "20px 0" }}>
+    <div style={{ ...surfaceStyle(S, T, color, 24), overflow: S.surface.strokeStyle === "hand" ? "visible" : "hidden", opacity: a, translate: `0px ${(1 - a) * 30 * M.slide}px` }}>
+      <div style={{ background: tok(T, S.code.header), padding: "12px 26px", fontFamily: T.mono, fontSize: fs(S, 26), color: tok(T, S.code.headerText), whiteSpace: "nowrap" }}>{title}</div>
+      <div ref={ref} style={{ fontFamily: T.mono, fontSize: fs(S, 30) * k, lineHeight: 1.6, padding: "20px 0", ...(S.code.body ? { background: tok(T, S.code.body) } : {}) }}>
         {lines.map((l, i) => (
-          <div key={i} style={{ whiteSpace: "pre", padding: "0 26px", color: l.color || INK, background: l.mark ? `${l.color}26` : "transparent", borderLeft: `6px solid ${l.mark ? l.color : "transparent"}` }}>{l.s}</div>
+          <div key={i} style={{ whiteSpace: "pre", padding: "0 26px", color: l.color || tok(T, S.code.ink) || T.text, background: l.mark ? `${l.color}26` : "transparent", borderLeft: `6px solid ${l.mark ? l.color : "transparent"}`, ...(S.glow && l.mark ? { textShadow: `0 0 10px ${l.color}` } : {}) }}>{l.s}</div>
         ))}
       </div>
+      <Outline color={color} a={a} seed={`code${title}`} />
     </div>
   );
 };
 
+
 /** Real footage (of the game, or any recorded app) in a framed window, with optional crop and a slow camera push. */
 export const Window: React.FC<{ t: number; q: number; src: string; clipDuration: number; from: number; left: number; top: number; w: number; reg?: [number, number, number, number]; tag?: string; dur: number }> = ({ t, q, src, clipDuration, from, left, top, w, reg = [0, 0, 1920, 1080], tag = "REAL FOOTAGE", dur }) => {
-  const { accent: LAMP, text: INK, error: BAD, mono: MONO } = useTheme();
+  const { accent: LAMP, error: BAD, mono: MONO } = useTheme();
   const s = w / reg[2], h = (w * reg[3]) / reg[2], o = appear(t, q, 0.5);
   const push = 1 + 0.07 * ramp(t, q, q + dur);
   const total = clipDuration - from;
@@ -99,7 +153,7 @@ export const Window: React.FC<{ t: number; q: number; src: string; clipDuration:
           <OffthreadVideo src={staticFile(src)} startFrom={Math.round(from * FPS)} muted style={{ position: "absolute", left: -reg[0] * s, top: -reg[1] * s, width: 1920 * s, height: 1080 * s, imageRendering: "pixelated" }} />
         </Loop>
       </div>
-      <div style={{ position: "absolute", left: 14, bottom: 12, background: "rgba(10,8,6,.78)", color: INK, fontFamily: MONO, fontSize: 22, padding: "4px 14px", borderRadius: 10, display: "flex", gap: 10, alignItems: "center" }}>
+      <div style={{ position: "absolute", left: 14, bottom: 12, background: "rgba(10,8,6,.78)", color: "#f3ece0", /* fixed light ink on the dark tag (was theme.text: unreadable in light skins) */ fontFamily: MONO, fontSize: 22, padding: "4px 14px", borderRadius: 10, display: "flex", gap: 10, alignItems: "center" }}>
         <span style={{ width: 12, height: 12, borderRadius: 6, background: BAD, opacity: 0.5 + 0.5 * Math.abs(Math.sin(t * 4)) }} />{tag}
       </div>
     </div>

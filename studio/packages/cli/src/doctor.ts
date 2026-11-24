@@ -3,12 +3,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
-import { balances, getKey, loadConfig, resolvePraekoKey, resolveVoice, sameBalanceGroups } from "@praeko/studio-voice";
+import { balances, getKey, loadConfig, resolvePraekoKey, resolveVoice, sameBalanceGroups, whisperLocalEngine } from "@praeko/studio-voice";
 import type { AccountBalance } from "@praeko/studio-voice";
 import { praeko } from "@praeko/studio-publish";
 import { findProjectRoot, isLegacyLayout } from "./project.ts";
 import { noticeText, readAcceptance } from "./licenses.ts";
 import { STUDIO_NPX } from "./version.ts";
+import YAML from "yaml";
 
 export type Level = "ok" | "warning" | "error" | "info";
 export type DoctorItem = { id: string; level: Level; msg: string; fix?: string };
@@ -64,6 +65,52 @@ export function remotionNeeded(root: string | null, brand: any): boolean {
   return engines.length ? engines.includes("remotion") : brandEngine === "remotion";
 }
 
+/** Engine features an episode can use, and the `praekoStudio.features` flag that @praeko/studio-core and -kit declare in their package.json when they support it. */
+export const ENGINE_FEATURES = {
+  skins: "skins (`style` in brand.json or episode.yaml)",
+  base: "the person's own video under the scenes (`base`)",
+  "optional-outro": "an episode without `outro`",
+} as const;
+export type EngineFeature = keyof typeof ENGINE_FEATURES;
+
+/** Which engine features the project's Shorts use (brand.json `style`, each episode.yaml `style`, `base`, no `outro`). */
+export function featuresUsed(root: string, brand: any): Set<EngineFeature> {
+  const used = new Set<EngineFeature>();
+  const visual = brand?.style?.visual, first = Array.isArray(visual) ? visual[0] : visual;
+  if (typeof first === "string" && first !== "default" && !/^other\s*:/i.test(first)) used.add("skins");
+  const eps = join(root, "episodes");
+  if (existsSync(eps)) for (const e of readdirSync(eps, { withFileTypes: true })) {
+    const f = join(eps, e.name, "episode.yaml");
+    if (!e.isDirectory() || !existsSync(f)) continue;
+    let y: any; try { y = YAML.parse(readFileSync(f, "utf8")); } catch { continue; }
+    if (!y || typeof y !== "object" || ["long", "image", "carousel"].includes(y.format)) continue;
+    if (typeof y.style === "string" && y.style !== "default") used.add("skins");
+    if (y.base) used.add("base");
+    if (y.outro === undefined || y.outro === false || y.outro === null) used.add("optional-outro");
+  }
+  return used;
+}
+/** The features a package installed in the project declares (none for versions before skins). */
+export function installedFeatures(root: string, pkg: "@praeko/studio-core" | "@praeko/studio-kit"): { version: string | null; features: Set<string> } {
+  try { const j = JSON.parse(readFileSync(join(root, "node_modules", pkg, "package.json"), "utf8")); return { version: j.version ?? null, features: new Set(Array.isArray(j.praekoStudio?.features) ? j.praekoStudio.features : []) }; }
+  catch { return { version: null, features: new Set() }; }
+}
+/** Warns when the project uses a skin, a base video or no outro with a @praeko/studio-core/-kit that does not support it (it would render the old way or fail). */
+export function engineFeatureItems(root: string | null, brand: any): DoctorItem[] {
+  if (!root) return [];
+  const used = featuresUsed(root, brand);
+  if (!used.size) return [];
+  const out: DoctorItem[] = [];
+  for (const pkg of ["@praeko/studio-core", "@praeko/studio-kit"] as const) {
+    const inst = installedFeatures(root, pkg);
+    if (!inst.version) continue; // not installed: `npm install` is a separate problem
+    const missing = [...used].filter((f) => !inst.features.has(f));
+    if (missing.length) out.push({ id: `engine-features-${pkg.split("/")[1]}`, level: "warning", msg: `${pkg} ${inst.version} in this project does not support ${missing.map((f) => ENGINE_FEATURES[f]).join("; ")}: ${missing.includes("skins") ? "skins render with the default look" : "those episodes will not render as written"}`, fix: `update the Studio libraries in the project folder: npm install @praeko/studio-core@latest @praeko/studio-kit@latest (then \`${STUDIO_NPX} doctor\` again)` });
+  }
+  if (!out.length) out.push({ id: "engine-features", level: "ok", msg: `@praeko/studio-core/-kit support what the episodes use (${[...used].join(", ")})` });
+  return out;
+}
+
 const fmtN = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 type BalanceOpts = Parameters<typeof balances>[0];
 /** Voice section: ElevenLabs accounts (name, balance when the key reads it, never the key), the final voice and which accounts have its id. Warnings, never errors. */
@@ -114,6 +161,21 @@ export async function praekoScopeItems({ key, brand, fetchFn = fetch }: { key: s
   return [];
 }
 
+/**
+ * Own video as a source (brand.json `style.source` includes "video", or `new --from-video` was asked for): the local Whisper that transcribes it.
+ * Only a check: it never downloads the model; the fix says how to get it (`transcribe --download-model`, after the person's yes). Warning, never error.
+ * Projects without `style` (or with `source: [script]`) get nothing here.
+ */
+export async function videoSourceItems({ brand, force = false, engine }: { brand?: any; force?: boolean; engine?: { available(): Promise<string | null> } } = {}): Promise<DoctorItem[]> {
+  const source = brand?.style?.source;
+  if (!force && !(Array.isArray(source) && source.includes("video"))) return [];
+  let missing: string | null;
+  try { missing = await (engine ?? whisperLocalEngine(loadConfig())).available(); } catch (e: any) { missing = String(e?.message ?? e); }
+  return [missing
+    ? { id: "whisper-local", level: "warning", msg: `local Whisper (to transcribe your own videos) is not ready: ${missing}`, fix: `${STUDIO_NPX} transcribe --download-model downloads the model (about 547 MB) only after your yes; without it, \`new --from-video\` needs --cloud (the audio leaves this machine) or --transcript <file.json>` }
+    : { id: "whisper-local", level: "ok", msg: "local Whisper ready (transcribes your own videos on this machine)" }];
+}
+
 export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn = fetch, voiceCreate }: { offline?: boolean; cwd?: string; fetchFn?: typeof fetch; voiceCreate?: NonNullable<BalanceOpts>["create"] } = {}): Promise<DoctorItem[]> {
   const items: DoctorItem[] = [], add = (id: string, level: Level, msg: string, fix?: string) => items.push({ id, level, msg, ...(fix ? { fix } : {}) });
   const major = +process.versions.node!.split(".")[0]!;
@@ -131,6 +193,8 @@ export async function diagnose({ offline = false, cwd = process.cwd(), fetchFn =
   if (brand) {
     for (const [k, css] of Object.entries<string>(brand.fonts || {})) { const f = primaryFamily(css); if (f && !hasFont(f)) add(`font-${k}`, "warning", `font "${f}" (brand.fonts.${k}) is not installed: the text will fall back to another font and wrap differently`, "install the font or change `fonts` in brand.json to one that exists on both systems (open fonts: Inter, Montserrat, JetBrains Mono)"); else if (f) add(`font-${k}`, "ok", `font "${f}" installed`); }
   } else add("fonts", "info", "fonts are checked inside a project (brand.json)");
+  if (root && !isLegacyLayout(root)) items.push(...engineFeatureItems(root, brand));
+  items.push(...(await videoSourceItems({ brand })));
   { const has = !!getKey("elevenlabs/principal"); add("key-elevenlabs", has ? "ok" : "info", `ElevenLabs (final voice): ${has ? "present" : "absent"}`, has ? undefined : "only needed for --quality final; the silent draft is free"); }
   // Praeko: PRAEKO_KEY > the project's profile (.praeko/config.json) > the global key. Only the profile NAME and the source are shown, never the key.
   const rk = resolvePraekoKey({ projectDir: root && !isLegacyLayout(root) ? root : null }), pk = rk.key;

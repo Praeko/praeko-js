@@ -4,8 +4,15 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-24
+
+### Added
+- `studio_brief_answers` (the 17th tool): records the brand interview that the agent runs in the conversation, with the same questions and order as `praeko studio init` (source, about, audience, tone, formats, visual style, editing style, colors, font, references, voice). Closed lists (`source`, `format`, `style`, `pace`, `captions`, `effects`, `sound`, `face`, `voiceProvider`) are checked by the schema; it runs `brief --yes` and rewrites `brief.md`, the `playbook.md` draft and the `style` block of `brand.json`. Needs `@praeko/studio` with the new interview flags.
+- `studio_new_episode` takes `fromVideo` (a video file inside the project) and `language`: an episode over the person's own video (`new <slug> --from-video`): copied to `public/video/`, transcribed on this machine (never through the cloud from this tool, never downloads a model), played as the `base` layer. Needs `@praeko/studio` with `new --from-video` and a `core`/`kit` that know `base`.
+
 ### Changed
 - `studio_transcribe` description: says it never downloads a model (the person runs `praeko studio transcribe --download-model` after their own yes) and asks the agent to read the files in pieces instead of pasting the whole text.
+- Depends on `@praeko/studio` `^0.4.0` (was `^0.3.0`): the interview flags and `new --from-video` that these tools run arrive in that version.
 
 ## [0.1.4] - 2026-11-12
 

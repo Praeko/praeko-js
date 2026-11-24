@@ -5,6 +5,7 @@ import { copyFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { HF_VERSION, HfError, chooseEngine, generateCovers, generateProject, snapshotArgs, snapshotFile, specComponents, summarizeCheck } from "@praeko/studio-hyperframes";
 import type { Episode, Project } from "./project.ts";
+import { skinOf } from "../../core/src/skins.ts";
 
 /** `npx` without a shell: on Windows, the npx-cli.js that ships with Node; elsewhere, the `npx` on PATH. */
 const npx = (args: string[]): [string, string[]] => process.platform === "win32" ? [process.execPath, [join(dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js"), ...args]] : ["npx", args];
@@ -22,7 +23,12 @@ export const engineOf = (p: Project, ep: Episode, flag?: string): "remotion" | "
 /** Warnings of `praeko studio compile` when the episode goes to HyperFrames (TSX scenes do not exist there). */
 export function hyperframesWarnings(ep: Episode): string[] {
   const spec = readSpec(ep);
-  return spec ? specComponents(spec).map((x: any) => `hyperframes engine: scene ${x.scene}${x.title ? ` (${x.title})` : ""} uses \`component: ${x.component}\` (TSX) and does not render in HyperFrames`) : [];
+  if (!spec) return [];
+  const out = specComponents(spec).map((x: any) => `hyperframes engine: scene ${x.scene}${x.title ? ` (${x.title})` : ""} uses \`component: ${x.component}\` (TSX) and does not render in HyperFrames`);
+  // a `base` video is native in HyperFrames (a <video> under the scenes): no warning. A skin is only partly there.
+  const skin = skinOf(spec.style);
+  if (skin && skin.id !== "default") out.push(`hyperframes engine: the "${skin.id}" skin brings only its palette and fonts${skin.post ? " (and its post-process)" : ""}; its shapes, motion${skin.stage ? " and 3D stage" : ""} render only with --engine remotion`);
+  return out;
 }
 
 export const hyperframesMp4 = (p: Project, ep: Episode): string => join(p.root, "out", `${ep.slug}.hf.mp4`);

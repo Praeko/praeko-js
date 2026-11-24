@@ -4,3 +4,6 @@ export * from "./long-parts.tsx";
 export * from "./long-decl.tsx";
 export * from "./long-cover.tsx";
 export * from "./color.ts";
+export * from "./timing.ts";
+export * from "./stage3d.tsx";
+export * from "./fit.ts";

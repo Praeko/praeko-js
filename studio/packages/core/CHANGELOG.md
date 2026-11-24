@@ -2,6 +2,26 @@
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+## [0.4.0] - 2026-11-24
+
+Additive: a project without `style`, `base` or a missing `outro` renders exactly as before (the `default` skin reproduces 0.3.0; PSNR in the PR).
+
+### Added
+- Skins: `Skin` (the whole look as data: palette, fonts, panel, surfaces, glow, grain, bars, code, bubble, caption, label, progress bar, motion, text scale, sound set, `post` and the 3D `stage`), `SKIN_DEFAULT`, `defineSkin`, the registry `SKINS`/`SKIN_IDS`/`skinOf` (`default`, `flat`, `minimal`, `neon`, `retro-crt`, `chalkboard`, `comic`, `pixel`, `8bit`, `clay-3d`, `blocks-3d`, `retro-3d`, `cinema-3d`), `themeForSkin` (the person's brand colors win over the skin palette), `SkinProvider`/`useSkin`/`useMotion`, style helpers (`surfaceStyle`, `glowText`, `panelTexture`, `fs`, `motionOf`, `sfxFile`, `fontFilesOf`), color helpers (`tok`, `parseColor`, `mixWhite`) and WCAG contrast (`contrast`, `skinContrast`). `skin.ts` and `skins.ts` are pure data (no React).
+- `Episode`: the label, captions (optional caption box and comic balloon tail), progress bar, background (`terminal`, `plain`, `css`), sound folder and font files follow the skin; a `stage` prop draws the background and scenes (3D skins).
+- `EpisodeData.base` (the person's own video under every scene, with its audio, no frame and no loop); `voice` and `outro` are optional.
+- `Theme.fontFiles` (brand.json `fonts.files`), loaded before the first frame.
+- `praekoStudio.features` in package.json (`skins`, `base`, `optional-outro`): `praeko studio doctor` reads it to warn about projects that use a feature with an older core.
+- Skin tokens `fontAspect`/`monoAspect` (average glyph width in em, used by `check` to estimate one-line text) and `stage.faceLight`; `cinema-3d` is brighter (more fill and face light, outlined tinted surfaces).
+
+### Fixed
+- Comic caption balloon: the tail sits where the oval is flat and covers the border between its sides (no seam).
+
+### Changed
+- `@praeko/studio-kit` 0.4.0 now has a peer on `@praeko/studio-core` `^0.4.0` (it uses the skins and `base` of this release); `react ^19` and `remotion ^4.0.539` are unchanged. Install core and kit at the same version line (new projects from `@praeko/studio` 0.4.0 already do).
+
 ## [0.3.0] - 2026-11-12
 
 Published together with `@praeko/studio` 0.3.0 (new projects pin the three packages to the same version); no change to the library API.

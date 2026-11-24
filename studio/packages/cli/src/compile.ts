@@ -3,6 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
 import { STUDIO_NPX } from "./version.ts";
+// The skin registry is pure data in @praeko/studio-core (no React): imported by path so the CLI bundle carries the same list the engine uses.
+import { SKIN_IDS, skinOf } from "../../core/src/skins.ts";
 
 export type Words = { t: string; a: number; b: number }[];
 export type CompileResult = { spec: any; errors: string[]; warnings: string[] };
@@ -79,6 +81,81 @@ export function resolveTime(x: any, words: Words, where: string, errors: string[
   return +(t + (o.plus ?? 0)).toFixed(2);
 }
 
+// ---------- style (skins), base video and scene sounds ----------
+/** `style` value that is free text for the brief (not a skin): `{ other: "watercolor" }` or `"other: watercolor"`. The engine ignores it. */
+export const isOtherStyle = (v: unknown): boolean => (typeof v === "string" && /^other\s*:/i.test(v)) || (!!v && typeof v === "object" && typeof (v as any).other === "string");
+/** The `style` block of the project's brand.json (`{ visual: [...], format, edit }`), from the episode folder (<root>/episodes/<slug>). */
+export function readBrandStyle(folder: string): { visual?: unknown } | undefined {
+  const file = join(folder, "..", "..", "brand.json");
+  try { const b = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null; return b && typeof b.style === "object" ? b.style : undefined; } catch { return undefined; }
+}
+const unknownSkin = (where: string, v: string) => `${where}: style "${v}" is not a skin (use ${SKIN_IDS.join(", ")}; free text for the brief goes as { other: "…" })`;
+/**
+ * The skin of an episode: its own `style:` (a slug, or free text marked `other`), else the channel's (the first skin slug of brand.json `style.visual`).
+ * An unknown slug is an error; free text is ignored by the engine. Returns the slugs written in the spec.
+ */
+export function resolveStyle(episodeStyle: unknown, brandStyle: { visual?: unknown } | undefined, errors: string[], warnings: string[]): { episode?: string; channel?: string } {
+  let channel: string | undefined;
+  const visual = brandStyle?.visual;
+  if (visual !== undefined) {
+    const list = Array.isArray(visual) ? visual : [visual];
+    const first = list[0];
+    if (typeof first === "string" && !isOtherStyle(first)) {
+      if (skinOf(first)) channel = first;
+      else warnings.push(unknownSkin("brand.json style.visual[0]", first) + "; the channel renders with the default skin");
+    }
+  }
+  let episode = channel;
+  if (episodeStyle !== undefined && episodeStyle !== null) {
+    if (isOtherStyle(episodeStyle)) episode = channel;
+    else if (typeof episodeStyle !== "string") errors.push('style: use a skin slug (e.g. style: flat) or { other: "free text" }');
+    else if (!skinOf(episodeStyle)) errors.push(unknownSkin("episode", episodeStyle));
+    else episode = episodeStyle;
+  }
+  return { episode: episode === "default" && !channel ? undefined : episode, channel };
+}
+
+export type BaseSpec = { src: string; volume: number; fit: "cover" | "contain" };
+/** `base: { src, volume, fit }`: the person's own video under every scene (with its audio). The file must exist under public/. */
+export function validateBase(b: unknown, folder: string, errors: string[], warnings: string[]): BaseSpec | undefined {
+  if (b === undefined || b === null || b === false) return undefined;
+  if (typeof b === "string") b = { src: b };
+  if (typeof b !== "object") { errors.push("base: use { src: video/file.mp4, volume: 1, fit: cover }"); return undefined; }
+  const o = b as Record<string, unknown>;
+  for (const k of Object.keys(o)) if (!["src", "volume", "fit"].includes(k)) errors.push(`base: unknown key "${k}" (use src, volume, fit)`);
+  if (typeof o.src !== "string" || !o.src) { errors.push("base.src: the video file under public/ (e.g. video/my-take.mp4)"); return undefined; }
+  if (o.volume !== undefined && (typeof o.volume !== "number" || o.volume < 0 || o.volume > 2)) errors.push("base.volume: a number from 0 (muted) to 2 (default 1)");
+  if (o.fit !== undefined && o.fit !== "cover" && o.fit !== "contain") errors.push('base.fit: "cover" (fills the 9:16 frame, crops) or "contain" (whole video, bars)');
+  const publicDir = (() => { try { const brand = JSON.parse(readFileSync(join(folder, "..", "..", "brand.json"), "utf8")); return join(folder, "..", "..", brand.publicDir || "public"); } catch { return join(folder, "..", "..", "public"); } })();
+  if (!existsSync(join(publicDir, o.src))) warnings.push(`base.src: ${o.src} is not in public/ yet (render needs it)`);
+  return { src: o.src, volume: typeof o.volume === "number" ? o.volume : 1, fit: o.fit === "contain" ? "contain" : "cover" };
+}
+
+export const SOUNDS = ["pop", "ding", "thump", "whoosh"];
+/** Scene sounds: `{ sound, at }` (s since the start of the scene) or `{ sound, when: "phrase" | [phrase, n], offset }` (resolved against words.json), optional `v` (volume). */
+export function normalizeSounds(list: unknown, sceneStart: number, words: Words, where: string, errors: string[]): { at: number; sound: string; v?: number }[] | undefined {
+  if (list === undefined || list === null) return undefined;
+  if (!Array.isArray(list)) { errors.push(`${where}: "sounds" must be a list ([{ at: 0.2, sound: pop }] or [{ when: "phrase", sound: ding }])`); return undefined; }
+  return list.map((s0, k) => {
+    const s = s0 as Record<string, any>, w = `${where} › sound ${k + 1}`;
+    if (!s || typeof s !== "object") { errors.push(`${w}: invalid sound`); return { at: 0, sound: "pop" }; }
+    for (const key of Object.keys(s)) if (!["at", "when", "offset", "sound", "v"].includes(key)) errors.push(`${w}: unknown key "${key}" (use sound, at or when, offset, v)`);
+    if (!SOUNDS.includes(s.sound)) errors.push(`${w}: sound "${s.sound}" does not exist (use ${SOUNDS.join(", ")})`);
+    if (s.v !== undefined && (typeof s.v !== "number" || s.v < 0)) errors.push(`${w}: "v" (volume) must be a number ≥ 0`);
+    let at = 0;
+    if (s.when !== undefined && s.at !== undefined) errors.push(`${w}: use "at" or "when", not both`);
+    if (s.when !== undefined) {
+      const [f, n] = Array.isArray(s.when) ? s.when : [s.when, 0];
+      if (typeof f !== "string") errors.push(`${w}: "when" is a phrase of the voice (or [phrase, n])`);
+      else if (!words.length) errors.push(`${w}: "${f}" needs words.json (run \`${STUDIO_NPX} voice\`)`);
+      else { const t = findPhrase(words, f, n ?? 0); if (t < 0) errors.push(`${w}: phrase "${f}" does not appear in the voice (words.json)`); else at = +(t - sceneStart + (s.offset ?? 0)).toFixed(2); }
+    } else if (typeof s.at === "number") at = s.at + (s.offset ?? 0);
+    else errors.push(`${w}: missing "at" (s since the start of the scene) or "when" (a phrase of the voice)`);
+    if (at < 0) errors.push(`${w}: plays ${(-at).toFixed(2)} s before the scene starts (move it to the previous scene)`);
+    return { at, sound: s.sound, ...(s.v !== undefined ? { v: s.v } : {}) };
+  });
+}
+
 /** `image` (one slide) or `carousel` (2 to 20 slides) when the episode folder is an image piece (`format` in episode.yaml), otherwise undefined. */
 export function imageFormat(folder: string): "image" | "carousel" | undefined {
   const f = join(folder, "episode.yaml");
@@ -109,16 +186,23 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
   if (y.format === "long" && y.endcard && typeof y.endcard === "object" && y.endcard.start !== undefined) y.endcard.start = resolveTime(y.endcard.start, words, "endcard.start", errors);
   for (const [i, c] of (Array.isArray(y.scenes) ? y.scenes : []).entries()) { if (!c || typeof c !== "object") continue; if (c.start !== undefined) c.start = resolveTime(c.start, words, `scene ${i + 1} › start`, errors); if (c.end !== undefined) c.end = resolveTime(c.end, words, `scene ${i + 1} › end`, errors); }
   for (const [i, g] of (y.hits ?? []).entries()) if (g && g.at !== undefined) g.at = resolveTime(g.at, words, `hit ${i + 1}`, errors);
-  if (y.format === "long") return compileLong({ y, info, words, folder, errors, warnings, write });
-  for (const k of ["duration", "voice", "outro", "scenes"]) if (y[k] === undefined) errors.push(`missing "${k}"`);
+  if (y.format === "long") { if (y.style !== undefined) warnings.push("`style` is not applied to long videos yet (skins are for Shorts for now): ignored"); return compileLong({ y, info, words, folder, errors, warnings, write }); }
+  const base = validateBase(y.base, folder, errors, warnings);
+  const hasOutro = y.outro !== undefined && y.outro !== false && y.outro !== null;
+  for (const k of ["duration", "scenes"]) if (y[k] === undefined) errors.push(`missing "${k}"`);
+  if (y.voice === undefined && !base) errors.push('missing "voice" (the narration audio; only an episode with a `base` video can go without it)');
   if (errors.length) return { spec: null, errors, warnings };
   const id = y.id ?? info.id;
   if (!id) errors.push('missing "id" (in the yaml or in episode.json)');
   if (y.engine !== undefined && !["remotion", "hyperframes"].includes(y.engine)) errors.push(`engine "${y.engine}" does not exist (use remotion or hyperframes)`);
+  const style = resolveStyle(y.style, readBrandStyle(folder), errors, warnings);
+  if (base && y.voice !== undefined && (base.volume ?? 1) > 0) warnings.push("both `voice` and the `base` video's own audio play: if the voice was extracted from the video the audio doubles (remove `voice`, or set `base.volume: 0`)");
   const scenesY: any[] = y.scenes;
   if (!Array.isArray(scenesY) || !scenesY.length) errors.push('"scenes" must be a list');
-  const outroAt = y.outro?.start;
-  if (typeof outroAt !== "number") errors.push("outro.start (s) is required");
+  const outroAt = hasOutro ? y.outro?.start : undefined;
+  if (hasOutro && typeof y.outro !== "object") errors.push("outro: use { start, cta }, or `outro: false` (or leave it out) for no end card");
+  else if (hasOutro && typeof outroAt !== "number") errors.push("outro.start (s) is required when there is an outro");
+  const endAt = hasOutro ? outroAt : y.duration;
   if (typeof y.duration === "number" && typeof outroAt === "number" && outroAt >= y.duration) errors.push(`outro.start (${outroAt}) must come before the duration (${y.duration})`);
   if (errors.length) return { spec: null, errors, warnings };
 
@@ -131,8 +215,9 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
     for (const k of Object.keys(c)) if (!["start", "end", "title", "label", "sounds", "layout", "items", "component"].includes(k)) errors.push(`${name}: unknown key "${k}"${/\s/.test(k) || c[k] === null ? COMMA_HINT : ""}`);
     if (typeof c.start !== "number") errors.push(`${name}: missing "start" (s)`);
     if (i > 0 && c.start <= scenesY[i - 1]!.start) errors.push(`${name}: start ${c.start} does not come after the previous scene`);
-    const end = c.end ?? (i + 1 < scenesY.length ? scenesY[i + 1]!.start : outroAt);
-    if (end > outroAt + 1e-9 && i === scenesY.length - 1) warnings.push(`${name}: ends (${end}) after the outro (${outroAt})`);
+    const end = c.end ?? (i + 1 < scenesY.length ? scenesY[i + 1]!.start : endAt);
+    if (hasOutro && end > outroAt + 1e-9 && i === scenesY.length - 1) warnings.push(`${name}: ends (${end}) after the outro (${outroAt})`);
+    const sounds = normalizeSounds(c.sounds, c.start, words, name, errors);
     if (c.component && c.items) errors.push(`${name}: use "component" or "items", not both`);
     if (!c.component && !c.items?.length) errors.push(`${name}: no items`);
     const items: any[] | undefined = c.items?.map((it: any, k: number) => normalizeItem(it, `${name} › item ${k + 1}`, errors));
@@ -155,14 +240,16 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
     }
     const abs = (items ?? []).map((it) => ({ it, r: rectOf(it) })).filter((x): x is { it: any; r: Rect } => !!x.r);
     for (let a = 0; a < abs.length; a++) for (let b = a + 1; b < abs.length; b++) if (crosses(abs[a]!.r, abs[b]!.r)) warnings.push(`${name}: "${abs[a]!.it.type}" and "${abs[b]!.it.type}" overlap on screen (absolute positions)`);
-    return { start: c.start, ...(c.end !== undefined ? { end: c.end } : {}), label: c.label, sounds: c.sounds, layout: c.layout, title: c.title, items, component: c.component };
+    return { start: c.start, ...(c.end !== undefined ? { end: c.end } : {}), label: c.label, sounds, layout: c.layout, title: c.title, items, component: c.component };
   });
   const cv = y.cover && typeof y.cover === "object" ? y.cover : null;
   const spec = {
-    id, durS: y.duration, captionPx: y.caption, voice: y.voice, backgroundLines: y.background,
+    format: "short", id, durS: y.duration, captionPx: y.caption, voice: y.voice, backgroundLines: y.background,
     ...(y.engine ? { engine: y.engine } : {}),
+    ...(style.episode ? { style: style.episode } : {}), ...(style.channel ? { channelStyle: style.channel } : {}),
+    ...(base ? { base } : {}),
     hits: y.hits?.map((g: any) => ({ at: g.at, type: g.type })),
-    outro: { a: outroAt, cta: y.outro.cta },
+    ...(hasOutro ? { outro: { a: outroAt, cta: y.outro.cta } } : {}),
     scenes,
     cover: cv ? { id: cv.id ?? info.cover, component: cv.component, title: cv.title, color: cv.color, glow: cv.glow, size: cv.size, items: cv.items?.map((it: any, k: number) => normalizeItem(it, `cover › item ${k + 1}`, errors)) } : undefined,
   };

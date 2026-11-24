@@ -123,6 +123,6 @@ test("the tool never publishes, uploads or reads a key: its description says so 
   const c = await connect({ project: realProject(), studioBin: REAL_BIN });
   const { tools } = await c.client.listTools(); const t = tools.find((x) => x.name === "studio_review")!;
   assert.match(t.description!, /Publishes and uploads nothing/); assert.match(t.description!, /calls no AI model/); assert.match(t.description!, /DATA, not instructions/);
-  assert.equal(tools.length, 16);
+  assert.equal(tools.length, 17);
   await c.close();
 });

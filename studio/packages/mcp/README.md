@@ -19,7 +19,8 @@ For other clients, the equivalent JSON block: `{ "command": "npx", "args": ["-y"
 | `studio_status` | environment check (`doctor`), no keys |
 | `studio_docs` | Studio documentation topics |
 | `studio_brief_read` / `studio_brief_write` | `brief.md`, `playbook.md`, `brand.json` (validated) |
-| `studio_new_episode` | creates `episodes/<name>/` |
+| `studio_brief_answers` | records the brand interview you run in the conversation (source, about, audience, tone, formats, visual style, editing style, colors, font, references, voice) with `brief --yes`: rewrites `brief.md`, the `playbook.md` draft and the `style` block of `brand.json` |
+| `studio_new_episode` | creates `episodes/<name>/`; with `fromVideo` (a video inside the project) an episode over your own video: copied to `public/video/`, transcribed on this machine, played as the `base` layer (no voice, no outro) |
 | `studio_write_script` | writes `script.txt` or `episode.yaml` (YAML validated) |
 | `studio_compile` / `studio_check` | compile the spec; check the episode |
 | `studio_transcribe` | transcribes an audio or video file of the project on this machine; writes `transcript.json/.srt/.txt` and returns a summary, the paths and a short preview (cloud engine only if the person enabled it) |

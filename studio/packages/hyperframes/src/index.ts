@@ -1,7 +1,7 @@
 // @praeko/studio-hyperframes: Praeko Studio's second render engine. Reads the compiled episode and generates a HyperFrames project (HTML + GSAP).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { HF_VERSION, HfError, copyAssets, hfFiles, fonts, requireNoComponents, specComponents, themeFromBrand } from "./common.ts";
+import { HF_VERSION, HfError, copyAssets, hfFiles, fonts, isLongSpec, requireNoComponents, specComponents, themeForSpec, themeFromBrand } from "./common.ts";
 import type { Block, Brand, Spec, Word } from "./common.ts";
 import { generateLong } from "./long.ts";
 import { generateShort, groupWords } from "./short.ts";
@@ -14,7 +14,7 @@ export type { Brand, Spec, Word, Block };
 
 const readJson = <T>(file: string, fallback: T): T => (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : fallback);
 /** A long video has an `endcard`/no `outro`: the Short spec always has `outro`. */
-export const isLong = (spec: Spec): boolean => !spec.outro;
+export const isLong = (spec: Spec): boolean => isLongSpec(spec);
 
 /** Engine choice: --engine > `engine:` of episode.yaml (it goes in the spec) > the brand's `engine` > remotion. */
 export function chooseEngine({ flag, spec, brand }: { flag?: string; spec?: Spec; brand?: Brand }): "remotion" | "hyperframes" {
@@ -37,7 +37,7 @@ export function generateProject({ root, slug, output, brand }: { root: string; s
   if (!words.length) throw new HfError(`missing words.json in ${folder}: run \`praeko studio voice ${slug}\``);
   const blocks = readJson<Block[]>(join(folder, "blocks.json"), []);
   const b: Brand = brand ?? readJson<Brand>(join(root, "brand.json"), {});
-  const T = themeFromBrand(b), F = fonts(b, T);
+  const T = themeForSpec(b, spec), F = fonts(b, T);
   const publicDir = resolve(root, b.publicDir || "public");
   const dir = resolve(output ?? join(root, ".hf", slug));
 

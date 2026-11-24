@@ -1,5 +1,5 @@
 // Builds the four publishable Praeko Studio packages: node scripts/build-studio.mjs [core|kit|cli|mcp ...]  (no argument: all of them, in that order)
-//   core, kit: esbuild bundles the .ts/.tsx into dist/index.js (ESM; react, remotion and @praeko/studio-core stay external) and tsc writes the .d.ts files
+//   core, kit: esbuild bundles the .ts/.tsx into dist/index.js (ESM; react, remotion, @praeko/studio-core and three stay external) and tsc writes the .d.ts files
 //              (with relative specifiers rewritten to `.js`, which is what consumers resolve).
 //   cli (@praeko/studio): one bundle per script (praeko-studio, voice-balance, voice-voices, voice-account, voice-config) with cli+voice+publish+review+hyperframes+yaml inside;
 //              only the ElevenLabs SDK stays external (declared dependency).
@@ -33,7 +33,8 @@ async function library(n) {
   rmSync(dir + "dist", { recursive: true, force: true });
   await build({
     entryPoints: [dir + "src/index.ts"], outfile: dir + "dist/index.js", bundle: true, format: "esm", platform: "neutral", target: "es2022", jsx: "automatic", logLevel: "error", legalComments: "none",
-    external: ["react", "react/jsx-runtime", "react-dom", "remotion", "@praeko/studio-core"], mainFields: ["module", "main"],
+    // three (kit dependency) stays external and is loaded with a dynamic import only by 3D skins
+    external: ["react", "react/jsx-runtime", "react-dom", "remotion", "@praeko/studio-core", "three"], mainFields: ["module", "main"],
   });
   execFileSync(process.execPath, [tsc, "-p", dir + "tsconfig.build.json"], { stdio: "inherit" });
   rewriteDtsSpecifiers(dir + "dist");

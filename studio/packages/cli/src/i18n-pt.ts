@@ -149,6 +149,9 @@ export const PT: [RegExp, string][] = [
   // compile / check / package
   [/^(.*) \((\d+) scenes\)$/, "$1 ($2 cenas)"],
   [/^wrote (.*); (\d+) error\(s\), (\d+) warning\(s\)$/, "escrito $1; $2 erro(s), $3 aviso(s)"],
+  [/^rendered: (.*) \(only the first (.*) s: a preview, not the video to publish\)$/, "renderizado: $1 (só os primeiros $2 s: uma prévia, não o vídeo para publicar)"],
+  [/^--seconds (.*): a number of seconds above 0 \(e\.g\. --seconds 10\)$/, "--seconds $1: um número de segundos maior que 0 (ex.: --seconds 10)"],
+  [/^--seconds works with the remotion engine only .*$/, "--seconds só funciona com o motor remotion (o HyperFrames renderiza o vídeo inteiro): tire o --seconds ou use --engine remotion"],
   [/^rendered: (.*)$/, "renderizado: $1"],
   [/^cover: (.*)$/, "capa: $1"],
   [/^covers: (.*)$/, "capas: $1"],
@@ -160,6 +163,22 @@ export const PT: [RegExp, string][] = [
   [/^(.*): phrase "(.*)" does not appear in the voice \(words\.json\)(.*)$/, "$1: a frase \"$2\" não aparece na voz (words.json)$3"],
   [/^(.*): missing "(.*)"(.*)$/, "$1: falta \"$2\"$3"],
   [/^missing "(.*)"$/, "falta \"$1\""],
+  // own video (new --from-video) and check of an episode with `base`
+  [/^transcribing (.*) \(([\d.]+) s\) on this machine( \(cloud allowed: --cloud\))?…$/, "transcrevendo $1 ($2 s) nesta máquina$3…"],
+  [/^episode created from your video: (.*?) \(id (.*?)\) · (.*?), ([\d.]+) s · (\d+) words \((.*?)\) · copy in (.*) \(the original was not changed\)$/, "episódio criado a partir do seu vídeo: $1 (id $2) · $3, $4 s · $5 palavras ($6) · cópia em $7 (o original não foi alterado)"],
+  [/^(\d+) word\(s\) with zero duration \(the caption flashes or is skipped\): (.*); check them in words\.json$/, "$1 palavra(s) com duração zero (a legenda pisca ou some): $2; confira no words.json"],
+  [/^number\(s\) written as digits in the captions: (.*?); keep them, or spell them out with `captionFixes` in brand\.json; a `when` phrase must use the digits too$/, "número(s) escrito(s) em dígitos na legenda: $1; deixe assim ou escreva por extenso com `captionFixes` no brand.json; uma frase de `when` também precisa usar os dígitos"],
+  [/^the video is (\d+)x(\d+), not 9:16: `fit: cover` fills the vertical frame and crops what does not fit$/, "o vídeo é $1x$2, não 9:16: o `fit: cover` preenche o quadro vertical e corta o que sobra"],
+  [/^next: add scenes and items in (.*?) \(`when` accepts phrases of your video\), then (.*) for a quick look and (.*)$/, "próximo: acrescente cenas e itens em $1 (o `when` aceita frases do seu vídeo), depois $2 para uma olhada rápida e $3"],
+  [/^the episode did not compile: (.*)$/, "o episódio não compilou: $1"],
+  [/^--from-video (.*?): file not found$/, "--from-video $1: arquivo não encontrado"],
+  [/^--from-video (.*?): the video has no audio track, so there is nothing to transcribe for the captions$/, "--from-video $1: o vídeo não tem faixa de áudio, então não há o que transcrever para a legenda"],
+  [/^own video \(base\): (\d+) words spoken in ([\d.]+) s \(from words\.json, not from script\.txt\)$/, "vídeo próprio (base): $1 palavras faladas em $2 s (do words.json, não do script.txt)"],
+  [/^the captions show digits as the transcription wrote them: (.*) \(spell them out with captionFixes in brand\.json if you prefer\)$/, "a legenda mostra dígitos como a transcrição escreveu: $1 (escreva por extenso com captionFixes no brand.json se preferir)"],
+  [/^local Whisper \(to transcribe your own videos\) is not ready: (.*)$/, "o Whisper local (para transcrever os seus vídeos) não está pronto: $1"],
+  [/^local Whisper ready \(transcribes your own videos on this machine\)$/, "Whisper local pronto (transcreve os seus vídeos nesta máquina)"],
+  [/^(\s*)→ (.*) transcribe --download-model downloads the model \(about 547 MB\) only after your yes; without it, `new --from-video` needs --cloud \(the audio leaves this machine\) or --transcript <file\.json>$/, "$1→ $2 transcribe --download-model baixa o modelo (cerca de 547 MB) só depois do seu sim; sem ele, o `new --from-video` precisa de --cloud (o áudio sai desta máquina) ou --transcript <arquivo.json>"],
+  [/^(\d+) visual styles: allowed, but 1 or 2 give the channel an identity \(the first one is the channel's style\)$/, "$1 estilos visuais: pode, mas 1 ou 2 dão identidade ao canal (o primeiro é o estilo do canal)"],
   // cut
   [/^cut "(.*)": (.*) s \((.*) of the long video "(.*)"(.*)\), (\d+) words(.*)$/, "corte \"$1\": $2 s ($3 do longo \"$4\"$5), $6 palavras$7"],
   [/^hook: reused from the cache$/, "abertura: reaproveitada do cache"],
@@ -297,6 +316,85 @@ export const PT_TEXT: Record<string, string> = {
   "References are inputs to study, never to copy: describe pace, opening and captions as RULES, never reproduce someone else's video.": "Referências são para estudar, nunca para copiar: descreva ritmo, abertura e legenda como REGRAS, nunca reproduza o vídeo de ninguém.",
   "What the person liked": "O que a pessoa gostou",
   "(not said)": "(não disse)",
+  // source, formats, visual style and editing style (questions)
+  "Where do the videos come from? 1 script: Studio makes the voice from a script · 2 video: you edit a video you recorded (both: 1,2)": "De onde vêm os vídeos? 1 roteiro: o Studio faz a voz a partir de um roteiro · 2 vídeo: você edita um vídeo que gravou (os dois: 1,2)",
+  "Source (Enter = script)": "Origem (Enter = roteiro)",
+  "Formats, as many as you want; the first one is the main one:": "Formatos, quantos quiser; o primeiro é o principal:",
+  "short (9:16)": "short (9:16, vertical)",
+  "long (16:9)": "longo (16:9)",
+  "carousel (Instagram, 2 to 20 slides)": "carrossel (Instagram, 2 a 20 slides)",
+  "image (Instagram, one slide)": "imagem (Instagram, um slide)",
+  "Formats (Enter = short)": "Formatos (Enter = short)",
+  "Visual style: 1 or 2 give the channel an identity (the first one is the channel's style, the others are styles you also use); more is allowed.": "Estilo visual: 1 ou 2 dão identidade ao canal (o primeiro é o estilo do canal, os outros são estilos que você também usa); pode escolher mais.",
+  "other (describe it)": "outro (descreva)",
+  "Visual styles (numbers or names; Enter = none yet)": "Estilos visuais (números ou nomes; Enter = nenhum por enquanto)",
+  "Describe the other style": "Descreva o outro estilo",
+  "  the other style has no preset: it is kept as an instruction for your agent": "  o outro estilo não tem preset: fica guardado como instrução para o seu agente",
+  "Editing style: each option says whether Studio applies it or your agent follows it as an instruction. Enter keeps the Studio default.": "Estilo de edição: cada opção diz se o Studio aplica ou se o seu agente segue como instrução. Enter mantém o padrão do Studio.",
+  "Pace: 1 calm · 2 fast, short cuts (instruction for the agent)": "Ritmo: 1 calmo · 2 rápido, cortes curtos (instrução para o agente)",
+  "Captions: 1 word by word (applied by Studio) · 2 phrase · 3 none (instructions for the agent: the engine does not apply them yet)": "Legenda: 1 palavra a palavra (aplicada pelo Studio) · 2 por frase · 3 sem legenda (instruções para o agente: o motor ainda não aplica)",
+  "Effects: 1 shake · 2 zoom · 3 flash (applied by Studio) · 4 none": "Efeitos: 1 tremor · 2 zoom · 3 flash (aplicados pelo Studio) · 4 nenhum",
+  "Sound: 1 sound effects (applied by Studio) · 2 none": "Som: 1 efeitos sonoros (aplicados pelo Studio) · 2 nenhum",
+  "Who appears: 1 you, on camera · 2 a mascot · 3 nobody (instruction for the agent)": "Quem aparece: 1 você, na câmera · 2 um mascote · 3 ninguém (instrução para o agente)",
+  "Who appears: 1 a mascot · 2 nobody (instruction for the agent)": "Quem aparece: 1 um mascote · 2 ninguém (instrução para o agente)",
+  "  choose one option: its number or its name": "  escolha uma opção: o número ou o nome dela",
+  "  unknown option; use the numbers or the names above, separated by commas": "  opção desconhecida; use os números ou os nomes acima, separados por vírgula",
+  "  What did you like in it? 1 pace · 2 opening · 3 look · 4 captions (numbers, or say it in your words)": "  O que você gostou nela? 1 ritmo · 2 abertura · 3 visual · 4 legenda (números, ou diga com as suas palavras)",
+  // brief.md and playbook.md (new sections)
+  "Format": "Formato",
+  "Source": "Origem",
+  "script: Studio makes the voice from a script": "roteiro: o Studio faz a voz a partir de um roteiro",
+  "video: you edit a video you recorded": "vídeo: você edita um vídeo que gravou",
+  "Main format": "Formato principal",
+  "Also": "Também",
+  "Visual style": "Estilo visual",
+  "Channel style": "Estilo do canal",
+  "Also used": "Também uso",
+  "Other (described)": "Outro (descrito)",
+  "no preset: instruction for the agent": "sem preset: instrução para o agente",
+  "preset not available yet; instruction for the agent": "preset ainda não disponível; instrução para o agente",
+  "applied by Studio": "aplicado pelo Studio",
+  "instruction for the agent": "instrução para o agente",
+  "Editing style": "Estilo de edição",
+  "Effects": "Efeitos",
+  "Sound": "Som",
+  "Who appears": "Quem aparece",
+  "calm": "calmo",
+  "fast, short cuts": "rápido, cortes curtos",
+  "word by word": "palavra a palavra",
+  "by phrase": "por frase",
+  "none": "nenhum",
+  "sound effects": "efeitos sonoros",
+  "you, on camera": "você, na câmera",
+  "a mascot": "um mascote",
+  "shake": "tremor",
+  "pace": "ritmo",
+  "opening": "abertura",
+  "look": "visual",
+  "captions": "legenda",
+  "(Video only: the sound comes from your own video, there is no voice to make.)": "(Só vídeo próprio: o som vem do seu vídeo, não há voz para gerar.)",
+  "from your editing style": "do seu estilo de edição",
+  "Visual": "Visual",
+  "Never": "Nunca",
+  "Style described by the person (no preset: follow it as an instruction)": "Estilo descrito pela pessoa (sem preset: siga como instrução)",
+  "A single episode can use another style with `style:` in its episode.yaml.": "Um episódio pode usar outro estilo com `style:` no episode.yaml dele.",
+};
+/** Texts that go into the video of a new episode of a pt project (templates.ts VIDEO_TEXT). */
+export const PT_VIDEO_TEXT = { follow: "SIGA PARA MAIS", fullVideo: "VÍDEO COMPLETO NO YOUTUBE", firstSlug: "meu-primeiro", firstTitle: "Meu primeiro vídeo" } as const;
+/** Names, looks and "never" rules of the visual styles in pt (the en ones are in styles.ts). */
+export const PT_STYLES: Record<string, { name: string; look: string; never: string }> = {
+  flat: { name: "Flat (chapado)", look: "Cores chapadas, formas simples, sem degradê nem textura; limpo e claro.", never: "Nunca use degradê, sombra projetada ou textura fotográfica." },
+  minimal: { name: "Minimalista", look: "Muito espaço vazio, uma ideia por tela, poucas cores e linhas finas.", never: "Nunca encha a tela: no máximo um destaque por cena, nada de enfeite à toa." },
+  neon: { name: "Neon", look: "Fundo escuro com linhas e textos brilhando em cores saturadas.", never: "Nunca ponha neon em fundo claro nem brilho em texto corrido que precisa ser lido." },
+  comic: { name: "Quadrinhos", look: "Contorno grosso, cores chapadas, retícula, balões de fala e onomatopeias.", never: "Nunca use contorno fino nem degradê suave; nunca ponha mais de uma frase curta num balão." },
+  chalkboard: { name: "Lousa", look: "Quadro verde-escuro ou preto, traço de giz e texto escrito à mão.", never: "Nunca use cores brilhantes ou neon; nunca faça tudo com formas geométricas perfeitas." },
+  pixel: { name: "Pixel art", look: "Baixa resolução, pixels duros, paleta fixa; sprites desenhados ou fornecidos pela pessoa ou pelo agente.", never: "Nunca suavize nem desfoque os pixels, nunca misture imagem em alta resolução; o Studio não traz sprites nem fonte pixelada." },
+  "8bit": { name: "8-bit", look: "Cara de videogame dos anos 80: paleta fixa, pixels grandes, sons estilo chiptune fornecidos pela pessoa.", never: "Nunca use cores fora da paleta fixa nem texto pequeno (fica ilegível na baixa resolução)." },
+  "retro-crt": { name: "Retrô CRT/VHS", look: "TV antiga ou fita VHS: linhas de varredura, cor vazando um pouco, grão e tela arredondada.", never: "Nunca exagere no ruído sobre texto que precisa ser lido; nada de glitch na legenda." },
+  "clay-3d": { name: "Argila 3D", look: "Formas 3D macias como massinha, cores pastel, luz de estúdio e sombra suave.", never: "Nunca use sombra dura nem contorno fino; nunca ícones 2D chapados por cima da argila." },
+  "blocks-3d": { name: "Blocos de montar 3D", look: "Blocos de plástico com pinos, brilhantes e coloridos, em 3D.", never: "Nunca imite a marca ou os bonecos de um fabricante de brinquedos; nunca plástico fosco e apagado." },
+  "retro-3d": { name: "Retrô 3D", look: "3D synthwave dos anos 80: chão de grade, horizonte brilhando, linhas emissivas.", never: "Nunca use textura realista ou luz do dia; tire o texto da parte mais carregada da grade." },
+  "cinema-3d": { name: "Cinema 3D", look: "3D escuro e dramático, luz de cinema, câmera lenta e profundidade.", never: "Nunca use luz chapada e uniforme nem movimento rápido de desenho animado; nunca esconda o texto nas áreas escuras." },
 };
 export const PT_INTERVIEW: [RegExp, string][] = [
   [/^\ \ "(.*?)"\ is\ not\ a\ hex\ color\ \(e\.g\.\ \#f4b942\);\ try\ again\ or\ press\ Enter\ to\ skip$/, "  \"$1\" não é uma cor hex (ex.: #f4b942); tente de novo ou Enter para pular"],
@@ -305,7 +403,37 @@ export const PT_INTERVIEW: [RegExp, string][] = [
   [/^Reference\ (.*?)\ \(URL\ or\ text;\ Enter\ to\ finish\)$/, "Referência $1 (URL ou texto; Enter para terminar)"],
   [/^Voice\ provider\ \((.*?)\)$/, "Provedor da voz ($1)"],
   [/^\ \ use\ (.*?)$/, "  use $1"],
+  [/^ {2}(\d+) visual styles: allowed, but 1 or 2 give the channel an identity \(the first one is the channel's style\)$/, "  $1 estilos visuais: pode, mas 1 ou 2 dão identidade ao canal (o primeiro é o estilo do canal)"],
+  [/^ {2}(.*?): preset not available yet; kept as an instruction for your agent$/, "  $1: preset ainda não disponível; fica guardado como instrução para o seu agente"],
+  [/^ {2}(.*?) is applied by Studio to the videos \(the colors below start from it\)$/, "  $1 é aplicado pelo Studio nos vídeos (as cores abaixo partem dele)"],
 ];
+// rules the playbook draft takes from the editing style (en, pt); they win over the cues of the tone of voice
+export const EDIT_RHYTHM: Record<"calm" | "fast", [string, string]> = {
+  calm: ["Calm pace: room to breathe between ideas, fewer and longer scenes.", "Ritmo calmo: espaço para respirar entre as ideias, cenas mais longas e em menor número."],
+  fast: ["Fast pace: short sentences, a new scene every 2 to 4 seconds, no warm-up.", "Ritmo rápido: frases curtas, cena nova a cada 2 a 4 segundos, sem enrolação."],
+};
+export const EDIT_OPENING: Record<"calm" | "fast", [string, string]> = {
+  calm: ["Open with one sentence of context that makes the point matter, then the point.", "Abrir com uma frase de contexto que faça o ponto importar e só então o ponto."],
+  fast: ["Open with the strongest point in the first second: no greeting, no intro.", "Abrir com o ponto mais forte no primeiro segundo: sem cumprimento, sem introdução."],
+};
+export const EDIT_EFFECTS: Record<"some" | "none", [string, string]> = {
+  some: ["Effects ({effects}) mark the key words (Studio applies them with `hits`); not on every scene.", "Efeitos ({effects}) marcam as palavras-chave (o Studio aplica com `hits`); não em toda cena."],
+  none: ["No shake, zoom or flash effects.", "Sem efeitos de tremor, zoom ou flash."],
+};
+export const EDIT_SOUND: Record<"sfx" | "none", [string, string]> = {
+  sfx: ["Sound effects (pop, ding, thump, whoosh) mark the key moments; at most one per scene.", "Efeitos sonoros (pop, ding, thump, whoosh) marcam os momentos-chave; no máximo um por cena."],
+  none: ["No sound effects.", "Sem efeitos sonoros."],
+};
+export const EDIT_CAPTIONS: Record<"word" | "phrase" | "none", [string, string]> = {
+  word: ["Word-by-word captions (Studio applies them): write the script with the words spelled as they should appear.", "Legenda palavra a palavra (o Studio aplica): escreva o roteiro com as palavras grafadas como devem aparecer."],
+  phrase: ["Captions by phrase: the engine does not do this yet (it shows word by word); keep the script in short phrases and tell the person.", "Legenda por frase: o motor ainda não faz (mostra palavra a palavra); mantenha o roteiro em frases curtas e avise a pessoa."],
+  none: ["No captions: the engine does not turn them off yet; tell the person before rendering.", "Sem legenda: o motor ainda não desliga a legenda; avise a pessoa antes de renderizar."],
+};
+export const EDIT_FACE: Record<"face" | "mascot" | "none", [string, string]> = {
+  face: ["The person appears on camera (their own video): keep text and items out of the face area.", "A pessoa aparece na câmera (vídeo próprio): deixe textos e itens fora da área do rosto."],
+  mascot: ["A mascot appears: the person or the agent provides it (Studio ships none); use it in the opening and the outro.", "Aparece um mascote: a pessoa ou o agente fornece (o Studio não traz nenhum); use na abertura e no fim."],
+  none: ["Nobody appears: the scenes carry the video.", "Ninguém aparece: as cenas carregam o vídeo."],
+};
 // keyword cues (en + pt) that the playbook draft looks for in the person's own tone of voice, with the rule each one gives (en, pt)
 export const CUES_RHYTHM: [RegExp, string, string][] = [
   [/direct|fast|punch|snappy|short|quick|energetic|dynamic|objective|diret|r[áa]pid|curto|[áa]gil|en[ée]rgic|din[âa]mic|objetiv/i, "Fast pace: short sentences, one idea each, no warm-up.", "Ritmo rápido: frases curtas, uma ideia por frase, sem enrolação."],

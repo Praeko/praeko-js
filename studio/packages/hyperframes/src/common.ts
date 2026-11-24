@@ -1,6 +1,10 @@
 // Pieces shared by the long-video and Short generators: theme, fonts, phrase timing, assets.
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+// skins are pure data in @praeko/studio-core (no React): imported by path, like the CLI does
+import { skinOf } from "../../core/src/skins.ts";
+import { themeForSkin } from "../../core/src/skin.ts";
+import type { Theme as CoreTheme } from "../../core/src/theme.ts";
 
 export const HF_VERSION = "0.9.13";
 export const f2 = (x: number): number => +Number(x).toFixed(2);
@@ -42,6 +46,16 @@ const DEFAULT_THEME: Theme = {
 /** Same reading as `themeFromBrand` of @praeko/studio-core (which is TSX and does not run in Node). */
 export function themeFromBrand(m: Brand = {}): Theme {
   return { ...DEFAULT_THEME, ...(m.colors || {}), ...(m.fonts?.title ? { font: m.fonts.title } : {}), ...(m.fonts?.mono ? { mono: m.fonts.mono } : {}), ...(m.handle ? { handle: m.handle } : {}), ...(m.avatar ? { avatar: m.avatar } : {}) };
+}
+/** A long video: `format: long` in the spec, or (specs compiled before `format` existed) no `outro`. A Short may have no outro. */
+export const isLongSpec = (spec: Spec): boolean => spec?.format === "long" || (spec?.format !== "short" && !spec?.outro);
+/**
+ * The theme of an episode: the brand's, plus the palette and fonts of its skin (`style` in the spec). HyperFrames applies only the palette and
+ * fonts of a skin; its shapes, motion, post-process and 3D stage are Remotion's (`hyperframesWarnings` says so at compile time).
+ */
+export function themeForSpec(brand: Brand, spec: Spec): Theme {
+  const T = themeFromBrand(brand), skin = skinOf(spec?.style);
+  return skin ? (themeForSkin(T as unknown as CoreTheme, skin, skinOf(spec?.channelStyle)) as unknown as Theme) : T;
 }
 /** Theme color name (accent, error…) or #hex → CSS color. */
 export const color = (T: Theme, c?: string): string | undefined => (c ? (T[c] && !String(c).startsWith("#") ? (T[c] as string) : c) : undefined);
