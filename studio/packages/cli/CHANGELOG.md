@@ -4,6 +4,13 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-25
+
+New projects get `@praeko/studio-core` and `@praeko/studio-kit` `^0.4.2`.
+
+### Changed
+- 3D skins work over your own video (`base`): the slab with the scene's panel, the props and their shadow are drawn over the video (no floor or wall hiding it; needs `@praeko/studio-core` and `@praeko/studio-kit` from this release). `check`/`compile` no longer warn about a 3D skin with `base`; `docs/from-video.md` and `docs/style.md` say how it looks.
+
 ## [0.4.1] - 2026-11-24
 
 New projects get `@praeko/studio-core` and `@praeko/studio-kit` `^0.4.1`.

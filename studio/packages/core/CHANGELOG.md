@@ -4,6 +4,11 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-25
+
+### Added
+- `SceneStage.overBase`: a stage marked `overBase` is also used over the person's own video; the `Episode` draws the `base` video under it (the stage leaves its background transparent). A stage without the mark is replaced by the flat scenes when there is a `base`, as before. Without `base` nothing changes.
+
 ## [0.4.1] - 2026-11-24
 
 ### Changed

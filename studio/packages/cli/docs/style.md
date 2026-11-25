@@ -68,6 +68,7 @@ What is data in `skin.stage`: material (`clay`, `plastic`, `neon`, `pbr`), studs
 Limits:
 - `window` and `phone` videos show on the slab: every image of the panel (video frames included) is waited for and copied into the rasterized panel. Use them inside panel scenes (positions from the panel's corner).
 - `layout: free` scenes are drawn on the slab face (940x1000), not on the full screen: positions count from the face's corner and anything past 940x1000 is cut. `check` warns about free scenes in a 3D skin.
+- Over your own video (`base`): the video plays full screen under the stage, with its audio, and the stage is transparent: only the slab, the props and their soft shadow (on an invisible floor; skins without shadows have none) are drawn over it. Floor, back wall, grid, sun and fog are left out; the overlay (vignette, grain) stays. Without `base` nothing changes.
 - `faceLight` (0..1) makes the panel face give off its own light, so text stays readable under low-key lighting (`cinema-3d`).
 - Font files are embedded in the rasterized panel, so text on the slab uses the same fonts as the captions.
 - three.js is a dependency of `@praeko/studio-kit` and is loaded on demand: projects that never use a 3D skin do not load it.

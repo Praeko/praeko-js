@@ -382,8 +382,12 @@ const BaseLayer: React.FC<{ base: BaseVideo }> = ({ base }) => (
   </AbsoluteFill>
 );
 
-/** What draws the background and the scenes. Default: the skin background (or the base video) and each scene in its own Sequence. A 3D skin passes its stage. */
-export type SceneStage = React.FC<{ d: EpisodeData }>;
+/**
+ * What draws the background and the scenes. Default: the skin background (or the base video) and each scene in its own Sequence. A 3D skin
+ * passes its stage. A stage marked `overBase` can also be drawn over the person's own video: the Episode puts the `base` video under it and
+ * the stage must leave its background transparent. A stage without the mark is replaced by the flat scenes when there is a `base`.
+ */
+export type SceneStage = React.FC<{ d: EpisodeData }> & { overBase?: boolean };
 export const FlatScenes: SceneStage = ({ d }) => (
   <>
     {d.base ? <BaseLayer base={d.base} /> : <SkinBackground lines={d.backgroundLines ?? ["✓ ok"]} />}
@@ -395,16 +399,18 @@ export const FlatScenes: SceneStage = ({ d }) => (
   </>
 );
 
-/** The episode. `stage` replaces the flat background and scenes (3D skins); with a `base` video the flat scenes are always used. */
+/** The episode. `stage` replaces the flat background and scenes (3D skins); with a `base` video it is used only when it is marked `overBase` (drawn over the video), otherwise the flat scenes are. */
 export const Episode: React.FC<{ d: EpisodeData; stage?: SceneStage }> = ({ d, stage }) => {
   const { background: BG } = useTheme();
   const S = useSkin();
-  const Stage = stage && !d.base ? stage : FlatScenes;
+  const Stage = stage && (!d.base || stage.overBase) ? stage : FlatScenes;
+  const baseUnder = d.base && Stage !== FlatScenes ? d.base : undefined;
   return (
   <AbsoluteFill style={{ backgroundColor: BG }}>
     <SkinFonts />
     {d.voice ? <Audio src={staticFile(d.voice)} /> : null}
     <Hits hits={d.hits ?? []}>
+    {baseUnder ? <BaseLayer base={baseUnder} /> : null}
     <Stage d={d} />
 
     {/* sounds: whoosh at the start, pop in every scene and each scene's own sounds */}

@@ -13,8 +13,8 @@ export const VIDEO_TEXT = {
 export const VERSIONS = { remotion: "4.0.539", react: "19.2.3", reactTypes: "19.2.7", typescript: "5.9.3" };
 /** New project: dependencies by published version (semver). With `dev` (path to the Studio repository) it uses `file:` (the way contributors work). */
 /** `libVersion`: the published version line of @praeko/studio-core and @praeko/studio-kit (they are NOT bumped with every CLI patch: 0.4.x of the CLI uses ^0.4.0 of the libraries). */
-export const LIB_VERSION = "0.4.1";
-export const projectPackage = ({ name, dev = null, studioVersion = "0.4.1", libVersion = LIB_VERSION }: { name: string; dev?: string | null; studioVersion?: string; libVersion?: string }): string => JSON.stringify({
+export const LIB_VERSION = "0.4.2";
+export const projectPackage = ({ name, dev = null, studioVersion = "0.4.2", libVersion = LIB_VERSION }: { name: string; dev?: string | null; studioVersion?: string; libVersion?: string }): string => JSON.stringify({
   name, version: "0.0.1", private: true,
   scripts: { dev: "remotion studio src/index.ts" },
   dependencies: {

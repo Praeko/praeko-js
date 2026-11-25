@@ -3,11 +3,13 @@ import { AbsoluteFill, Sequence, continueRender, delayRender, staticFile, useCur
 import { FPS, fontFilesOf, useSkin, useTheme } from "@praeko/studio-core";
 import type { EpisodeData, SceneStage, SkinStage, Theme } from "@praeko/studio-core";
 import type * as Three from "three";
+import { stageLayers } from "./stage-layers.ts";
 
 /* ============ 3D stage of the 3D skins (path A').
    The scene panel (the SAME kit DOM: the items of the YAML) is rasterized every frame (SVG foreignObject → image → canvas) and used as the
    texture of the front face of a slab, inside a three.js stage: floor, wall, generic props, studio light, soft shadow, a camera shot per scene.
    Everything is a function of (scene index, t): no clock, no unseeded randomness. Materials, light, floor and props come from `skin.stage`.
+   Over the person's own video (`base`) the canvas is transparent: only the slab, the props and their shadow, on top of the video.
    three.js is loaded on demand (dynamic import), so projects that never use a 3D skin do not load it. ============ */
 
 type THREE = typeof Three;
@@ -48,10 +50,12 @@ function roundedBox(T3: THREE, w: number, h: number, d: number, r: number): Thre
 
 type World = { render: (t: number, scenes: { a: number; b: number }[]) => void; dispose: () => void };
 
-function makeWorld(T3: THREE, canvas: HTMLCanvasElement, face: HTMLCanvasElement, width: number, height: number, T: Theme, st: SkinStage): World {
+function makeWorld(T3: THREE, canvas: HTMLCanvasElement, face: HTMLCanvasElement, width: number, height: number, T: Theme, st: SkinStage, overVideo: boolean): World {
   const disposables: { dispose: () => void }[] = [];
   const keep = <X extends { dispose: () => void }>(x: X): X => { disposables.push(x); return x; };
-  const renderer = new T3.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, alpha: false });
+  const layers = stageLayers(st, overVideo);
+  const renderer = new T3.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, alpha: layers.transparent });
+  if (layers.transparent) renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(1); renderer.setSize(width, height, false);
   renderer.outputColorSpace = T3.SRGBColorSpace;
   renderer.toneMapping = T3.ACESFilmicToneMapping; renderer.toneMappingExposure = st.exposure;
@@ -59,8 +63,8 @@ function makeWorld(T3: THREE, canvas: HTMLCanvasElement, face: HTMLCanvasElement
 
   const scene = new T3.Scene();
   const bg = new T3.Color(T.background);
-  scene.background = bg;
-  if (st.fog) scene.fog = new T3.Fog(bg, st.fog[0], st.fog[1]);
+  if (!layers.transparent) scene.background = bg;
+  if (layers.fog) scene.fog = new T3.Fog(bg, layers.fog[0], layers.fog[1]);
   const camera = new T3.PerspectiveCamera(40, width / height, 0.1, 200);
 
   // seeded bump noise (clay)
@@ -95,18 +99,21 @@ function makeWorld(T3: THREE, canvas: HTMLCanvasElement, face: HTMLCanvasElement
   const rim = new T3.DirectionalLight(L.rimColor, L.rim); rim.position.set(-4, 6, -9); scene.add(rim);
 
   // floor
-  if (st.floor === "sweep") {
+  if (layers.floor === "shadow") { // over a video: an invisible floor that only shows the soft shadow of the slab and the props
+    const catcher = new T3.Mesh(keep(new T3.PlaneGeometry(200, 200)), keep(new T3.ShadowMaterial({ opacity: 0.35 })));
+    catcher.rotation.x = -Math.PI / 2; catcher.position.y = FLOOR_Y; catcher.receiveShadow = true; scene.add(catcher);
+  } else if (layers.floor === "sweep") {
     const floor = mesh(new T3.PlaneGeometry(200, 200), material(T.background, true));
     floor.rotation.x = -Math.PI / 2; floor.position.y = FLOOR_Y; floor.castShadow = false; scene.add(floor);
     const wall = mesh(new T3.PlaneGeometry(200, 60), material(T.background, true));
     wall.position.set(0, 20, -9); wall.castShadow = false; scene.add(wall);
-  } else if (st.floor === "grid") {
+  } else if (layers.floor === "grid") {
     const grid = new T3.GridHelper(240, 120, T.accent, T.info);
     grid.position.y = FLOOR_Y; (grid.material as Three.Material).transparent = true; (grid.material as Three.Material).opacity = 0.8; keep(grid.geometry); keep(grid.material as Three.Material); scene.add(grid);
     const base = mesh(new T3.PlaneGeometry(240, 240), keep(new T3.MeshBasicMaterial({ color: "#05010f" })));
     base.rotation.x = -Math.PI / 2; base.position.y = FLOOR_Y - 0.01; scene.add(base);
   }
-  if (st.sun) { // striped synthwave sun on the horizon (canvas texture: a gradient disc with horizontal gaps)
+  if (layers.sun) { // striped synthwave sun on the horizon (canvas texture: a gradient disc with horizontal gaps)
     const c = document.createElement("canvas"); c.width = c.height = 512;
     const g = c.getContext("2d")!, grad = g.createLinearGradient(0, 0, 0, 512);
     grad.addColorStop(0, T.extra); grad.addColorStop(0.55, T.accent); grad.addColorStop(1, "#7a1fa2");
@@ -210,7 +217,10 @@ async function rasterize(root: HTMLElement, fontCss: string): Promise<HTMLImageE
 
 const NOISE = `url("data:image/svg+xml;utf8,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='220' height='220' filter='url(#n)'/></svg>")}")`;
 
-/** The stage of 3D skins: replaces the flat background and scenes; label, captions and progress bar stay flat on top (drawn by the Episode). */
+/**
+ * The stage of 3D skins: replaces the flat background and scenes; label, captions and progress bar stay flat on top (drawn by the Episode).
+ * With a `base` video the Episode draws the video under it and the stage is transparent around the slab (`overBase`).
+ */
 export const SlabStage: SceneStage = ({ d }: { d: EpisodeData }) => {
   const T = useTheme(), st = useSkin().stage!;
   const frame = useCurrentFrame();
@@ -221,6 +231,8 @@ export const SlabStage: SceneStage = ({ d }: { d: EpisodeData }) => {
   const [three, setThree] = useState<THREE | null>(null);
   const [loading] = useState(() => delayRender("three.js"));
   const skin = useSkin();
+  /** over the person's own video (`base`, drawn under this stage by the Episode): transparent canvas, no floor/wall/fog */
+  const overVideo = !!d.base;
   // fonts loaded with FontFace do not reach an SVG image: embed the files (base64) in the rasterized panel
   const [fontCss, setFontCss] = useState<string | null>(null);
   useLayoutEffect(() => {
@@ -239,9 +251,9 @@ export const SlabStage: SceneStage = ({ d }: { d: EpisodeData }) => {
   const ready = three !== null && fontCss !== null;
   useLayoutEffect(() => {
     if (!three || !canvasRef.current) return;
-    world.current = makeWorld(three, canvasRef.current, face, width, height, T, st);
+    world.current = makeWorld(three, canvasRef.current, face, width, height, T, st, overVideo);
     return () => { world.current?.dispose(); world.current = null; };
-  }, [three, width, height, T, st, face]);
+  }, [three, width, height, T, st, face, overVideo]);
   // The face is rasterized again whenever the panel DOM changes: on each frame (this component re-renders) AND when a part changes on its own
   // (a text that shrinks to fit, the frame image of a `window` video that arrives later). A MutationObserver catches the latter. One render
   // handle is held while any rasterization is pending; only the newest run draws, and it releases the handle.
@@ -289,3 +301,4 @@ export const SlabStage: SceneStage = ({ d }: { d: EpisodeData }) => {
     </AbsoluteFill>
   );
 };
+SlabStage.overBase = true;

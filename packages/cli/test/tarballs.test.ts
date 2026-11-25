@@ -59,7 +59,7 @@ test("@praeko/studio-core and @praeko/studio-kit tarballs: dist with .d.ts, remo
     assert.ok(!files.some((a) => a.startsWith("src/") || a.startsWith("test/")));
     assert.match(pkg.peerDependencies.remotion, /^\^4\./); assert.match(pkg.peerDependencies.react, /^\^19/); // the kit's 3D stage needs three (exact version, loaded by a dynamic import only in 3D skins); the core has no dependency
     assert.deepEqual(pkg.dependencies, key === "studio-kit" ? { three: "0.170.0" } : undefined);
-    assert.equal(pkg.license, "MIT"); assert.equal(pkg.publishConfig.access, "public"); assert.equal(pkg.version, "0.4.1");
+    assert.equal(pkg.license, "MIT"); assert.equal(pkg.publishConfig.access, "public"); assert.equal(pkg.version, "0.4.2");
   }
   assert.equal(JSON.parse(readFileSync(root + "studio/packages/kit/package.json", "utf8")).peerDependencies["@praeko/studio-core"], "^0.4.0");
 });

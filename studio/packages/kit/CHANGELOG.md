@@ -4,6 +4,14 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-25
+
+### Changed
+- `SlabStage` over your own video (`base`): the stage is drawn over the video on a transparent canvas, with only the slab (the scene's panel), the props and their soft shadow on an invisible floor; floor, back wall, grid, sun and fog are left out. It is marked `overBase`, so the Episode of `@praeko/studio-core` (this release) puts the video under it; with an older core the flat scenes are used over the video, as before. Without `base` nothing changes.
+
+### Added
+- `stageLayers(stage, overVideo)`: what the 3D stage draws around the slab, as data (pure, tested without a GPU).
+
 ## [0.4.1] - 2026-11-24
 
 ### Fixed

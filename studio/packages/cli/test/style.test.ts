@@ -213,11 +213,11 @@ test("skinRenderArgs: only 3D skins render at CRF 23 (the grain under a moving c
   assert.deepEqual(skinRenderArgs(dir()), []);
 });
 
-test("styleWarnings: a 3D skin over the person's own video (base) is warned about; 2D skins and no base are not", () => {
-  const has = (w: string[]) => w.some((x) => /`base` video.*3D stage is drawn under it/.test(x));
-  assert.ok(has(styleWarnings({ style: "clay-3d", base: { src: "video/a.mp4" }, scenes: [] }, {})));
-  assert.ok(!has(styleWarnings({ style: "clay-3d", scenes: [] }, {})));
-  assert.ok(!has(styleWarnings({ style: "comic", base: { src: "video/a.mp4" }, scenes: [] }, {})));
+test("styleWarnings: a 3D skin over the person's own video (base) is not warned about (the slab is drawn over the video)", () => {
+  const mentionsBase = (w: string[]) => w.some((x) => /`base`|own video/.test(x));
+  for (const style of ["clay-3d", "blocks-3d", "retro-3d", "cinema-3d", "comic"]) {
+    assert.ok(!mentionsBase(styleWarnings({ style, base: { src: "video/a.mp4" }, scenes: [] }, {})), style);
+  }
 });
 
 test("compile: an own video (base, no voice) ending with the speech does not warn about room after the voice; a voice episode still does", () => {
