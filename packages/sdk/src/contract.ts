@@ -185,7 +185,7 @@ const KEY_ROWS = [
   ["seguidores", "followers"], ["seguidoresGanhos", "followersGained"], ["seguidoresVar", "followersChange"], ["semMetricas", "noMetrics"], ["semResposta", "unanswered"],
   ["servico", "service"], ["simples", "simple"], ["simulado", "simulated"], ["simular", "dryRun"], ["stitchDesabilitado", "stitchDisabled"], ["suportado", "supported"],
   ["tamanho", "size"], ["tempoAssistidoMin", "watchTimeMin"], ["tempoMedioSeg", "avgWatchTimeSec"], ["texto", "text"], ["texto_base", "baseText"], ["textos", "texts"], ["tipo", "type"],
-  ["titulo", "title"], ["total", "total"], ["totalRespostas", "replyCount"], ["ultima", "last"], ["ultimaImportacao", "lastImport"], ["ultimo_uso", "lastUsedAt"], ["urlPublica", "publicUrl"],
+  ["titulo", "title"], ["total", "total"], ["totalRespostas", "replyCount"], ["ultima", "last"], ["ultimaImportacao", "lastImport"], ["ultimaAtividadeEm", "lastActivityAt"], ["ultimo_uso", "lastUsedAt"], ["urlPublica", "publicUrl"],
   ["usuario", "username"], ["vagas", "slots"], ["vagasLivres", "freeSlots"], ["valor", "value"], ["variacao", "change"], ["verificar", "verify"], ["versao", "version"],
   ["visualizacoes", "viewCount"], ["ignorados", "skippedCount"], ["publicos", "publicCount"],
   // uso e log de requisições (/v1/usage)

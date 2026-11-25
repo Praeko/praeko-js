@@ -4,6 +4,7 @@
 // Token guardado como segredo `instagram/meta` (JSON { token, userId, username, tipo, host }).
 // Nomes de métricas conferidos na doc da Meta (Instagram media insights, v23): REELS aceita comments, ig_reels_avg_watch_time,
 // ig_reels_video_view_total_time, likes, reach, saved, shares, total_interactions, views; `impressions` está obsoleta e `plays` não existe mais.
+import { estadoDaConversa } from "./conversa.ts";
 
 export const REF_META = "instagram/meta";
 export const HOST_PADRAO = "https://graph.facebook.com";
@@ -226,7 +227,8 @@ export async function comentariosDaMidia({ ctx, mediaId, max = 50, t }: any) {
   const j = await chamar(ctx, `${mediaId}/comments`, { fields: "id,username,text,timestamp,like_count,hidden,replies{id,username,text,timestamp,like_count,hidden}", limit: ate(max, 100) }, { t: tk });
   return (j.data || []).map((c: any) => {
     const topo = comentarioDe(c, mediaId, dono), respostas = (c.replies?.data || []).map((r: any) => comentarioDe(r, mediaId, dono));
-    return { ...topo, totalRespostas: respostas.length, respondido: !topo.doDono && respostas.some((r: any) => r.doDono), respostas };
+    const conversa = estadoDaConversa(topo, respostas); // a última fala visível decide (provedores/conversa.ts); a Meta traz as respostas junto, sem total à parte
+    return { ...topo, totalRespostas: respostas.length, respondido: conversa.respondido, ultimaAtividadeEm: conversa.ultimaAtividadeEm, respostas };
   });
 }
 

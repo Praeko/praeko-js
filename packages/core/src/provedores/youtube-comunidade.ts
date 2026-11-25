@@ -1,6 +1,7 @@
 // YouTube: o canal por dentro (vídeos, edição e comentários). Mesma regra do youtube-api.ts: só fetch, nada de Node.
 // Cotas da Data API v3: videos.list e commentThreads.list e playlistItems.list custam 1; videos.update e comments.insert, 50.
 import { API, api, canalId, falha } from "./youtube-api.ts";
+import { emOrdem, estadoDaConversa } from "./conversa.ts";
 
 const lerJson = async (r: any) => { const t = await r.text(); if (!r.ok) throw falha(r.status, t); return t ? JSON.parse(t) : {}; };
 const ate = (n: any, max: any) => Math.max(1, Math.min(max, Math.floor(+n) || 20));
@@ -89,21 +90,26 @@ const comentarioDe = (c: any) => ({
   curtidas: c.snippet?.likeCount ?? 0,
 });
 
-/** O dono respondeu? Usa as respostas que vieram junto; se o YouTube cortou a lista, pergunta por comments.list (1 unidade). */
-async function donoRespondeu(ctx: any, thread: any, cid: any) {
+/**
+ * As respostas de um thread para decidir quem falou por último (provedores/conversa.ts). Usa as que vieram junto (o commentThreads traz só uma parte, sem ordem documentada).
+ * Se a lista veio cortada E o dono não está nela, busca todas por comments.list (1 unidade por página de 100; era o mesmo custo de antes, quando só se perguntava "o dono respondeu?").
+ * Lista cortada COM o dono nela: nada de chamada extra; a conversa fica "na dúvida" (pendente). Devolve `todas` (as conhecidas), `buscou` (foi ao comments.list) e `completa`.
+ */
+async function respostasDoThread(ctx: any, thread: any, cid: any): Promise<{ todas: any[]; buscou: boolean; completa: boolean }> {
   const total = thread.snippet?.totalReplyCount ?? 0;
-  if (!total) return false;
-  const vindas = (thread.replies?.comments || []).map(comentarioDe);
-  if (vindas.some((c: any) => c.autorCanal === cid)) return true;
-  if (vindas.length >= total) return false;
-  let pagina;
+  const vindas = (thread.replies?.comments || []).map((c: any) => respostaDe(c, cid));
+  if (!total || vindas.length >= total || vindas.some((c: any) => c.doDono)) return { todas: vindas, buscou: false, completa: vindas.length >= total };
+  const todas: any[] = []; let pagina, paginas = 0;
   do {
     const r = await lerJson(await api(ctx, `${API}/comments?part=snippet&parentId=${encodeURIComponent(thread.id)}&maxResults=100&textFormat=plainText${pagina ? `&pageToken=${encodeURIComponent(pagina)}` : ""}`));
-    if ((r.items || []).some((c: any) => c.snippet?.authorChannelId?.value === cid)) return true;
-    pagina = r.nextPageToken;
-  } while (pagina);
-  return false;
+    todas.push(...(r.items || []).map((c: any) => respostaDe(c, cid)));
+    pagina = r.nextPageToken; paginas++;
+  } while (pagina && paginas < MAX_PAGINAS_RESPOSTAS);
+  return { todas, buscou: true, completa: !pagina }; // leu até a última página: completa (mesmo que o totalReplyCount conte respostas que a API não entrega)
 }
+const MAX_PAGINAS_RESPOSTAS = 10; // 1000 respostas; acima disso a lista fica incompleta e a conversa, "na dúvida", pendente
+const respostaDe = (c: any, cid: any) => { const r = comentarioDe(c); return { ...r, doDono: !!cid && r.autorCanal === cid }; };
+const RESPOSTAS_GUARDADAS = 20; // depois de buscar a lista inteira, o thread leva as 20 mais recentes (não a lista toda)
 
 /**
  * Comentários do canal (todos os vídeos) ou de um vídeo. `semResposta`: só os de terceiros que o dono ainda não respondeu.
@@ -119,12 +125,13 @@ export async function listarComentarios({ ctx, videoId, semResposta = false, max
     for (const t of r.items || []) {
       const topo = comentarioDe(t.snippet?.topLevelComment || {});
       const doDono = topo.autorCanal === cid;
-      const respondido = doDono ? false : await donoRespondeu(ctx, t, cid);
-      if (semResposta && (doDono || respondido)) continue;
+      const total = t.snippet?.totalReplyCount ?? 0, { todas, buscou, completa } = doDono ? { todas: (t.replies?.comments || []).map((c: any) => respostaDe(c, cid)), buscou: false, completa: true } : await respostasDoThread(ctx, t, cid);
+      const conversa = estadoDaConversa({ ...topo, doDono }, todas, completa ? todas.length : total);
+      if (semResposta && (doDono || conversa.respondido)) continue;
       saida.push({
         id: t.id, videoId: t.snippet?.videoId || videoId || null, ...(topo as Record<string, any>), doDono,
-        totalRespostas: t.snippet?.totalReplyCount ?? 0, respondido,
-        respostas: (t.replies?.comments || []).map(comentarioDe),
+        totalRespostas: total, respondido: conversa.respondido, ultimaAtividadeEm: conversa.ultimaAtividadeEm,
+        respostas: buscou ? emOrdem(todas).slice(-RESPOSTAS_GUARDADAS) : todas,
       });
       if (saida.length >= max) return { comentarios: saida, proxima: prox };
     }
