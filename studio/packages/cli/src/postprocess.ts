@@ -31,8 +31,8 @@ export const upscaleOf = (scale: number): number => {
 };
 
 const CRT = [
-  "scale=iw/2:ih:flags=bilinear", "scale=iw*2:ih:flags=bicubic", "rgbashift=rh=-5:bh=5:gv=1", "eq=saturation=0.82:contrast=0.96:brightness=0.015", "noise=alls=7:allf=t",
-  "drawbox=x=0:y='mod(t*260,ih+200)-200':w=iw:h=70:color=white@0.07:t=fill", "drawgrid=w=iw:h=4:t=2:c=black@0.30", "lenscorrection=k1=-0.06:k2=-0.015:i=bilinear", "vignette=angle=PI/4.5",
+  "scale=iw/2:ih:flags=bilinear", "scale=iw*2:ih:flags=bicubic", "rgbashift=rh=-5:bh=5:gv=1", "eq=saturation=0.9:contrast=0.98:brightness=0.035:gamma=1.18", "noise=alls=7:allf=t",
+  "drawbox=x=0:y='mod(t*260,ih+200)-200':w=iw:h=70:color=white@0.07:t=fill", "drawgrid=w=iw:h=4:t=2:c=black@0.2", "lenscorrection=k1=-0.06:k2=-0.015:i=bilinear", "vignette=angle=PI/4.5",
 ];
 
 /**
@@ -86,6 +86,13 @@ export async function postProcessFile(file: string, post: SkinPost, ffmpeg = "ff
 }
 
 /** The skin post-process of a rendered episode (from `style` in its episode.spec.json); a no-op for skins without `post`. */
+/** Extra Remotion render flags for the episode's skin. 3D skins move a grainy, bumpy texture under a moving camera: at Remotion's default CRF 18 the grain eats the bitrate (clay-3d: ~28 Mbps, 123 MB for 43 s), so they render at CRF 23 (~7 Mbps), still sharp on text and edges. */
+export function skinRenderArgs(folder: string): string[] {
+  const specFile = join(folder, "episode.spec.json");
+  const spec = existsSync(specFile) ? JSON.parse(readFileSync(specFile, "utf8")) : null;
+  return skinOf(spec?.style)?.dimension === "3d" ? ["--crf=23"] : [];
+}
+
 export async function applySkinPost(folder: string, file: string, log: (s: string) => void = console.log): Promise<number> {
   const specFile = join(folder, "episode.spec.json");
   const spec = existsSync(specFile) ? JSON.parse(readFileSync(specFile, "utf8")) : null;

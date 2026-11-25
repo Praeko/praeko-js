@@ -12,7 +12,7 @@ import { writeTranscript } from "@praeko/studio-voice";
 import { brief, init, newEpisode, ownVideoFindings, secondsRange } from "../src/commands.ts";
 import { compileEpisode } from "../src/compile.ts";
 import { videoSourceItems } from "../src/doctor.ts";
-import { cleanWords, transcriptWarnings } from "../src/from-video.ts";
+import { cleanWords, spreadZeroDurations, transcriptWarnings } from "../src/from-video.ts";
 import { help } from "../src/help.ts";
 import { applyBrand, checkCombination, hasBrief, interview, mergeAnswers, parseAnswers, parseLiked, readBriefAnswers, renderBrief, renderPlaybook, styleWarning } from "../src/interview.ts";
 import type { Ask } from "../src/interview.ts";
@@ -270,7 +270,7 @@ test("new --from-video (real ffmpeg, transcript fixture): copies the video, writ
   assert.equal(sha(video), before, "the original is never changed");
   assert.equal(sha(join(dir, "public", "video", "my-talk.mp4")), before, "copied as is");
   const ep = join(dir, "episodes", "my-talk");
-  assert.deepEqual(JSON.parse(readFileSync(join(ep, "words.json"), "utf8")), WORDS);
+  assert.deepEqual(JSON.parse(readFileSync(join(ep, "words.json"), "utf8")), spreadZeroDurations(WORDS).words); // the zero-duration "world" is spread, not kept
   assert.match(readFileSync(join(ep, "words.ts"), "utf8"), /"Hello"/);
   assert.equal(readFileSync(join(ep, "script.txt"), "utf8"), "Hello world 42 times\n");
   assert.equal(JSON.parse(readFileSync(join(ep, "publication.json"), "utf8")).ai.synthetic, false);
@@ -280,7 +280,7 @@ test("new --from-video (real ffmpeg, transcript fixture): copies the video, writ
   const root = readFileSync(join(dir, "src", "Root.tsx"), "utf8");
   if (ready) {
     assert.match(root, /<MyTalkComposition \/>/);
-    assert.ok(lines.some((l) => /1 word\(s\) with zero duration.*"world" at 0\.50 s/.test(l)), lines.join("\n"));
+    assert.ok(lines.some((l) => /1 word\(s\) with zero duration were spread over the time of the words around them/.test(l)), lines.join("\n"));
     assert.ok(lines.some((l) => /number\(s\) written as digits in the captions: 42/.test(l)));
     assert.ok(lines.some((l) => /the original was not changed/.test(l)));
   } else assert.doesNotMatch(root, /MyTalkComposition/, "not registered until it compiles");
@@ -316,6 +316,20 @@ test("from-video helpers: cleanWords rounds and drops empty words; transcriptWar
   assert.throws(() => cleanWords({}), /no word list/);
   assert.deepEqual(transcriptWarnings([{ t: "ok", a: 0, b: 1 }]), []);
   assert.equal(transcriptWarnings([{ t: "x", a: 1, b: 1 }, { t: "2026", a: 1, b: 2 }]).length, 2);
+});
+
+test("from-video: spreadZeroDurations spreads a run of words with no duration over the time they really occupy", () => {
+  const w = (t: string, a: number, b: number) => ({ t, a, b });
+  const r = spreadZeroDurations([w("a", 1, 2), w("Aí", 15.1, 15.1), w("ali", 15.1, 15.1), w("na", 15.1, 15.1), w("tá", 15.1, 15.19), w("tocando,", 15.19, 16.83), w("fim", 17, 18)]);
+  assert.equal(r.fixed, 3);
+  assert.deepEqual(r.words[0], w("a", 1, 2)); assert.deepEqual(r.words[6], w("fim", 17, 18)); // untouched
+  assert.equal(r.words[1]!.a, 15.1); assert.equal(r.words[5]!.b, 16.83); // the group keeps its span
+  for (let i = 1; i < 6; i++) { assert.ok(r.words[i]!.b > r.words[i]!.a, r.words[i]!.t); if (i > 1) assert.equal(r.words[i]!.a, r.words[i - 1]!.b); }
+  // no room (zero words at the very end, or crammed in a tiny span): left as they are
+  assert.equal(spreadZeroDurations([w("x", 3, 3)]).fixed, 0);
+  assert.equal(spreadZeroDurations([w("x", 3, 3), w("y", 3, 3.02)]).fixed, 0);
+  // input is not mutated
+  const input = [w("x", 5, 5), w("y", 5, 6)]; spreadZeroDurations(input); assert.deepEqual(input, [w("x", 5, 5), w("y", 5, 6)]);
 });
 
 // ---------- render --seconds, transcribe --out, help, skill ----------

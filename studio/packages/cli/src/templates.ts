@@ -13,8 +13,8 @@ export const VIDEO_TEXT = {
 export const VERSIONS = { remotion: "4.0.539", react: "19.2.3", reactTypes: "19.2.7", typescript: "5.9.3" };
 /** New project: dependencies by published version (semver). With `dev` (path to the Studio repository) it uses `file:` (the way contributors work). */
 /** `libVersion`: the published version line of @praeko/studio-core and @praeko/studio-kit (they are NOT bumped with every CLI patch: 0.4.x of the CLI uses ^0.4.0 of the libraries). */
-export const LIB_VERSION = "0.4.0";
-export const projectPackage = ({ name, dev = null, studioVersion = "0.4.0", libVersion = LIB_VERSION }: { name: string; dev?: string | null; studioVersion?: string; libVersion?: string }): string => JSON.stringify({
+export const LIB_VERSION = "0.4.1";
+export const projectPackage = ({ name, dev = null, studioVersion = "0.4.1", libVersion = LIB_VERSION }: { name: string; dev?: string | null; studioVersion?: string; libVersion?: string }): string => JSON.stringify({
   name, version: "0.0.1", private: true,
   scripts: { dev: "remotion studio src/index.ts" },
   dependencies: {
@@ -131,11 +131,11 @@ base: { src: ${src}, volume: 1, fit: cover }
 cover: { id: ${cover}, component: ${cover} }          # TSX piece in scenes.tsx
 scenes:
   - start: 0
-    title: ${title.toUpperCase().slice(0, 28)}
+    layout: free          # free = loose items over your video (the default \`panel\` is an opaque box that would hide it)
     label: ${title.toUpperCase().slice(0, 18)}
     items:
       # \`when\` ties the item to a phrase of your video (it appears when the phrase is said). Text with a comma goes in quotes.
-      - { type: text, at: 0.3, size: 52, color: accent, text: "${title.replace(/"/g, "'")}" }
+      - { type: text, at: 0.3, size: 56, color: accent, text: "${title.replace(/"/g, "'")}", pos: { left: 60, right: 60, top: 220 } }
 `;
 
 export const scenesTsx =({ cover, lines }: { cover: string; lines: string[] }): string => `import { Frame } from "@praeko/studio-kit";

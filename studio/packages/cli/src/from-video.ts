@@ -32,6 +32,30 @@ export function cleanWords(words: unknown): Word[] {
   if (!Array.isArray(words)) throw new Error("the transcript has no word list (expected `words`: [{ t, a, b }])");
   return words.filter((w: any) => w && typeof w.t === "string" && w.t.trim() && Number.isFinite(w.a) && Number.isFinite(w.b)).map((w: any) => ({ t: w.t.trim(), a: round2(w.a), b: round2(Math.max(w.a, w.b)) }));
 }
+/**
+ * Whisper sometimes returns a run of words with no duration (they all start at the same instant), so the caption flashes through them or skips them.
+ * Each run is spread over the span it and the next words really occupy (just enough following words that each one gets at least 0.15 s), in proportion to
+ * the length of the words. Words that already have a duration, and runs with no room to spread, are left as they are. Returns the new list and how many words moved.
+ */
+export function spreadZeroDurations(words: Word[]): { words: Word[]; fixed: number } {
+  const out = words.map((w) => ({ ...w }));
+  let fixed = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i]!.b - out[i]!.a >= 0.005) continue;
+    let j = i; while (j + 1 < out.length && out[j + 1]!.b - out[j + 1]!.a < 0.005 && out[j + 1]!.a === out[i]!.a) j++;
+    let end = j + 1; // include following words until the group has room (>= 0.15 s per word), at most 6 of them
+    while (end < out.length && end <= j + 6 && (out[end]!.b - out[i]!.a) / (end - i + 1) < 0.15) end++;
+    if (end >= out.length) { i = j; continue; }
+    const from = out[i]!.a, to = out[end]!.b, group = out.slice(i, end + 1);
+    if ((to - from) / group.length < 0.1) { i = j; continue; } // no room: better left (and warned) than invented
+    const weight = group.reduce((n, w) => n + w.t.length + 1, 0);
+    let t = from;
+    for (const w of group) { const d = ((to - from) * (w.t.length + 1)) / weight; w.a = round2(t); w.b = round2(t + d); t += d; }
+    group[group.length - 1]!.b = round2(to);
+    fixed += j - i + 1; i = end;
+  }
+  return { words: out, fixed };
+}
 /** What the Whisper output is known to get wrong for captions: words with no duration and numbers written as digits. */
 export function transcriptWarnings(words: Word[]): string[] {
   const out: string[] = [];
@@ -97,6 +121,7 @@ export async function newFromVideo(a: string[], io: FromVideoIO = {}, register: 
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
   if (!words.length) throw new Error("the transcript has no words: is there speech in the video? (try --lang pt or --lang en)");
+  const spread = spreadZeroDurations(words); words = spread.words;
 
   // 2. files: the video copy, the words, the episode
   const id = pascal(slug), cover = `Cover${id}`, title = flag(a, "title") || slug.replace(/-/g, " ");
@@ -120,6 +145,7 @@ export async function newFromVideo(a: string[], io: FromVideoIO = {}, register: 
   if (r0.errors.length) throw new Error("the episode did not compile: " + r0.errors.join("; ") + (r0.errors.some((e) => /missing "(voice|outro)"/.test(e)) ? ` (this Studio does not know the \`base\` video layer yet: update @praeko/studio, -core and -kit)` : ""));
   register(proj, id, slug);
   log(`episode created from your video: episodes/${slug}/ (id ${id}) · ${info.width}x${info.height}, ${info.duration.toFixed(1)} s · ${words.length} words (${engine}, ${spoken}) · copy in ${relative(proj.root, target)} (the original was not changed)`);
+  if (spread.fixed) log(`${spread.fixed} word(s) with zero duration were spread over the time of the words around them (check them in words.json)`);
   for (const w of [...transcriptWarnings(words), ...r0.warnings]) log(`⚠ ${w}`);
   if (info.width * 16 !== info.height * 9) log(`⚠ the video is ${info.width}x${info.height}, not 9:16: \`fit: cover\` fills the vertical frame and crops what does not fit`);
   log(`next: add scenes and items in episodes/${slug}/episode.yaml (\`when\` accepts phrases of your video), then \`${STUDIO_NPX} render ${slug} --seconds 10\` for a quick look and \`${STUDIO_NPX} render ${slug}\``);

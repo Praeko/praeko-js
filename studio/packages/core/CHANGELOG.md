@@ -4,6 +4,11 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-24
+
+### Changed
+- `retro-crt` skin: lighter phosphor-green background and box color, so the CRT frame is no longer almost black.
+
 ## [0.4.0] - 2026-11-24
 
 Additive: a project without `style`, `base` or a missing `outro` renders exactly as before (the `default` skin reproduces 0.3.0; PSNR in the PR).

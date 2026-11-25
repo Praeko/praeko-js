@@ -4,6 +4,11 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-24
+
+### Fixed
+- The `box` item honours `pos` in the free layout (it used to stack at the top of the frame, full width, like an item without a position).
+
 ## [0.4.0] - 2026-11-24
 
 Additive: without `style`/`base` the parts render exactly as in 0.3.0.

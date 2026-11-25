@@ -206,7 +206,7 @@ export function compileEpisode(folder: string, { write = true }: { write?: boole
   if (typeof y.duration === "number" && typeof outroAt === "number" && outroAt >= y.duration) errors.push(`outro.start (${outroAt}) must come before the duration (${y.duration})`);
   if (errors.length) return { spec: null, errors, warnings };
 
-  if (words.length) {
+  if (words.length && !(base && y.voice === undefined)) { // the person's own video just ends where it ends: no "room after the voice" to keep
     const voiceEnd = words[words.length - 1]!.b;
     if (voiceEnd + 1 > y.duration) warnings.push(`duration (${y.duration} s) leaves less than 1 s after the end of the voice (${voiceEnd.toFixed(2)} s)`);
   }

@@ -13,7 +13,7 @@ import { compileEpisode, imageEngine, imageFormat, isImagePiece } from "./compil
 import { IMAGE_LIMITS, SLIDE_TIMEOUT_S, checkJpeg, slideFile } from "./image.ts";
 import { cutAudio, readJson, resolvePoint, sliceWords } from "./cut.ts";
 import { coverHyperframes, engineOf, hyperframesMp4, hyperframesWarnings, previewHyperframes, renderHyperframes } from "./engine.ts";
-import { applySkinPost } from "./postprocess.ts";
+import { applySkinPost, skinRenderArgs } from "./postprocess.ts";
 import { styleWarnings } from "./style-check.ts";
 import { STUDIO_NPX, HERE, PACKAGE_ROOT, VERSION } from "./version.ts";
 import { noticeText, shortNotice } from "./licenses.ts";
@@ -416,7 +416,7 @@ export async function render(a: string[]): Promise<number> {
   mkdirSync(join(p.root, "out"), { recursive: true });
   // a partial render goes to its own file, so it never stands in for the full video
   const out = frames ? ep.mp4.replace(/\.mp4$/, `-first-${flag(a, "seconds")}s.mp4`) : ep.mp4;
-  const c = await runRemotion(p, ["render", "src/index.ts", ep.id, out, ...(scale ? ["--scale", scale] : []), ...(frames ? [`--frames=${frames}`] : [])]);
+  const c = await runRemotion(p, ["render", "src/index.ts", ep.id, out, ...(scale ? ["--scale", scale] : []), ...skinRenderArgs(ep.folder), ...(frames ? [`--frames=${frames}`] : [])]);
   if (!c) console.log(`rendered: ${relative(process.cwd(), out)}${frames ? ` (only the first ${flag(a, "seconds")} s: a preview, not the video to publish)` : ""}`);
   return c || applySkinPost(ep.folder, out);
 }

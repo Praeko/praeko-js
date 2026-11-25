@@ -46,6 +46,7 @@ export function styleWarnings(spec: any, brand: any): string[] {
   const skin = skinOf(spec?.style);
   if (!skin || skin.id === "default") return [];
   const out: string[] = [];
+  if (skin.dimension === "3d" && spec?.base) out.push(`style "${skin.id}": this episode has a \`base\` video (your own video) and the 3D stage is drawn under it, so the video covers the slab, the floor and the props and only flat text shows over it. Use a 2D skin with your own video (neon, comic, flat, minimal, retro-crt, chalkboard, pixel, 8bit)`);
   const theme = themeForSkin(themeFromBrand(brand ?? {}), skin, skinOf(spec?.channelStyle));
   for (const c of skinContrast(skin, theme)) out.push(`style "${skin.id}": ${c.where} is hard to read (${c.foreground} on ${c.background}: ${c.ratio}:1, minimum ${c.required}:1${c.required === CONTRAST_MIN.large ? " for large text" : ""}); change the color in brand.json or the item's color`);
   // one-line text that the kit has to shrink in this skin's fonts (top-level items of panel scenes; a row is measured as a whole)

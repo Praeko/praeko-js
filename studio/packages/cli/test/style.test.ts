@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileEpisode, isOtherStyle, resolveStyle } from "../src/compile.ts";
-import { palettePpm, postArgs, postFilter, postProcessFile, upscaleOf } from "../src/postprocess.ts";
+import { palettePpm, postArgs, postFilter, postProcessFile, skinRenderArgs, upscaleOf } from "../src/postprocess.ts";
 import { MIN_REAL_PX, fitScale, oneLineWidth, styleWarnings } from "../src/style-check.ts";
 import { engineFeatureItems, featuresUsed } from "../src/doctor.ts";
 import { SKINS } from "../../core/src/skins.ts";
@@ -203,4 +203,28 @@ test("doctor: warns when episodes use skins or a base video and the installed co
   const now = engineFeatureItems(root, {});
   assert.deepEqual(now.map((i) => i.level), ["ok"]);
   assert.deepEqual(engineFeatureItems(mkdtempSync(join(tmpdir(), "studio-doctor-none-")), {}), [], "a project that uses nothing new gets no line");
+});
+
+test("skinRenderArgs: only 3D skins render at CRF 23 (the grain under a moving camera eats the bitrate)", () => {
+  const dir = (style?: string) => { const d = mkdtempSync(join(tmpdir(), "skin-crf-")); if (style) writeFileSync(join(d, "episode.spec.json"), JSON.stringify({ style })); return d; };
+  assert.deepEqual(skinRenderArgs(dir("clay-3d")), ["--crf=23"]);
+  assert.deepEqual(skinRenderArgs(dir("cinema-3d")), ["--crf=23"]);
+  assert.deepEqual(skinRenderArgs(dir("neon")), []);
+  assert.deepEqual(skinRenderArgs(dir()), []);
+});
+
+test("styleWarnings: a 3D skin over the person's own video (base) is warned about; 2D skins and no base are not", () => {
+  const has = (w: string[]) => w.some((x) => /`base` video.*3D stage is drawn under it/.test(x));
+  assert.ok(has(styleWarnings({ style: "clay-3d", base: { src: "video/a.mp4" }, scenes: [] }, {})));
+  assert.ok(!has(styleWarnings({ style: "clay-3d", scenes: [] }, {})));
+  assert.ok(!has(styleWarnings({ style: "comic", base: { src: "video/a.mp4" }, scenes: [] }, {})));
+});
+
+test("compile: an own video (base, no voice) ending with the speech does not warn about room after the voice; a voice episode still does", () => {
+  const late = [{ t: "hi", a: 0.2, b: 9.8 }];
+  const own = compileEpisode(episode(`id: Ep\nduration: 10\nbase: { src: video/a.mp4, volume: 1, fit: cover }\nscenes:\n  - start: 0\n    layout: free\n    items:\n      - { type: text, at: 0.3, text: hi }\n`, { words: late, files: ["video/a.mp4"] }), { write: false });
+  assert.deepEqual(own.errors, []);
+  assert.ok(!own.warnings.some((w: string) => /less than 1 s after the end of the voice/.test(w)), own.warnings.join("\n"));
+  const voiced = compileEpisode(episode(`id: Ep\nduration: 10\nvoice: audio/ep.mp3\nscenes:\n  - start: 0\n    title: A\n    items:\n      - { type: text, at: 0.3, text: hi }\n`, { words: late }), { write: false });
+  assert.ok(voiced.warnings.some((w: string) => /less than 1 s after the end of the voice/.test(w)));
 });

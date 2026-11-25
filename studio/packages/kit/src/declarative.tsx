@@ -111,7 +111,7 @@ const Render: React.FC<{ it: Item; t: number; dur: number }> = ({ it, t, dur }) 
   switch (it.type) {
     case "text": return <TextItem it={it} t={t} />;
     case "big": return <div style={style(it, it.pos ? { display: "flex", justifyContent: "center" } : {})}><Big t={t} q={q} color={resolveColor(T, it.color)} size={it.size} mono={it.mono}>{it.text}</Big></div>;
-    case "box": return <Box t={t} q={q} color={resolveColor(T, it.color) ?? T.accent} size={it.size} mono={it.mono} dim={it.dim} dash={it.dashed}>{it.text}</Box>;
+    case "box": { const b = <Box t={t} q={q} color={resolveColor(T, it.color) ?? T.accent} size={it.size} mono={it.mono} dim={it.dim} dash={it.dashed}>{it.text}</Box>; return it.pos ? <div style={style(it, { display: "flex", justifyContent: "center" })}>{b}</div> : b; }
     case "line": return <Line t={t} q={q} color={resolveColor(T, it.color)} size={it.size}>{(it.parts as any[]).map((p, i) => <span key={i} style={{ ...(p.mono ? { fontFamily: T.mono } : {}), ...(p.color ? { color: resolveColor(T, p.color) } : {}), ...(p.weight ? { fontWeight: p.weight } : {}) }}>{p.text}</span>)}</Line>;
     case "bubble": return <Bubble t={t} q={q} color={resolveColor(T, it.color) ?? T.info} author={it.author}>{it.text}</Bubble>;
     case "code": return <Code t={t} q={q} title={it.title} color={resolveColor(T, it.color) ?? T.error} lines={(it.lines as any[]).map((l) => ({ ...l, color: resolveColor(T, l.color) }))} />;

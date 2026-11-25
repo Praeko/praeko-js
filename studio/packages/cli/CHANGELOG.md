@@ -4,6 +4,22 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [SemVer](ht
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-24
+
+New projects get `@praeko/studio-core` and `@praeko/studio-kit` `^0.4.1`.
+
+### Added
+- `check`/`compile` warn when a 3D skin is used over your own video (`base`): the 3D stage is drawn under the video, so the video covers the slab; use a 2D skin (see `docs/from-video.md`).
+
+### Changed
+- 3D skins render at CRF 23 (`--crf=23`): `clay-3d` went from about 28 Mbps (123 MB for 43 s) to about 7 Mbps with no visible difference, because its grain moves under the camera and used to eat the bitrate.
+- `new --from-video` spreads runs of words the transcription gave no duration (they sat at the same instant, so the captions skipped them) over the time of the words around them, in proportion to their length, and says how many it moved.
+- `new --from-video` writes a scene with `layout: free` (loose items over your video) instead of the default opaque panel, which hid the video.
+- `retro-crt` is lighter (phosphor-green background, a softer curve and scan lines).
+
+### Fixed
+- An episode over your own video no longer warns "less than 1 s after the end of the voice" (it has no voice).
+
 ## [0.4.0] - 2026-11-24
 
 New projects get `@praeko/studio-core` and `@praeko/studio-kit` `^0.4.0` (skins, `base` and the optional outro need them; `doctor` warns when an older core/kit is installed).

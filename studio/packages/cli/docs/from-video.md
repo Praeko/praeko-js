@@ -14,7 +14,7 @@ What it does, in order (a failure stops before anything is written):
 4. Writes `episodes/<slug>/`: `words.json` and `words.ts` (the words with their times: they drive the captions and the `when` anchors), `script.txt` (the text of the transcript, for `check` and `review`), `publication.json` (with `"ai": { "synthetic": false }`: a recorded video, not a synthetic voice; change it if the video has a synthetic voice or a generated person), `episode.json`, `scenes.tsx` (the cover) and `episode.yaml`.
 5. Compiles the episode and registers it in `src/Root.tsx`, like `new`.
 
-It warns when the transcript has **words with zero duration** (the caption flashes or is skipped: check them in `words.json`) or **numbers written as digits** (the captions show them like that; spell them out with `captionFixes` in `brand.json` if you prefer, and use the digits in `when` phrases).
+Words the transcription gave **no duration** (a run of them at the same instant, so the caption would skip them) are spread over the time of the words around them, in proportion to their length; the command says how many it moved (check them in `words.json`). A run with no room to spread stays as it is and is warned about. It also warns about **numbers written as digits** (the captions show them like that; spell them out with `captionFixes` in `brand.json` if you prefer, and use the digits in `when` phrases).
 
 ## The episode.yaml it writes
 
@@ -26,10 +26,10 @@ base: { src: video/my-talk.mp4, volume: 1, fit: cover }
 cover: { id: CoverMyTalk, component: CoverMyTalk }
 scenes:
   - start: 0
-    title: MY TALK
+    layout: free          # loose items over your video; the default `panel` is an opaque box that would hide it
     label: MY TALK
     items:
-      - { type: text, at: 0.3, size: 52, color: accent, text: "My talk" }
+      - { type: text, at: 0.3, size: 56, color: accent, text: "My talk", pos: { left: 60, right: 60, top: 220 } }
 ```
 
 - `base`: the video under every scene. `src` is relative to `public/`; `volume` 1 keeps its sound as it is; `fit: cover` fills the 9:16 frame (a horizontal video is cropped).
@@ -48,5 +48,6 @@ scenes:
 
 - **Privacy:** the video and the transcript stay on this machine. Studio never downloads anyone's video and never uploads yours (only `studio_upload` or `schedule --send`, after the person's yes).
 - **The local model:** without local Whisper the command says how to get it: `npx @praeko/studio@<version> transcribe --download-model` (about 547 MB, only after the person's yes; Studio never downloads it by itself). `doctor` checks it when `brand.json` says the channel uses its own videos (`style.source` with `video`).
+- **Skins:** use a 2D skin (`neon`, `comic`, `flat`, `minimal`, `retro-crt`, `chalkboard`, `pixel`, `8bit`) with your own video. A 3D skin draws its stage under the `base` video, so the video covers the slab and `check` warns about it.
 - **Formats:** tested with vertical 30 fps video. Another frame rate is played by the render at 30 fps; a horizontal video is cropped by `fit: cover`.
 - The interview question **source** (`--source video`) records that the channel edits its own videos: it skips the voice questions and offers "you, on camera" in "who appears".
